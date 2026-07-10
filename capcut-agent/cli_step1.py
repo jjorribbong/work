@@ -9,25 +9,40 @@
 """
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
 from app.draft_builder import build_jump_cut_draft
 from app.paths import find_capcut_draft_dir
-from app.silence import speech_segments
+from app.silence import detect_silence, speech_segments
+
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="1단: silence_detect + build_draft")
+    p.add_argument("video", help="입력 mp4/mov 경로")
+    p.add_argument("project_name", nargs="?", default=None, help="CapCut 프로젝트 이름")
+    p.add_argument(
+        "--noise-db", type=float, default=-30.0,
+        help="이 값보다 조용하면 무음으로 판정 (기본 -30). 배경 소음이 있으면"
+             " -20 처럼 0에 더 가까운(덜 엄격한) 값을 시도해보세요.",
+    )
+    p.add_argument(
+        "--min-silence-dur", type=float, default=0.5,
+        help="이 초(sec) 이상 계속 조용해야 무음으로 판정 (기본 0.5)",
+    )
+    return p.parse_args()
 
 
 def main() -> int:
-    if len(sys.argv) < 2:
-        print("사용법: python3 cli_step1.py <video.mp4> [project_name]")
-        return 1
+    args = parse_args()
 
-    video_path = Path(sys.argv[1]).expanduser().resolve()
+    video_path = Path(args.video).expanduser().resolve()
     if not video_path.exists():
         print(f"파일을 찾을 수 없습니다: {video_path}")
         return 1
 
-    project_name = sys.argv[2] if len(sys.argv) > 2 else f"{video_path.stem}_jumpcut"
+    project_name = args.project_name or f"{video_path.stem}_jumpcut"
 
     draft_dir = find_capcut_draft_dir()
     if draft_dir is None:
@@ -37,8 +52,18 @@ def main() -> int:
         )
         return 1
 
-    print(f"[1/2] 무음 구간 분석 중... ({video_path.name})")
-    segments = speech_segments(str(video_path))
+    print(
+        f"[1/2] 무음 구간 분석 중... ({video_path.name}, "
+        f"noise={args.noise_db}dB, min_dur={args.min_silence_dur}s)"
+    )
+    silences = detect_silence(str(video_path), args.noise_db, args.min_silence_dur)
+    print(f"      → 감지된 무음 구간 {len(silences)}개")
+    for s in silences:
+        print(f"         무음: {s.start:.2f}s ~ {s.end:.2f}s ({s.duration:.2f}s)")
+
+    segments = speech_segments(
+        str(video_path), args.noise_db, args.min_silence_dur,
+    )
     total_dur_kept = sum(s.duration for s in segments)
     print(f"      → 발화 구간 {len(segments)}개, 총 {total_dur_kept:.1f}s 보존")
 
