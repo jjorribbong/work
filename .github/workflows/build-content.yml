@@ -1,0 +1,26 @@
+name: Rebuild homepage from CMS content
+
+on:
+  push:
+    paths:
+      - "content/site.json"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Regenerate index.html from content/site.json
+        run: python3 scripts/build_content.py
+
+      - name: Commit regenerated index.html
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: 관리자 콘텐츠 변경사항으로 index.html 자동 갱신"
+          file_pattern: index.html
