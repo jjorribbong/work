@@ -2,6 +2,7 @@
    색/폰트 등 기본값은 :root 변수에서 한 번에 관리합니다. */
 
 :root {
+  color-scheme: light;
   --color-bg: #FAF6F0;
   --color-surface: #FFFFFF;
   --color-surface-alt: #F3ECE3;
