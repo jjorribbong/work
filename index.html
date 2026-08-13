@@ -430,7 +430,7 @@
       <div class="card">
         <button class="btn btn-primary" id="show-add-form-btn">+ 새 차량 등록</button>
         <button class="btn btn-ghost" id="excel-upload-btn" style="margin-top:8px;">📊 차량등록 현황 엑셀 업로드</button>
-        <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" style="display:none">
+        <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,application/csv" style="display:none">
         <div class="import-hint" style="margin-top:8px;">엑셀 파일의 첫 행은 열 제목(이름/소속/연락처/차량번호 등)이어야 합니다. 파일은 서버로 전송되지 않고 브라우저에서만 처리됩니다.</div>
 
         <div class="form-grid" id="add-form" style="display:none; margin-top:14px;">
