@@ -100,6 +100,29 @@
     border: 1px solid var(--border);
   }
 
+  #scan-stage {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 12px;
+    background: #000;
+    min-height: 200px;
+    line-height: 0;
+  }
+  #scan-video { display: block; width: 100%; height: auto; }
+  #scan-box {
+    position: absolute;
+    border: 2px solid #22d3ee;
+    border-radius: 6px;
+    box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+    animation: scan-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes scan-pulse {
+    0%, 100% { border-color: #22d3ee; }
+    50% { border-color: #a5f3fc; }
+  }
+
   #crop-stage {
     position: relative;
     width: 100%;
@@ -351,9 +374,21 @@
     <div id="page-scan" class="page active">
       <div class="card capture-box">
         <div class="icon">📷</div>
-        <p>차량 번호판을 촬영한 뒤<br>번호판 영역만 사각형으로 맞추면<br>인식률이 훨씬 좋아집니다.</p>
+        <p>카메라를 켜고 번호판을<br>사각형 안에 맞추면<br>자동으로 인식됩니다.</p>
         <button class="btn btn-primary" id="capture-btn">번호판 촬영하기</button>
         <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none">
+
+        <div id="scan-wrap" style="display:none;">
+          <div class="import-hint" id="scan-hint-status" style="margin-bottom:8px; text-align:center;">번호판을 사각형 안에 맞추면 자동으로 인식됩니다</div>
+          <div id="scan-stage">
+            <video id="scan-video" autoplay playsinline muted></video>
+            <div id="scan-box"></div>
+          </div>
+          <div class="result-actions" style="margin-top:12px;">
+            <button class="btn btn-ghost" id="scan-cancel-btn">취소</button>
+            <button class="btn btn-primary" id="scan-manual-btn">지금 촬영</button>
+          </div>
+        </div>
 
         <div id="crop-wrap" style="display:none;">
           <div class="import-hint" style="margin-bottom:8px; text-align:center;">번호판만 사각형 안에 들어오도록 맞춰주세요</div>
@@ -484,6 +519,7 @@ function showToast(msg) {
 
 /* ---------- Tab navigation ---------- */
 function switchPage(name) {
+  if (name !== 'scan' && typeof stopLiveScan === 'function') stopLiveScan();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -498,6 +534,11 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 /* ---------- Scan / OCR / Lookup ---------- */
 const cameraInput = document.getElementById('camera-input');
 const captureBtn = document.getElementById('capture-btn');
+const scanWrap = document.getElementById('scan-wrap');
+const scanStage = document.getElementById('scan-stage');
+const scanVideo = document.getElementById('scan-video');
+const scanBox = document.getElementById('scan-box');
+const scanHintStatus = document.getElementById('scan-hint-status');
 const cropWrap = document.getElementById('crop-wrap');
 const cropStage = document.getElementById('crop-stage');
 const cropImg = document.getElementById('crop-img');
@@ -509,7 +550,7 @@ const ocrStatusText = document.getElementById('ocr-status-text');
 const plateInput = document.getElementById('plate-input');
 const resultArea = document.getElementById('result-area');
 
-document.getElementById('capture-btn').addEventListener('click', () => cameraInput.click());
+document.getElementById('capture-btn').addEventListener('click', () => startLiveScan());
 
 function showOcrStatus(text, isError) {
   ocrStatus.style.display = 'flex';
@@ -687,9 +728,11 @@ function getOcrWorker() {
         const worker = await Tesseract.createWorker('kor', 1, {
           logger: m => {
             if (m.status === 'recognizing text') {
-              showOcrStatus(`번호판 인식 중... ${Math.round((m.progress || 0) * 100)}%`);
+              if (!scanning) showOcrStatus(`번호판 인식 중... ${Math.round((m.progress || 0) * 100)}%`);
             } else if (m.status) {
-              showOcrStatus('OCR 엔진 준비 중... (최초 1회, 인터넷 필요)');
+              const loadingText = 'OCR 엔진 준비 중... (최초 1회, 인터넷 필요)';
+              if (scanning) scanHintStatus.textContent = loadingText;
+              else showOcrStatus(loadingText);
             }
           }
         });
@@ -722,6 +765,143 @@ async function runOcrOnCanvas(canvas) {
     showOcrStatus('인식에 실패했습니다. 번호를 직접 입력해주세요.', true);
   }
 }
+
+/* ---------- Live camera scan (auto-capture when a plate is recognized) ---------- */
+const SCAN_RECT = { x: 0.08, y: 0.38, w: 0.84, h: 0.22 };
+const SCAN_DEFAULT_HINT = '번호판을 사각형 안에 맞추면 자동으로 인식됩니다';
+let scanning = false;
+let scanBusy = false;
+let scanTimer = null;
+let currentStream = null;
+
+function isValidPlateShape(s) {
+  return /^\d{2,3}[가-힣]\d{4}$/.test(s || '');
+}
+
+function applyScanBoxStyle() {
+  scanBox.style.left = (SCAN_RECT.x * 100) + '%';
+  scanBox.style.top = (SCAN_RECT.y * 100) + '%';
+  scanBox.style.width = (SCAN_RECT.w * 100) + '%';
+  scanBox.style.height = (SCAN_RECT.h * 100) + '%';
+}
+
+async function startLiveScan() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    cameraInput.click();
+    return;
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+  } catch (err) {
+    showToast('카메라를 사용할 수 없어 사진 촬영으로 전환합니다.');
+    cameraInput.click();
+    return;
+  }
+
+  resultArea.innerHTML = '';
+  plateInput.value = '';
+  previewWrap.style.display = 'none';
+
+  currentStream = stream;
+  scanVideo.srcObject = stream;
+  try { await scanVideo.play(); } catch (err) { /* autoplay already in progress */ }
+
+  applyScanBoxStyle();
+  scanHintStatus.textContent = SCAN_DEFAULT_HINT;
+  scanWrap.style.display = 'block';
+  captureBtn.style.display = 'none';
+  scanning = true;
+  scheduleNextScan(300);
+}
+
+function stopLiveScan() {
+  scanning = false;
+  clearTimeout(scanTimer);
+  if (currentStream) {
+    currentStream.getTracks().forEach(t => t.stop());
+    currentStream = null;
+  }
+  scanVideo.srcObject = null;
+  scanWrap.style.display = 'none';
+  captureBtn.style.display = 'block';
+}
+
+document.getElementById('scan-cancel-btn').addEventListener('click', stopLiveScan);
+
+function scheduleNextScan(delay) {
+  if (!scanning) return;
+  scanTimer = setTimeout(runScanTick, delay ?? 900);
+}
+
+function grabScanRegionCanvas() {
+  const vw = scanVideo.videoWidth, vh = scanVideo.videoHeight;
+  if (!vw || !vh) return null;
+  const rect = {
+    x: SCAN_RECT.x * vw,
+    y: SCAN_RECT.y * vh,
+    w: SCAN_RECT.w * vw,
+    h: SCAN_RECT.h * vh,
+  };
+  const targetW = Math.max(rect.w, 700);
+  const scale = targetW / rect.w;
+  const outW = Math.round(rect.w * scale);
+  const outH = Math.round(rect.h * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = outW;
+  canvas.height = outH;
+  canvas.getContext('2d').drawImage(scanVideo, rect.x, rect.y, rect.w, rect.h, 0, 0, outW, outH);
+  preprocessCanvas(canvas);
+  return canvas;
+}
+
+function finishScan(canvas, candidate) {
+  stopLiveScan();
+  previewImg.src = canvas.toDataURL('image/jpeg', 0.9);
+  previewWrap.style.display = 'block';
+  plateInput.value = candidate || '';
+  if (candidate) doLookup(candidate);
+}
+
+async function runScanTick() {
+  if (!scanning || scanBusy) { scheduleNextScan(); return; }
+  const canvas = grabScanRegionCanvas();
+  if (!canvas) { scheduleNextScan(300); return; }
+  scanBusy = true;
+  try {
+    const worker = await getOcrWorker();
+    if (scanning) scanHintStatus.textContent = SCAN_DEFAULT_HINT;
+    const { data: { text } } = await worker.recognize(canvas);
+    const candidate = extractPlateCandidate(text);
+    if (isValidPlateShape(candidate)) {
+      finishScan(canvas, candidate);
+      scanBusy = false;
+      return;
+    }
+  } catch (err) {
+    // transient recognition error; keep scanning
+  }
+  scanBusy = false;
+  scheduleNextScan();
+}
+
+document.getElementById('scan-manual-btn').addEventListener('click', async () => {
+  const canvas = grabScanRegionCanvas();
+  if (!canvas) return;
+  scanHintStatus.textContent = '인식 중...';
+  try {
+    const worker = await getOcrWorker();
+    const { data: { text } } = await worker.recognize(canvas);
+    const candidate = extractPlateCandidate(text);
+    finishScan(canvas, candidate);
+    if (!candidate) showToast('번호판을 인식하지 못했습니다. 직접 입력해주세요.');
+  } catch (err) {
+    stopLiveScan();
+    showOcrStatus('인식에 실패했습니다. 번호를 직접 입력해주세요.', true);
+  }
+});
 
 cameraInput.addEventListener('change', async (e) => {
   const file = e.target.files[0];
