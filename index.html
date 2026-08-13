@@ -100,6 +100,37 @@
     border: 1px solid var(--border);
   }
 
+  #crop-stage {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 12px;
+    touch-action: none;
+    line-height: 0;
+  }
+  #crop-img { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
+  #crop-box {
+    position: absolute;
+    border: 2px solid #22d3ee;
+    background: rgba(34, 211, 238, 0.15);
+    box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.45);
+    touch-action: none;
+    cursor: move;
+  }
+  .crop-handle {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    background: #22d3ee;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    touch-action: none;
+  }
+  .crop-handle[data-corner="nw"] { left: -12px; top: -12px; cursor: nwse-resize; }
+  .crop-handle[data-corner="ne"] { right: -12px; top: -12px; cursor: nesw-resize; }
+  .crop-handle[data-corner="sw"] { left: -12px; bottom: -12px; cursor: nesw-resize; }
+  .crop-handle[data-corner="se"] { right: -12px; bottom: -12px; cursor: nwse-resize; }
+
   .ocr-status {
     display: none;
     align-items: center;
@@ -320,12 +351,29 @@
     <div id="page-scan" class="page active">
       <div class="card capture-box">
         <div class="icon">📷</div>
-        <p>차량 번호판을 촬영하면<br>자동으로 소유자를 조회합니다.</p>
+        <p>차량 번호판을 촬영한 뒤<br>번호판 영역만 사각형으로 맞추면<br>인식률이 훨씬 좋아집니다.</p>
         <button class="btn btn-primary" id="capture-btn">번호판 촬영하기</button>
         <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none">
 
+        <div id="crop-wrap" style="display:none;">
+          <div class="import-hint" style="margin-bottom:8px; text-align:center;">번호판만 사각형 안에 들어오도록 맞춰주세요</div>
+          <div id="crop-stage">
+            <img id="crop-img" alt="촬영한 사진" draggable="false">
+            <div id="crop-box">
+              <div class="crop-handle" data-corner="nw"></div>
+              <div class="crop-handle" data-corner="ne"></div>
+              <div class="crop-handle" data-corner="sw"></div>
+              <div class="crop-handle" data-corner="se"></div>
+            </div>
+          </div>
+          <div class="result-actions" style="margin-top:12px;">
+            <button class="btn btn-ghost" id="retake-btn">다시 촬영</button>
+            <button class="btn btn-primary" id="confirm-crop-btn">이 영역 인식하기</button>
+          </div>
+        </div>
+
         <div id="preview-wrap">
-          <img id="preview-img" alt="촬영된 번호판">
+          <img id="preview-img" alt="인식에 사용된 영역">
         </div>
 
         <div class="ocr-status" id="ocr-status">
@@ -449,6 +497,11 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
 /* ---------- Scan / OCR / Lookup ---------- */
 const cameraInput = document.getElementById('camera-input');
+const captureBtn = document.getElementById('capture-btn');
+const cropWrap = document.getElementById('crop-wrap');
+const cropStage = document.getElementById('crop-stage');
+const cropImg = document.getElementById('crop-img');
+const cropBox = document.getElementById('crop-box');
 const previewWrap = document.getElementById('preview-wrap');
 const previewImg = document.getElementById('preview-img');
 const ocrStatus = document.getElementById('ocr-status');
@@ -489,7 +542,7 @@ function preprocessCanvas(canvas) {
   const d = imgData.data;
   for (let i = 0; i < d.length; i += 4) {
     const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-    const contrasted = Math.min(255, Math.max(0, (gray - 128) * 1.4 + 128));
+    const contrasted = Math.min(255, Math.max(0, (gray - 128) * 1.6 + 128));
     d[i] = d[i + 1] = d[i + 2] = contrasted;
   }
   ctx.putImageData(imgData, 0, 0);
@@ -503,41 +556,158 @@ function extractPlateCandidate(text) {
   return fallback.slice(0, 8);
 }
 
+/* ---------- Crop step (helps OCR by removing background noise) ---------- */
+let capturedCanvas = null;
+let cropRect = { x: 0.1, y: 0.375, w: 0.8, h: 0.25 };
+const CROP_MIN = 0.08;
+
+function applyCropBoxStyle() {
+  const stageRect = cropStage.getBoundingClientRect();
+  cropBox.style.left = (cropRect.x * stageRect.width) + 'px';
+  cropBox.style.top = (cropRect.y * stageRect.height) + 'px';
+  cropBox.style.width = (cropRect.w * stageRect.width) + 'px';
+  cropBox.style.height = (cropRect.h * stageRect.height) + 'px';
+}
+
+function pointerFrac(e) {
+  const r = cropStage.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
+}
+
+let dragMode = null;
+let dragStart = null;
+
+cropBox.addEventListener('pointerdown', e => {
+  const handle = e.target.closest('.crop-handle');
+  dragMode = handle ? handle.dataset.corner : 'move';
+  dragStart = { pointer: pointerFrac(e), rect: { ...cropRect } };
+  cropBox.setPointerCapture(e.pointerId);
+  e.preventDefault();
+});
+
+cropBox.addEventListener('pointermove', e => {
+  if (!dragMode) return;
+  const p = pointerFrac(e);
+  const dx = p.x - dragStart.pointer.x;
+  const dy = p.y - dragStart.pointer.y;
+  const r0 = dragStart.rect;
+  let { x, y, w, h } = r0;
+
+  if (dragMode === 'move') {
+    x = r0.x + dx;
+    y = r0.y + dy;
+  } else {
+    if (dragMode.includes('n')) {
+      h = r0.h - dy;
+      if (h < CROP_MIN) h = CROP_MIN;
+      y = (r0.y + r0.h) - h;
+    }
+    if (dragMode.includes('s')) {
+      h = r0.h + dy;
+      if (h < CROP_MIN) h = CROP_MIN;
+    }
+    if (dragMode.includes('w')) {
+      w = r0.w - dx;
+      if (w < CROP_MIN) w = CROP_MIN;
+      x = (r0.x + r0.w) - w;
+    }
+    if (dragMode.includes('e')) {
+      w = r0.w + dx;
+      if (w < CROP_MIN) w = CROP_MIN;
+    }
+  }
+
+  w = Math.min(w, 1);
+  h = Math.min(h, 1);
+  x = Math.min(Math.max(x, 0), 1 - w);
+  y = Math.min(Math.max(y, 0), 1 - h);
+
+  cropRect = { x, y, w, h };
+  applyCropBoxStyle();
+});
+
+cropBox.addEventListener('pointerup', () => { dragMode = null; });
+cropBox.addEventListener('pointercancel', () => { dragMode = null; });
+
+function openCropStep(canvas) {
+  capturedCanvas = canvas;
+  cropRect = { x: 0.1, y: 0.375, w: 0.8, h: 0.25 };
+  cropImg.src = canvas.toDataURL('image/jpeg', 0.92);
+  cropWrap.style.display = 'block';
+  captureBtn.style.display = 'none';
+  requestAnimationFrame(applyCropBoxStyle);
+}
+
+function closeCropStep() {
+  cropWrap.style.display = 'none';
+  captureBtn.style.display = 'block';
+}
+
+document.getElementById('retake-btn').addEventListener('click', () => {
+  closeCropStep();
+  cameraInput.click();
+});
+
+document.getElementById('confirm-crop-btn').addEventListener('click', async () => {
+  if (!capturedCanvas) return;
+  const rectOnCanvas = {
+    x: cropRect.x * capturedCanvas.width,
+    y: cropRect.y * capturedCanvas.height,
+    w: cropRect.w * capturedCanvas.width,
+    h: cropRect.h * capturedCanvas.height,
+  };
+  const targetW = Math.max(rectOnCanvas.w, 700);
+  const scale = targetW / rectOnCanvas.w;
+  const outW = Math.round(rectOnCanvas.w * scale);
+  const outH = Math.round(rectOnCanvas.h * scale);
+  const cropCanvas = document.createElement('canvas');
+  cropCanvas.width = outW;
+  cropCanvas.height = outH;
+  cropCanvas.getContext('2d').drawImage(
+    capturedCanvas,
+    rectOnCanvas.x, rectOnCanvas.y, rectOnCanvas.w, rectOnCanvas.h,
+    0, 0, outW, outH
+  );
+  preprocessCanvas(cropCanvas);
+
+  closeCropStep();
+  previewImg.src = cropCanvas.toDataURL('image/jpeg', 0.92);
+  previewWrap.style.display = 'block';
+
+  await runOcrOnCanvas(cropCanvas);
+});
+
+const PLATE_HANGUL = '가나다라마거너더러머버서어저고노도로모보소오조구누두루무부수우주아바사자하허호배';
+
 let ocrWorkerPromise = null;
 function getOcrWorker() {
   if (!ocrWorkerPromise) {
-    ocrWorkerPromise = Tesseract.createWorker('kor', 1, {
-      logger: m => {
-        if (m.status === 'recognizing text') {
-          showOcrStatus(`번호판 인식 중... ${Math.round((m.progress || 0) * 100)}%`);
-        } else if (m.status) {
-          showOcrStatus('OCR 엔진 준비 중... (최초 1회, 인터넷 필요)');
-        }
+    ocrWorkerPromise = (async () => {
+      try {
+        const worker = await Tesseract.createWorker('kor', 1, {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              showOcrStatus(`번호판 인식 중... ${Math.round((m.progress || 0) * 100)}%`);
+            } else if (m.status) {
+              showOcrStatus('OCR 엔진 준비 중... (최초 1회, 인터넷 필요)');
+            }
+          }
+        });
+        await worker.setParameters({
+          tessedit_pageseg_mode: '7',
+          tessedit_char_whitelist: '0123456789' + PLATE_HANGUL,
+        });
+        return worker;
+      } catch (err) {
+        ocrWorkerPromise = null;
+        throw err;
       }
-    });
+    })();
   }
   return ocrWorkerPromise;
 }
 
-cameraInput.addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  cameraInput.value = '';
-  if (!file) return;
-
-  resultArea.innerHTML = '';
-  plateInput.value = '';
-
-  let canvas;
-  try {
-    canvas = await loadImageToCanvas(file, 1000);
-  } catch (err) {
-    showToast('이미지를 불러올 수 없습니다.');
-    return;
-  }
-  preprocessCanvas(canvas);
-  previewImg.src = canvas.toDataURL('image/jpeg', 0.9);
-  previewWrap.style.display = 'block';
-
+async function runOcrOnCanvas(canvas) {
   showOcrStatus('OCR 엔진 준비 중... (최초 1회, 인터넷 필요)');
   try {
     const worker = await getOcrWorker();
@@ -551,6 +721,25 @@ cameraInput.addEventListener('change', async (e) => {
     hideOcrStatus();
     showOcrStatus('인식에 실패했습니다. 번호를 직접 입력해주세요.', true);
   }
+}
+
+cameraInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  cameraInput.value = '';
+  if (!file) return;
+
+  resultArea.innerHTML = '';
+  plateInput.value = '';
+  previewWrap.style.display = 'none';
+
+  let canvas;
+  try {
+    canvas = await loadImageToCanvas(file, 1400);
+  } catch (err) {
+    showToast('이미지를 불러올 수 없습니다.');
+    return;
+  }
+  openCropStep(canvas);
 });
 
 document.getElementById('lookup-btn').addEventListener('click', () => doLookup(plateInput.value));
