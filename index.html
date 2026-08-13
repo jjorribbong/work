@@ -1,394 +1,670 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>테트리스</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#2563eb">
+<title>차량확인</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-    body {
-      background: #1a1a2e;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      font-family: 'Segoe UI', sans-serif;
-      color: #eee;
-    }
+  :root {
+    --blue: #2563eb;
+    --blue-dark: #1d4ed8;
+    --green: #16a34a;
+    --red: #dc2626;
+    --gray: #9ca3af;
+    --bg: #f3f4f6;
+    --card: #ffffff;
+    --text: #111827;
+    --sub: #6b7280;
+    --border: #e5e7eb;
+  }
 
-    .game-wrapper {
-      display: flex;
-      gap: 24px;
-      align-items: flex-start;
-    }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Malgun Gothic', sans-serif;
+    color: var(--text);
+  }
 
-    canvas {
-      border: 2px solid #444;
-      background: #0d0d1a;
-      display: block;
-    }
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
 
-    .side-panel {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      min-width: 140px;
-    }
+  header {
+    background: var(--blue);
+    color: #fff;
+    padding: 16px 20px calc(16px + env(safe-area-inset-top, 0px));
+    padding-top: calc(16px + env(safe-area-inset-top, 0px));
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
 
-    .panel-box {
-      background: #16213e;
-      border: 1px solid #444;
-      border-radius: 8px;
-      padding: 14px;
-    }
+  header h1 {
+    font-size: 20px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
 
-    .panel-box h3 {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      color: #888;
-      margin-bottom: 8px;
-    }
+  header .date {
+    font-size: 12px;
+    opacity: 0.85;
+    margin-top: 2px;
+  }
 
-    .panel-box .value {
-      font-size: 26px;
-      font-weight: bold;
-      color: #e94560;
-    }
+  .info-row {
+    display: flex;
+    gap: 8px;
+    margin: 14px 20px 0;
+  }
 
-    #next-canvas {
-      display: block;
-      margin: 0 auto;
-    }
+  .info-row input {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 14px;
+    background: var(--card);
+  }
 
-    .controls {
-      font-size: 12px;
-      color: #888;
-      line-height: 1.8;
-    }
+  .progress-wrap {
+    margin: 14px 20px 4px;
+  }
 
-    .controls span {
-      color: #aaa;
-    }
+  .progress-bar {
+    height: 8px;
+    background: var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+  }
 
-    #overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.75);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      gap: 16px;
-      z-index: 10;
-    }
+  .progress-bar > div {
+    height: 100%;
+    background: var(--green);
+    width: 0%;
+    transition: width 0.25s ease;
+  }
 
-    #overlay h1 {
-      font-size: 48px;
-      color: #e94560;
-      text-shadow: 0 0 20px #e94560;
-    }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--sub);
+    margin-top: 6px;
+  }
 
-    #overlay p {
-      color: #aaa;
-      font-size: 16px;
-    }
+  main {
+    flex: 1;
+    padding: 4px 16px 120px;
+    overflow-y: auto;
+  }
 
-    button {
-      background: #e94560;
-      color: white;
-      border: none;
-      padding: 12px 32px;
-      font-size: 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
+  .section {
+    background: var(--card);
+    border-radius: 14px;
+    margin-top: 14px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    overflow: hidden;
+  }
 
-    button:hover { background: #c73652; }
+  .section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    cursor: pointer;
+  }
 
-    #final-score { font-size: 24px; color: #fff; }
-  </style>
+  .section-head .title {
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-head .count {
+    font-size: 12px;
+    color: var(--sub);
+    font-weight: 500;
+  }
+
+  .section-head .chevron {
+    transition: transform 0.2s;
+    color: var(--sub);
+  }
+
+  .section.collapsed .chevron { transform: rotate(-90deg); }
+
+  .section-body {
+    border-top: 1px solid var(--border);
+  }
+
+  .section.collapsed .section-body { display: none; }
+
+  .item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .item:last-child { border-bottom: none; }
+
+  .item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .item-label {
+    font-size: 14px;
+    flex: 1;
+  }
+
+  .state-btn {
+    min-width: 78px;
+    text-align: center;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    border: 1.5px solid var(--border);
+    background: #f9fafb;
+    color: var(--sub);
+  }
+
+  .state-btn[data-state="ok"] {
+    background: #ecfdf3;
+    border-color: var(--green);
+    color: var(--green);
+  }
+
+  .state-btn[data-state="issue"] {
+    background: #fef2f2;
+    border-color: var(--red);
+    color: var(--red);
+  }
+
+  .note-input {
+    margin-top: 8px;
+    width: 100%;
+    border: 1px solid var(--red);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .note-input::placeholder { color: #f3a5a5; }
+
+  footer {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    max-width: 480px;
+    margin: 0 auto;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    gap: 8px;
+    z-index: 20;
+  }
+
+  .tab-btn {
+    flex: 1;
+    text-align: center;
+    padding: 8px 0 4px;
+    font-size: 12px;
+    color: var(--sub);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  .tab-btn .icon { font-size: 20px; display: block; }
+  .tab-btn.active { color: var(--blue); font-weight: 700; }
+
+  .submit-fab {
+    position: fixed;
+    left: 16px; right: 16px;
+    bottom: 76px;
+    max-width: 448px;
+    margin: 0 auto;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 700;
+    box-shadow: 0 6px 16px rgba(37,99,235,0.35);
+    z-index: 15;
+  }
+
+  .submit-fab:disabled {
+    background: var(--gray);
+    box-shadow: none;
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* Result screen */
+  .result-summary {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 20px;
+    margin: 14px 0;
+    text-align: center;
+  }
+
+  .result-summary .badge {
+    display: inline-block;
+    padding: 6px 16px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+
+  .badge.pass { background: #ecfdf3; color: var(--green); }
+  .badge.fail { background: #fef2f2; color: var(--red); }
+
+  .result-summary .vehicle { font-size: 18px; font-weight: 700; }
+  .result-summary .when { font-size: 12px; color: var(--sub); margin-top: 4px; }
+
+  .issue-card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-top: 10px;
+    border-left: 4px solid var(--red);
+  }
+
+  .issue-card .item-name { font-weight: 700; font-size: 14px; }
+  .issue-card .item-note { font-size: 13px; color: var(--sub); margin-top: 4px; }
+  .issue-card .item-section { font-size: 11px; color: var(--gray); margin-top: 2px; }
+
+  .empty-note {
+    text-align: center;
+    color: var(--sub);
+    font-size: 13px;
+    padding: 30px 10px;
+  }
+
+  .primary-btn {
+    width: 100%;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    margin-top: 16px;
+  }
+
+  .ghost-btn {
+    width: 100%;
+    background: none;
+    color: var(--blue);
+    border: 1.5px solid var(--blue);
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    margin-top: 8px;
+  }
+
+  /* History */
+  .history-card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-top: 12px;
+  }
+
+  .history-card .top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .history-card .vehicle { font-weight: 700; font-size: 15px; }
+  .history-card .when { font-size: 12px; color: var(--sub); margin-top: 2px; }
+
+  .history-card .detail {
+    margin-top: 10px;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+    display: none;
+  }
+
+  .history-card.open .detail { display: block; }
+
+  .history-card .del-btn {
+    background: none;
+    border: none;
+    color: var(--gray);
+    font-size: 12px;
+    margin-top: 10px;
+  }
+</style>
 </head>
 <body>
+<div id="app">
 
-<div class="game-wrapper">
-  <canvas id="board" width="300" height="600"></canvas>
+  <header>
+    <h1>🚗 차량확인</h1>
+    <div class="date" id="today-date"></div>
+  </header>
 
-  <div class="side-panel">
-    <div class="panel-box">
-      <h3>점수</h3>
-      <div class="value" id="score">0</div>
+  <div id="page-check" class="page active">
+    <div class="info-row">
+      <input id="vehicle-number" type="text" placeholder="차량번호 입력 (예: 12가 3456)">
     </div>
-    <div class="panel-box">
-      <h3>레벨</h3>
-      <div class="value" id="level">1</div>
+    <div class="progress-wrap">
+      <div class="progress-bar"><div id="progress-fill"></div></div>
+      <div class="progress-label">
+        <span id="progress-text">0 / 0 항목 확인</span>
+        <span id="issue-text"></span>
+      </div>
     </div>
-    <div class="panel-box">
-      <h3>라인</h3>
-      <div class="value" id="lines">0</div>
-    </div>
-    <div class="panel-box">
-      <h3>다음</h3>
-      <canvas id="next-canvas" width="120" height="80"></canvas>
-    </div>
-    <div class="panel-box controls">
-      <h3>조작</h3>
-      <span>←→</span> 이동<br>
-      <span>↑</span> 회전<br>
-      <span>↓</span> 빠르게<br>
-      <span>Space</span> 즉시낙하<br>
-      <span>P</span> 일시정지
-    </div>
+    <main id="checklist-main"></main>
   </div>
-</div>
 
-<div id="overlay">
-  <h1>테트리스</h1>
-  <p>방향키로 조작하세요</p>
-  <button id="start-btn">시작하기</button>
+  <div id="page-result" class="page">
+    <main id="result-main" style="padding:16px 16px 120px;"></main>
+  </div>
+
+  <div id="page-history" class="page">
+    <main id="history-main" style="padding:16px 16px 120px;"></main>
+  </div>
+
+  <button id="submit-fab" class="submit-fab" style="display:none;">점검 완료</button>
+
+  <footer>
+    <button class="tab-btn active" data-tab="check"><span class="icon">📋</span>점검</button>
+    <button class="tab-btn" data-tab="history"><span class="icon">🕓</span>기록</button>
+  </footer>
+
 </div>
 
 <script>
-const COLS = 10, ROWS = 20, BLOCK = 30;
-const canvas = document.getElementById('board');
-const ctx = canvas.getContext('2d');
-const nextCanvas = document.getElementById('next-canvas');
-const nctx = nextCanvas.getContext('2d');
-
-const COLORS = [
-  null,
-  '#00f5ff', // I - cyan
-  '#f5a623', // O - orange
-  '#9b59b6', // T - purple
-  '#2ecc71', // S - green
-  '#e74c3c', // Z - red
-  '#3498db', // J - blue
-  '#f39c12', // L - yellow-orange
+const CHECKLIST = [
+  { section: '외관 점검', icon: '🚘', items: ['차체 외관 (찌그러짐/스크래치)', '전조등 · 후미등', '방향지시등', '와이퍼', '번호판'] },
+  { section: '타이어', icon: '🛞', items: ['타이어 마모 상태', '타이어 공기압', '스페어타이어/공구'] },
+  { section: '엔진룸', icon: '🔧', items: ['엔진오일', '냉각수', '워셔액', '브레이크 오일'] },
+  { section: '실내 점검', icon: '🪑', items: ['계기판 경고등', '브레이크 작동', '핸들 상태', '안전벨트', '에어컨/히터'] },
+  { section: '서류 · 안전용품', icon: '📄', items: ['자동차등록증', '보험증', '삼각대/안전조끼', '소화기'] },
 ];
 
-const SHAPES = [
-  null,
-  [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], // I
-  [[2,2],[2,2]],                               // O
-  [[0,3,0],[3,3,3],[0,0,0]],                  // T
-  [[0,4,4],[4,4,0],[0,0,0]],                  // S
-  [[5,5,0],[0,5,5],[0,0,0]],                  // Z
-  [[6,0,0],[6,6,6],[0,0,0]],                  // J
-  [[0,0,7],[7,7,7],[0,0,0]],                  // L
-];
+const STATES = ['none', 'ok', 'issue'];
+const STATE_LABEL = { none: '확인', ok: '정상', issue: '이상' };
 
-let board, piece, nextPiece, score, level, lines, dropInterval, lastTime, paused, gameOver;
+let checkState = {};
 
-function createBoard() {
-  return Array.from({length: ROWS}, () => Array(COLS).fill(0));
+function itemKey(sIdx, iIdx) { return sIdx + '-' + iIdx; }
+
+function resetChecklist() {
+  checkState = {};
+  CHECKLIST.forEach((sec, sIdx) => {
+    sec.items.forEach((_, iIdx) => {
+      checkState[itemKey(sIdx, iIdx)] = { state: 'none', note: '' };
+    });
+  });
+}
+resetChecklist();
+
+function totalItemCount() {
+  return CHECKLIST.reduce((sum, sec) => sum + sec.items.length, 0);
 }
 
-function randomPiece() {
-  const id = Math.floor(Math.random() * 7) + 1;
-  const shape = SHAPES[id].map(r => [...r]);
+function checkedCount() {
+  return Object.values(checkState).filter(v => v.state !== 'none').length;
+}
+
+function issueCount() {
+  return Object.values(checkState).filter(v => v.state === 'issue').length;
+}
+
+function renderChecklist() {
+  const main = document.getElementById('checklist-main');
+  main.innerHTML = CHECKLIST.map((sec, sIdx) => {
+    const doneInSec = sec.items.filter((_, iIdx) => checkState[itemKey(sIdx, iIdx)].state !== 'none').length;
+    const itemsHtml = sec.items.map((label, iIdx) => {
+      const key = itemKey(sIdx, iIdx);
+      const st = checkState[key];
+      const noteBox = st.state === 'issue'
+        ? `<input class="note-input" data-key="${key}" placeholder="이상 내용을 입력하세요" value="${st.note.replace(/"/g, '&quot;')}">`
+        : '';
+      return `
+        <div class="item">
+          <div class="item-row">
+            <div class="item-label">${label}</div>
+            <button class="state-btn" data-key="${key}" data-state="${st.state}">${STATE_LABEL[st.state]}</button>
+          </div>
+          ${noteBox}
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="section" data-section="${sIdx}">
+        <div class="section-head" data-toggle="${sIdx}">
+          <div class="title">${sec.icon} ${sec.section}</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="count">${doneInSec}/${sec.items.length}</span>
+            <span class="chevron">▾</span>
+          </div>
+        </div>
+        <div class="section-body">${itemsHtml}</div>
+      </div>`;
+  }).join('');
+
+  updateProgress();
+}
+
+function updateProgress() {
+  const total = totalItemCount();
+  const done = checkedCount();
+  const issues = issueCount();
+  document.getElementById('progress-fill').style.width = (total ? (done / total * 100) : 0) + '%';
+  document.getElementById('progress-text').textContent = `${done} / ${total} 항목 확인`;
+  document.getElementById('issue-text').textContent = issues ? `⚠️ 이상 ${issues}건` : '';
+
+  const fab = document.getElementById('submit-fab');
+  if (done === total && total > 0) {
+    fab.style.display = 'block';
+    fab.disabled = false;
+    fab.textContent = issues ? `점검 완료 (이상 ${issues}건)` : '점검 완료';
+  } else {
+    fab.style.display = 'none';
+  }
+}
+
+document.getElementById('checklist-main').addEventListener('click', e => {
+  const toggleEl = e.target.closest('[data-toggle]');
+  if (toggleEl) {
+    const sec = document.querySelector(`.section[data-section="${toggleEl.dataset.toggle}"]`);
+    sec.classList.toggle('collapsed');
+    return;
+  }
+  const btn = e.target.closest('.state-btn');
+  if (btn) {
+    const key = btn.dataset.key;
+    const cur = checkState[key];
+    const idx = STATES.indexOf(cur.state);
+    cur.state = STATES[(idx + 1) % STATES.length];
+    if (cur.state !== 'issue') cur.note = '';
+    renderChecklist();
+  }
+});
+
+document.getElementById('checklist-main').addEventListener('input', e => {
+  if (e.target.classList.contains('note-input')) {
+    checkState[e.target.dataset.key].note = e.target.value;
+  }
+});
+
+function todayString() {
+  const d = new Date();
+  return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })
+    + ' ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+}
+document.getElementById('today-date').textContent = todayString();
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem('vehicleCheckHistory') || '[]'); }
+  catch (e) { return []; }
+}
+function saveHistory(list) {
+  localStorage.setItem('vehicleCheckHistory', JSON.stringify(list));
+}
+
+function buildRecord() {
+  const vehicleNumber = document.getElementById('vehicle-number').value.trim() || '미입력';
+  const items = [];
+  CHECKLIST.forEach((sec, sIdx) => {
+    sec.items.forEach((label, iIdx) => {
+      const st = checkState[itemKey(sIdx, iIdx)];
+      items.push({ section: sec.section, label, state: st.state, note: st.note });
+    });
+  });
   return {
-    id, shape,
-    x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2),
-    y: 0
+    id: Date.now(),
+    vehicleNumber,
+    date: new Date().toISOString(),
+    items,
+    issueCount: items.filter(i => i.state === 'issue').length,
+    total: items.length,
   };
 }
 
-function rotate(matrix) {
-  const n = matrix.length;
-  return matrix[0].map((_, i) => matrix.map(row => row[i]).reverse());
+let lastRecord = null;
+
+document.getElementById('submit-fab').addEventListener('click', () => {
+  const record = buildRecord();
+  const history = loadHistory();
+  history.unshift(record);
+  saveHistory(history);
+  lastRecord = record;
+  renderResult(record);
+  switchPage('result');
+});
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
+    + ' ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 }
 
-function valid(p, dx = 0, dy = 0, shape = p.shape) {
-  return shape.every((row, r) =>
-    row.every((val, c) => {
-      if (!val) return true;
-      const nx = p.x + c + dx, ny = p.y + r + dy;
-      return nx >= 0 && nx < COLS && ny < ROWS && (ny < 0 || !board[ny][nx]);
-    })
-  );
-}
-
-function place() {
-  piece.shape.forEach((row, r) =>
-    row.forEach((val, c) => {
-      if (val) board[piece.y + r][piece.x + c] = val;
-    })
-  );
-  clearLines();
-  piece = nextPiece;
-  nextPiece = randomPiece();
-  drawNext();
-  if (!valid(piece)) {
-    gameOver = true;
-    showGameOver();
-  }
-}
-
-function clearLines() {
-  let cleared = 0;
-  for (let r = ROWS - 1; r >= 0; r--) {
-    if (board[r].every(v => v)) {
-      board.splice(r, 1);
-      board.unshift(Array(COLS).fill(0));
-      cleared++;
-      r++;
-    }
-  }
-  if (cleared) {
-    const pts = [0, 100, 300, 500, 800];
-    score += (pts[cleared] || 800) * level;
-    lines += cleared;
-    level = Math.floor(lines / 10) + 1;
-    dropInterval = Math.max(100, 1000 - (level - 1) * 90);
-    updateUI();
-  }
-}
-
-function ghostY() {
-  let dy = 0;
-  while (valid(piece, 0, dy + 1)) dy++;
-  return piece.y + dy;
-}
-
-function drawBlock(context, x, y, colorId, alpha = 1) {
-  if (!colorId) return;
-  const color = COLORS[colorId];
-  context.globalAlpha = alpha;
-  context.fillStyle = color;
-  context.fillRect(x * BLOCK + 1, y * BLOCK + 1, BLOCK - 2, BLOCK - 2);
-  context.fillStyle = 'rgba(255,255,255,0.15)';
-  context.fillRect(x * BLOCK + 1, y * BLOCK + 1, BLOCK - 2, 4);
-  context.fillStyle = 'rgba(0,0,0,0.2)';
-  context.fillRect(x * BLOCK + 1, y * BLOCK + BLOCK - 5, BLOCK - 2, 4);
-  context.globalAlpha = 1;
-}
-
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // grid lines
-  ctx.strokeStyle = '#1a1a2e';
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      ctx.strokeRect(c * BLOCK, r * BLOCK, BLOCK, BLOCK);
-    }
-  }
-
-  // board
-  board.forEach((row, r) => row.forEach((val, c) => drawBlock(ctx, c, r, val)));
-
-  // ghost
-  const gy = ghostY();
-  if (gy !== piece.y) {
-    piece.shape.forEach((row, r) =>
-      row.forEach((val, c) => {
-        if (val) drawBlock(ctx, piece.x + c, gy + r, val, 0.25);
-      })
-    );
-  }
-
-  // current piece
-  piece.shape.forEach((row, r) =>
-    row.forEach((val, c) => {
-      if (val) drawBlock(ctx, piece.x + c, piece.y + r, val);
-    })
-  );
-}
-
-function drawNext() {
-  nctx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
-  const s = nextPiece.shape;
-  const ox = Math.floor((4 - s[0].length) / 2);
-  const oy = Math.floor((3 - s.length) / 2);
-  const nb = 24;
-  s.forEach((row, r) =>
-    row.forEach((val, c) => {
-      if (!val) return;
-      nctx.fillStyle = COLORS[val];
-      nctx.fillRect((ox + c) * nb + 1, (oy + r) * nb + 1, nb - 2, nb - 2);
-      nctx.fillStyle = 'rgba(255,255,255,0.15)';
-      nctx.fillRect((ox + c) * nb + 1, (oy + r) * nb + 1, nb - 2, 3);
-    })
-  );
-}
-
-function updateUI() {
-  document.getElementById('score').textContent = score.toLocaleString();
-  document.getElementById('level').textContent = level;
-  document.getElementById('lines').textContent = lines;
-}
-
-function gameLoop(ts) {
-  if (gameOver || paused) return;
-  if (!lastTime) lastTime = ts;
-  if (ts - lastTime >= dropInterval) {
-    if (valid(piece, 0, 1)) piece.y++;
-    else place();
-    lastTime = ts;
-  }
-  draw();
-  requestAnimationFrame(gameLoop);
-}
-
-function startGame() {
-  board = createBoard();
-  score = 0; level = 1; lines = 0;
-  dropInterval = 1000; lastTime = 0; paused = false; gameOver = false;
-  piece = randomPiece();
-  nextPiece = randomPiece();
-  updateUI();
-  drawNext();
-  document.getElementById('overlay').style.display = 'none';
-  requestAnimationFrame(gameLoop);
-}
-
-function showGameOver() {
-  const overlay = document.getElementById('overlay');
-  overlay.innerHTML = `
-    <h1>게임 오버</h1>
-    <div id="final-score">점수: ${score.toLocaleString()}</div>
-    <button id="start-btn">다시하기</button>
+function renderResult(record) {
+  const main = document.getElementById('result-main');
+  const pass = record.issueCount === 0;
+  const issues = record.items.filter(i => i.state === 'issue');
+  main.innerHTML = `
+    <div class="result-summary">
+      <div class="badge ${pass ? 'pass' : 'fail'}">${pass ? '✅ 이상 없음' : `⚠️ 이상 ${record.issueCount}건 발견`}</div>
+      <div class="vehicle">${record.vehicleNumber}</div>
+      <div class="when">${formatDate(record.date)} · 총 ${record.total}개 항목 점검</div>
+    </div>
+    ${issues.length ? issues.map(i => `
+      <div class="issue-card">
+        <div class="item-name">${i.label}</div>
+        ${i.note ? `<div class="item-note">${i.note}</div>` : ''}
+        <div class="item-section">${i.section}</div>
+      </div>`).join('') : '<div class="empty-note">모든 항목이 정상입니다.</div>'}
+    <button class="primary-btn" id="new-check-btn">새 점검 시작</button>
+    <button class="ghost-btn" id="go-history-btn">기록 보기</button>
   `;
-  overlay.style.display = 'flex';
-  document.getElementById('start-btn').addEventListener('click', startGame);
+  document.getElementById('new-check-btn').addEventListener('click', () => {
+    resetChecklist();
+    document.getElementById('vehicle-number').value = '';
+    renderChecklist();
+    switchPage('check');
+  });
+  document.getElementById('go-history-btn').addEventListener('click', () => {
+    renderHistory();
+    switchPage('history');
+  });
 }
 
-document.getElementById('start-btn').addEventListener('click', startGame);
-
-document.addEventListener('keydown', e => {
-  if (gameOver) return;
-  if (e.key === 'p' || e.key === 'P') {
-    paused = !paused;
-    if (!paused) { lastTime = 0; requestAnimationFrame(gameLoop); }
+function renderHistory() {
+  const main = document.getElementById('history-main');
+  const history = loadHistory();
+  if (!history.length) {
+    main.innerHTML = '<div class="empty-note">저장된 점검 기록이 없습니다.</div>';
     return;
   }
-  if (paused) return;
-  switch (e.key) {
-    case 'ArrowLeft':  if (valid(piece, -1, 0)) piece.x--; break;
-    case 'ArrowRight': if (valid(piece,  1, 0)) piece.x++; break;
-    case 'ArrowDown':
-      if (valid(piece, 0, 1)) { piece.y++; score += 1; updateUI(); }
-      else place();
-      lastTime = performance.now();
-      break;
-    case 'ArrowUp': {
-      const r = rotate(piece.shape);
-      if (valid(piece, 0, 0, r)) piece.shape = r;
-      else if (valid(piece, 1, 0, r)) { piece.shape = r; piece.x++; }
-      else if (valid(piece, -1, 0, r)) { piece.shape = r; piece.x--; }
-      break;
-    }
-    case ' ':
-      e.preventDefault();
-      while (valid(piece, 0, 1)) { piece.y++; score += 2; }
-      place(); updateUI();
-      lastTime = performance.now();
-      break;
+  main.innerHTML = history.map(rec => {
+    const pass = rec.issueCount === 0;
+    const issues = rec.items.filter(i => i.state === 'issue');
+    return `
+      <div class="history-card" data-id="${rec.id}">
+        <div class="top-row" data-toggle-history="${rec.id}">
+          <div>
+            <div class="vehicle">${rec.vehicleNumber}</div>
+            <div class="when">${formatDate(rec.date)}</div>
+          </div>
+          <div class="badge ${pass ? 'pass' : 'fail'}">${pass ? '정상' : `이상 ${rec.issueCount}건`}</div>
+        </div>
+        <div class="detail">
+          ${issues.length ? issues.map(i => `
+            <div class="issue-card">
+              <div class="item-name">${i.label}</div>
+              ${i.note ? `<div class="item-note">${i.note}</div>` : ''}
+              <div class="item-section">${i.section}</div>
+            </div>`).join('') : '<div class="empty-note">모든 항목이 정상입니다.</div>'}
+          <button class="del-btn" data-del="${rec.id}">이 기록 삭제</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+document.getElementById('history-main').addEventListener('click', e => {
+  const del = e.target.closest('[data-del]');
+  if (del) {
+    const id = Number(del.dataset.del);
+    const history = loadHistory().filter(r => r.id !== id);
+    saveHistory(history);
+    renderHistory();
+    return;
   }
-  draw();
+  const toggle = e.target.closest('[data-toggle-history]');
+  if (toggle) {
+    document.querySelector(`.history-card[data-id="${toggle.dataset.toggleHistory}"]`).classList.toggle('open');
+  }
 });
+
+function switchPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const tabName = name === 'result' ? 'check' : name;
+  const tabBtn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+  if (tabBtn) tabBtn.classList.add('active');
+  document.getElementById('submit-fab').style.display = name === 'check' ? '' : 'none';
+  if (name === 'check') updateProgress();
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    if (tab === 'history') renderHistory();
+    switchPage(tab);
+  });
+});
+
+renderChecklist();
 </script>
 </body>
 </html>
