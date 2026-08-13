@@ -593,17 +593,7 @@ function renderLookupResult(plate, match) {
       <div class="result-card notfound">
         <div class="plate-big">${plate}</div>
         <div class="name">등록되지 않은 차량입니다</div>
-        <div class="result-actions">
-          <button class="btn btn-primary" id="add-from-result-btn">명단에 추가하기</button>
-        </div>
       </div>`;
-    document.getElementById('add-from-result-btn').addEventListener('click', () => {
-      switchPage('registry');
-      document.querySelector('.tab-btn[data-tab="registry"]').classList.add('active');
-      document.querySelector('.tab-btn[data-tab="scan"]').classList.remove('active');
-      openAddForm();
-      document.getElementById('f-plate').value = plate;
-    });
   }
 }
 
@@ -729,6 +719,48 @@ function formatDate(iso) {
     + ' ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 }
 
+function formatDateFull(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
+    + ' ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function fileTimestamp() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+}
+
+function escapeCsvField(value) {
+  const str = String(value == null ? '' : value);
+  if (/[",\n]/.test(str)) return '"' + str.replace(/"/g, '""') + '"';
+  return str;
+}
+
+function downloadHistoryExcel() {
+  const log = loadLog();
+  if (!log.length) { showToast('다운로드할 기록이 없습니다.'); return; }
+  const header = ['조회일시', '차량번호', '확인여부', '이름', '소속'];
+  const rows = log.map(r => [
+    formatDateFull(r.time),
+    r.plate,
+    r.matched ? '확인됨' : '미등록',
+    r.name || '',
+    r.dept || '',
+  ]);
+  const csvLines = [header, ...rows].map(row => row.map(escapeCsvField).join(','));
+  const csvContent = '\uFEFF' + csvLines.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `차량조회기록_${fileTimestamp()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function renderHistory() {
   const log = loadLog();
   const container = document.getElementById('history-list');
@@ -736,7 +768,11 @@ function renderHistory() {
     container.innerHTML = '<div class="empty-note">조회 기록이 없습니다.</div>';
     return;
   }
-  container.innerHTML = `<button class="btn btn-danger-ghost btn-sm" id="clear-log-btn" style="margin-bottom:4px;">전체 삭제</button>` +
+  container.innerHTML = `
+    <div style="display:flex; gap:8px; margin-bottom:4px;">
+      <button class="btn btn-ghost btn-sm" id="export-log-btn" style="flex:1;">엑셀 다운로드</button>
+      <button class="btn btn-danger-ghost btn-sm" id="clear-log-btn" style="flex:1;">전체 삭제</button>
+    </div>` +
     log.map(r => `
       <div class="history-item" data-id="${r.id}">
         <div>
@@ -750,6 +786,10 @@ function renderHistory() {
 }
 
 document.getElementById('history-list').addEventListener('click', e => {
+  if (e.target.id === 'export-log-btn') {
+    downloadHistoryExcel();
+    return;
+  }
   if (e.target.id === 'clear-log-btn') {
     saveLog([]);
     renderHistory();
