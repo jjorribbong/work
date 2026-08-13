@@ -1,393 +1,872 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>테트리스</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#2563eb">
+<title>차량확인</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-    body {
-      background: #1a1a2e;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      font-family: 'Segoe UI', sans-serif;
-      color: #eee;
-    }
+  :root {
+    --blue: #2563eb;
+    --green: #16a34a;
+    --red: #dc2626;
+    --gray: #9ca3af;
+    --bg: #f3f4f6;
+    --card: #ffffff;
+    --text: #111827;
+    --sub: #6b7280;
+    --border: #e5e7eb;
+  }
 
-    .game-wrapper {
-      display: flex;
-      gap: 24px;
-      align-items: flex-start;
-    }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Malgun Gothic', sans-serif;
+    color: var(--text);
+  }
 
-    canvas {
-      border: 2px solid #444;
-      background: #0d0d1a;
-      display: block;
-    }
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+  }
 
-    .side-panel {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      min-width: 140px;
-    }
+  header {
+    background: var(--blue);
+    color: #fff;
+    padding: calc(16px + env(safe-area-inset-top, 0px)) 20px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
 
-    .panel-box {
-      background: #16213e;
-      border: 1px solid #444;
-      border-radius: 8px;
-      padding: 14px;
-    }
+  header h1 { font-size: 20px; font-weight: 700; }
+  header .sub { font-size: 12px; opacity: 0.85; margin-top: 2px; }
 
-    .panel-box h3 {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      color: #888;
-      margin-bottom: 8px;
-    }
+  main {
+    flex: 1;
+    padding: 16px 16px 110px;
+  }
 
-    .panel-box .value {
-      font-size: 26px;
-      font-weight: bold;
-      color: #e94560;
-    }
+  .page { display: none; }
+  .page.active { display: block; }
 
-    #next-canvas {
-      display: block;
-      margin: 0 auto;
-    }
+  .card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
 
-    .controls {
-      font-size: 12px;
-      color: #888;
-      line-height: 1.8;
-    }
+  .card + .card { margin-top: 14px; }
 
-    .controls span {
-      color: #aaa;
-    }
+  .btn {
+    display: block;
+    width: 100%;
+    border: none;
+    border-radius: 12px;
+    padding: 15px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+  }
 
-    #overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.75);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      gap: 16px;
-      z-index: 10;
-    }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-ghost { background: none; color: var(--blue); border: 1.5px solid var(--blue); }
+  .btn-danger-ghost { background: none; color: var(--red); border: 1.5px solid var(--red); }
+  .btn-sm { padding: 9px 12px; font-size: 13px; border-radius: 9px; }
+  .btn[disabled] { opacity: 0.5; cursor: default; }
 
-    #overlay h1 {
-      font-size: 48px;
-      color: #e94560;
-      text-shadow: 0 0 20px #e94560;
-    }
+  .capture-box {
+    text-align: center;
+    padding: 30px 16px;
+  }
 
-    #overlay p {
-      color: #aaa;
-      font-size: 16px;
-    }
+  .capture-box .icon { font-size: 44px; margin-bottom: 10px; }
+  .capture-box p { color: var(--sub); font-size: 13px; margin-bottom: 18px; line-height: 1.6; }
 
-    button {
-      background: #e94560;
-      color: white;
-      border: none;
-      padding: 12px 32px;
-      font-size: 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
+  #preview-wrap { display: none; margin-top: 14px; }
+  #preview-img {
+    width: 100%;
+    border-radius: 12px;
+    display: block;
+    border: 1px solid var(--border);
+  }
 
-    button:hover { background: #c73652; }
+  .ocr-status {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--blue);
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #eff6ff;
+    border-radius: 10px;
+  }
 
-    #final-score { font-size: 24px; color: #fff; }
-  </style>
+  .ocr-status.error { color: var(--red); background: #fef2f2; }
+
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid #bfdbfe;
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .field-label {
+    font-size: 12px;
+    color: var(--sub);
+    font-weight: 700;
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  input[type=text], input[type=tel] {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 15px;
+    background: #fff;
+  }
+
+  .plate-input-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .plate-input-row input { flex: 1; font-weight: 700; letter-spacing: 0.5px; }
+  .plate-input-row button { flex-shrink: 0; width: auto; padding: 12px 18px; }
+
+  #result-area { margin-top: 14px; }
+
+  .result-card {
+    border-radius: 14px;
+    padding: 18px;
+    border-left: 5px solid var(--green);
+    background: #ecfdf3;
+  }
+  .result-card.notfound { border-left-color: var(--gray); background: #f9fafb; }
+
+  .result-card .plate-big {
+    font-size: 13px;
+    color: var(--sub);
+    margin-bottom: 6px;
+  }
+  .result-card .name { font-size: 20px; font-weight: 800; }
+  .result-card .dept { font-size: 14px; color: var(--sub); margin-top: 2px; }
+  .result-card .phone { font-size: 15px; margin-top: 10px; font-weight: 600; }
+
+  .result-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .result-actions .btn { flex: 1; }
+
+  .empty-note {
+    text-align: center;
+    color: var(--sub);
+    font-size: 13px;
+    padding: 30px 10px;
+  }
+
+  /* Registry */
+  .search-row { margin-bottom: 12px; }
+
+  .staff-item {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-top: 10px;
+  }
+  .staff-item .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .staff-item .name { font-weight: 700; font-size: 15px; }
+  .staff-item .meta { font-size: 12px; color: var(--sub); margin-top: 3px; }
+  .staff-item .plate-tag {
+    display: inline-block;
+    background: #eff6ff;
+    color: var(--blue);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    margin-top: 6px;
+  }
+  .staff-item .actions { display: flex; gap: 6px; }
+  .staff-item .actions button {
+    background: none;
+    border: none;
+    font-size: 16px;
+    padding: 4px;
+    color: var(--sub);
+  }
+
+  .form-grid { display: flex; flex-direction: column; gap: 10px; }
+  .form-actions { display: flex; gap: 8px; margin-top: 4px; }
+  .form-actions .btn { flex: 1; }
+
+  details.import-box { margin-top: 14px; }
+  details.import-box summary {
+    font-size: 13px;
+    color: var(--blue);
+    font-weight: 700;
+    cursor: pointer;
+    padding: 4px 0;
+  }
+  textarea#bulk-import {
+    width: 100%;
+    margin-top: 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    min-height: 80px;
+    resize: vertical;
+    font-family: monospace;
+  }
+  .import-hint { font-size: 11px; color: var(--sub); margin-top: 6px; line-height: 1.5; }
+
+  /* History */
+  .history-item {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  .history-item .plate { font-weight: 700; font-size: 14px; }
+  .history-item .when { font-size: 11px; color: var(--sub); margin-top: 2px; }
+  .history-item .who { font-size: 12px; color: var(--sub); margin-top: 2px; }
+  .badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .badge.matched { background: #ecfdf3; color: var(--green); }
+  .badge.unmatched { background: #f3f4f6; color: var(--gray); }
+  .history-item .del-btn { background: none; border: none; color: var(--gray); font-size: 15px; }
+
+  footer {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    max-width: 480px;
+    margin: 0 auto;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    gap: 4px;
+    z-index: 20;
+  }
+  .tab-btn {
+    flex: 1;
+    text-align: center;
+    padding: 8px 0 4px;
+    font-size: 11px;
+    color: var(--sub);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  .tab-btn .icon { font-size: 20px; display: block; }
+  .tab-btn.active { color: var(--blue); font-weight: 700; }
+
+  .toast {
+    position: fixed;
+    bottom: 84px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(17,24,39,0.9);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-size: 13px;
+    z-index: 50;
+    display: none;
+  }
+</style>
 </head>
 <body>
+<div id="app">
 
-<div class="game-wrapper">
-  <canvas id="board" width="300" height="600"></canvas>
+  <header>
+    <h1>🚗 차량확인</h1>
+    <div class="sub">교직원 차량번호 조회</div>
+  </header>
 
-  <div class="side-panel">
-    <div class="panel-box">
-      <h3>점수</h3>
-      <div class="value" id="score">0</div>
+  <main>
+    <!-- 조회 탭 -->
+    <div id="page-scan" class="page active">
+      <div class="card capture-box">
+        <div class="icon">📷</div>
+        <p>차량 번호판을 촬영하면<br>자동으로 소유자를 조회합니다.</p>
+        <button class="btn btn-primary" id="capture-btn">번호판 촬영하기</button>
+        <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none">
+
+        <div id="preview-wrap">
+          <img id="preview-img" alt="촬영된 번호판">
+        </div>
+
+        <div class="ocr-status" id="ocr-status">
+          <div class="spinner"></div>
+          <span id="ocr-status-text">인식 중...</span>
+        </div>
+
+        <div class="plate-input-row">
+          <input type="text" id="plate-input" placeholder="차량번호 (예: 12가3456)">
+          <button class="btn btn-primary btn-sm" id="lookup-btn">조회</button>
+        </div>
+      </div>
+
+      <div id="result-area"></div>
     </div>
-    <div class="panel-box">
-      <h3>레벨</h3>
-      <div class="value" id="level">1</div>
+
+    <!-- 명단관리 탭 -->
+    <div id="page-registry" class="page">
+      <div class="card">
+        <button class="btn btn-primary" id="show-add-form-btn">+ 새 차량 등록</button>
+        <button class="btn btn-ghost" id="excel-upload-btn" style="margin-top:8px;">📊 차량등록 현황 엑셀 업로드</button>
+        <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" style="display:none">
+        <div class="import-hint" style="margin-top:8px;">엑셀 파일의 첫 행은 열 제목(이름/소속/연락처/차량번호 등)이어야 합니다. 파일은 서버로 전송되지 않고 브라우저에서만 처리됩니다.</div>
+
+        <div class="form-grid" id="add-form" style="display:none; margin-top:14px;">
+          <input type="hidden" id="edit-id">
+          <div>
+            <span class="field-label">이름</span>
+            <input type="text" id="f-name" placeholder="홍길동">
+          </div>
+          <div>
+            <span class="field-label">소속</span>
+            <input type="text" id="f-dept" placeholder="예: 교무처">
+          </div>
+          <div>
+            <span class="field-label">연락처</span>
+            <input type="tel" id="f-phone" placeholder="010-1234-5678">
+          </div>
+          <div>
+            <span class="field-label">차량번호</span>
+            <input type="text" id="f-plate" placeholder="예: 12가3456">
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-ghost" id="cancel-form-btn">취소</button>
+            <button class="btn btn-primary" id="save-form-btn">저장</button>
+          </div>
+        </div>
+
+        <details class="import-box">
+          <summary>여러 건 한 번에 등록하기</summary>
+          <textarea id="bulk-import" placeholder="홍길동,교무처,010-1234-5678,12가3456"></textarea>
+          <div class="import-hint">한 줄에 한 건씩, "이름,소속,연락처,차량번호" 형식으로 입력하세요.</div>
+          <button class="btn btn-ghost btn-sm" id="bulk-import-btn" style="margin-top:8px;">일괄 등록</button>
+        </details>
+      </div>
+
+      <div class="search-row" style="margin-top:14px;">
+        <input type="text" id="staff-search" placeholder="이름, 소속, 차량번호 검색">
+      </div>
+
+      <div id="staff-list"></div>
     </div>
-    <div class="panel-box">
-      <h3>라인</h3>
-      <div class="value" id="lines">0</div>
+
+    <!-- 조회기록 탭 -->
+    <div id="page-history" class="page">
+      <div id="history-list"></div>
     </div>
-    <div class="panel-box">
-      <h3>다음</h3>
-      <canvas id="next-canvas" width="120" height="80"></canvas>
-    </div>
-    <div class="panel-box controls">
-      <h3>조작</h3>
-      <span>←→</span> 이동<br>
-      <span>↑</span> 회전<br>
-      <span>↓</span> 빠르게<br>
-      <span>Space</span> 즉시낙하<br>
-      <span>P</span> 일시정지
-    </div>
-  </div>
+  </main>
+
+  <footer>
+    <button class="tab-btn active" data-tab="scan"><span class="icon">📷</span>조회</button>
+    <button class="tab-btn" data-tab="registry"><span class="icon">👥</span>명단관리</button>
+    <button class="tab-btn" data-tab="history"><span class="icon">🕓</span>조회기록</button>
+  </footer>
+
+  <div class="toast" id="toast"></div>
 </div>
 
-<div id="overlay">
-  <h1>테트리스</h1>
-  <p>방향키로 조작하세요</p>
-  <button id="start-btn">시작하기</button>
-</div>
-
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
-const COLS = 10, ROWS = 20, BLOCK = 30;
-const canvas = document.getElementById('board');
-const ctx = canvas.getContext('2d');
-const nextCanvas = document.getElementById('next-canvas');
-const nctx = nextCanvas.getContext('2d');
+const STAFF_KEY = 'staffVehicleDB';
+const LOG_KEY = 'plateLookupHistory';
 
-const COLORS = [
-  null,
-  '#00f5ff', // I - cyan
-  '#f5a623', // O - orange
-  '#9b59b6', // T - purple
-  '#2ecc71', // S - green
-  '#e74c3c', // Z - red
-  '#3498db', // J - blue
-  '#f39c12', // L - yellow-orange
-];
-
-const SHAPES = [
-  null,
-  [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], // I
-  [[2,2],[2,2]],                               // O
-  [[0,3,0],[3,3,3],[0,0,0]],                  // T
-  [[0,4,4],[4,4,0],[0,0,0]],                  // S
-  [[5,5,0],[0,5,5],[0,0,0]],                  // Z
-  [[6,0,0],[6,6,6],[0,0,0]],                  // J
-  [[0,0,7],[7,7,7],[0,0,0]],                  // L
-];
-
-let board, piece, nextPiece, score, level, lines, dropInterval, lastTime, paused, gameOver;
-
-function createBoard() {
-  return Array.from({length: ROWS}, () => Array(COLS).fill(0));
+function normalizePlate(str) {
+  return (str || '').replace(/[\s\-·.]/g, '').toUpperCase();
 }
 
-function randomPiece() {
-  const id = Math.floor(Math.random() * 7) + 1;
-  const shape = SHAPES[id].map(r => [...r]);
-  return {
-    id, shape,
-    x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2),
-    y: 0
-  };
+function loadStaff() {
+  try { return JSON.parse(localStorage.getItem(STAFF_KEY) || '[]'); }
+  catch (e) { return []; }
+}
+function saveStaffList(list) { localStorage.setItem(STAFF_KEY, JSON.stringify(list)); }
+
+function loadLog() {
+  try { return JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); }
+  catch (e) { return []; }
+}
+function saveLog(list) { localStorage.setItem(LOG_KEY, JSON.stringify(list)); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => { t.style.display = 'none'; }, 1800);
 }
 
-function rotate(matrix) {
-  const n = matrix.length;
-  return matrix[0].map((_, i) => matrix.map(row => row[i]).reverse());
+/* ---------- Tab navigation ---------- */
+function switchPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.tab-btn[data-tab="${name}"]`).classList.add('active');
+  if (name === 'registry') renderStaffList();
+  if (name === 'history') renderHistory();
+}
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchPage(btn.dataset.tab));
+});
+
+/* ---------- Scan / OCR / Lookup ---------- */
+const cameraInput = document.getElementById('camera-input');
+const previewWrap = document.getElementById('preview-wrap');
+const previewImg = document.getElementById('preview-img');
+const ocrStatus = document.getElementById('ocr-status');
+const ocrStatusText = document.getElementById('ocr-status-text');
+const plateInput = document.getElementById('plate-input');
+const resultArea = document.getElementById('result-area');
+
+document.getElementById('capture-btn').addEventListener('click', () => cameraInput.click());
+
+function showOcrStatus(text, isError) {
+  ocrStatus.style.display = 'flex';
+  ocrStatus.classList.toggle('error', !!isError);
+  ocrStatus.querySelector('.spinner').style.display = isError ? 'none' : 'block';
+  ocrStatusText.textContent = text;
+}
+function hideOcrStatus() { ocrStatus.style.display = 'none'; }
+
+function loadImageToCanvas(file, maxWidth) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(img.src);
+      resolve(canvas);
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
 }
 
-function valid(p, dx = 0, dy = 0, shape = p.shape) {
-  return shape.every((row, r) =>
-    row.every((val, c) => {
-      if (!val) return true;
-      const nx = p.x + c + dx, ny = p.y + r + dy;
-      return nx >= 0 && nx < COLS && ny < ROWS && (ny < 0 || !board[ny][nx]);
-    })
-  );
-}
-
-function place() {
-  piece.shape.forEach((row, r) =>
-    row.forEach((val, c) => {
-      if (val) board[piece.y + r][piece.x + c] = val;
-    })
-  );
-  clearLines();
-  piece = nextPiece;
-  nextPiece = randomPiece();
-  drawNext();
-  if (!valid(piece)) {
-    gameOver = true;
-    showGameOver();
+function preprocessCanvas(canvas) {
+  const ctx = canvas.getContext('2d');
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = imgData.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    const contrasted = Math.min(255, Math.max(0, (gray - 128) * 1.4 + 128));
+    d[i] = d[i + 1] = d[i + 2] = contrasted;
   }
+  ctx.putImageData(imgData, 0, 0);
 }
 
-function clearLines() {
-  let cleared = 0;
-  for (let r = ROWS - 1; r >= 0; r--) {
-    if (board[r].every(v => v)) {
-      board.splice(r, 1);
-      board.unshift(Array(COLS).fill(0));
-      cleared++;
-      r++;
-    }
+function extractPlateCandidate(text) {
+  const cleaned = (text || '').replace(/\n/g, ' ');
+  const match = cleaned.match(/(\d{2,3})\s*[-.]?\s*([가-힣])\s*[-.]?\s*(\d{4})/);
+  if (match) return `${match[1]}${match[2]}${match[3]}`;
+  const fallback = cleaned.replace(/[^0-9가-힣]/g, '');
+  return fallback.slice(0, 8);
+}
+
+let ocrWorkerPromise = null;
+function getOcrWorker() {
+  if (!ocrWorkerPromise) {
+    ocrWorkerPromise = Tesseract.createWorker('kor', 1, {
+      logger: m => {
+        if (m.status === 'recognizing text') {
+          showOcrStatus(`번호판 인식 중... ${Math.round((m.progress || 0) * 100)}%`);
+        } else if (m.status) {
+          showOcrStatus('OCR 엔진 준비 중... (최초 1회, 인터넷 필요)');
+        }
+      }
+    });
   }
-  if (cleared) {
-    const pts = [0, 100, 300, 500, 800];
-    score += (pts[cleared] || 800) * level;
-    lines += cleared;
-    level = Math.floor(lines / 10) + 1;
-    dropInterval = Math.max(100, 1000 - (level - 1) * 90);
-    updateUI();
-  }
+  return ocrWorkerPromise;
 }
 
-function ghostY() {
-  let dy = 0;
-  while (valid(piece, 0, dy + 1)) dy++;
-  return piece.y + dy;
-}
+cameraInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  cameraInput.value = '';
+  if (!file) return;
 
-function drawBlock(context, x, y, colorId, alpha = 1) {
-  if (!colorId) return;
-  const color = COLORS[colorId];
-  context.globalAlpha = alpha;
-  context.fillStyle = color;
-  context.fillRect(x * BLOCK + 1, y * BLOCK + 1, BLOCK - 2, BLOCK - 2);
-  context.fillStyle = 'rgba(255,255,255,0.15)';
-  context.fillRect(x * BLOCK + 1, y * BLOCK + 1, BLOCK - 2, 4);
-  context.fillStyle = 'rgba(0,0,0,0.2)';
-  context.fillRect(x * BLOCK + 1, y * BLOCK + BLOCK - 5, BLOCK - 2, 4);
-  context.globalAlpha = 1;
-}
+  resultArea.innerHTML = '';
+  plateInput.value = '';
 
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // grid lines
-  ctx.strokeStyle = '#1a1a2e';
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      ctx.strokeRect(c * BLOCK, r * BLOCK, BLOCK, BLOCK);
-    }
-  }
-
-  // board
-  board.forEach((row, r) => row.forEach((val, c) => drawBlock(ctx, c, r, val)));
-
-  // ghost
-  const gy = ghostY();
-  if (gy !== piece.y) {
-    piece.shape.forEach((row, r) =>
-      row.forEach((val, c) => {
-        if (val) drawBlock(ctx, piece.x + c, gy + r, val, 0.25);
-      })
-    );
-  }
-
-  // current piece
-  piece.shape.forEach((row, r) =>
-    row.forEach((val, c) => {
-      if (val) drawBlock(ctx, piece.x + c, piece.y + r, val);
-    })
-  );
-}
-
-function drawNext() {
-  nctx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
-  const s = nextPiece.shape;
-  const ox = Math.floor((4 - s[0].length) / 2);
-  const oy = Math.floor((3 - s.length) / 2);
-  const nb = 24;
-  s.forEach((row, r) =>
-    row.forEach((val, c) => {
-      if (!val) return;
-      nctx.fillStyle = COLORS[val];
-      nctx.fillRect((ox + c) * nb + 1, (oy + r) * nb + 1, nb - 2, nb - 2);
-      nctx.fillStyle = 'rgba(255,255,255,0.15)';
-      nctx.fillRect((ox + c) * nb + 1, (oy + r) * nb + 1, nb - 2, 3);
-    })
-  );
-}
-
-function updateUI() {
-  document.getElementById('score').textContent = score.toLocaleString();
-  document.getElementById('level').textContent = level;
-  document.getElementById('lines').textContent = lines;
-}
-
-function gameLoop(ts) {
-  if (gameOver || paused) return;
-  if (!lastTime) lastTime = ts;
-  if (ts - lastTime >= dropInterval) {
-    if (valid(piece, 0, 1)) piece.y++;
-    else place();
-    lastTime = ts;
-  }
-  draw();
-  requestAnimationFrame(gameLoop);
-}
-
-function startGame() {
-  board = createBoard();
-  score = 0; level = 1; lines = 0;
-  dropInterval = 1000; lastTime = 0; paused = false; gameOver = false;
-  piece = randomPiece();
-  nextPiece = randomPiece();
-  updateUI();
-  drawNext();
-  document.getElementById('overlay').style.display = 'none';
-  requestAnimationFrame(gameLoop);
-}
-
-function showGameOver() {
-  const overlay = document.getElementById('overlay');
-  overlay.innerHTML = `
-    <h1>게임 오버</h1>
-    <div id="final-score">점수: ${score.toLocaleString()}</div>
-    <button id="start-btn">다시하기</button>
-  `;
-  overlay.style.display = 'flex';
-  document.getElementById('start-btn').addEventListener('click', startGame);
-}
-
-document.getElementById('start-btn').addEventListener('click', startGame);
-
-document.addEventListener('keydown', e => {
-  if (gameOver) return;
-  if (e.key === 'p' || e.key === 'P') {
-    paused = !paused;
-    if (!paused) { lastTime = 0; requestAnimationFrame(gameLoop); }
+  let canvas;
+  try {
+    canvas = await loadImageToCanvas(file, 1000);
+  } catch (err) {
+    showToast('이미지를 불러올 수 없습니다.');
     return;
   }
-  if (paused) return;
-  switch (e.key) {
-    case 'ArrowLeft':  if (valid(piece, -1, 0)) piece.x--; break;
-    case 'ArrowRight': if (valid(piece,  1, 0)) piece.x++; break;
-    case 'ArrowDown':
-      if (valid(piece, 0, 1)) { piece.y++; score += 1; updateUI(); }
-      else place();
-      lastTime = performance.now();
-      break;
-    case 'ArrowUp': {
-      const r = rotate(piece.shape);
-      if (valid(piece, 0, 0, r)) piece.shape = r;
-      else if (valid(piece, 1, 0, r)) { piece.shape = r; piece.x++; }
-      else if (valid(piece, -1, 0, r)) { piece.shape = r; piece.x--; }
-      break;
-    }
-    case ' ':
-      e.preventDefault();
-      while (valid(piece, 0, 1)) { piece.y++; score += 2; }
-      place(); updateUI();
-      lastTime = performance.now();
-      break;
+  preprocessCanvas(canvas);
+  previewImg.src = canvas.toDataURL('image/jpeg', 0.9);
+  previewWrap.style.display = 'block';
+
+  showOcrStatus('OCR 엔진 준비 중... (최초 1회, 인터넷 필요)');
+  try {
+    const worker = await getOcrWorker();
+    const { data: { text } } = await worker.recognize(canvas);
+    hideOcrStatus();
+    const candidate = extractPlateCandidate(text);
+    plateInput.value = candidate;
+    if (candidate) doLookup(candidate);
+    else showToast('번호판을 인식하지 못했습니다. 직접 입력해주세요.');
+  } catch (err) {
+    hideOcrStatus();
+    showOcrStatus('인식에 실패했습니다. 번호를 직접 입력해주세요.', true);
   }
-  draw();
+});
+
+document.getElementById('lookup-btn').addEventListener('click', () => doLookup(plateInput.value));
+plateInput.addEventListener('keydown', e => { if (e.key === 'Enter') doLookup(plateInput.value); });
+
+function findStaffByPlate(plate) {
+  const norm = normalizePlate(plate);
+  if (!norm) return null;
+  return loadStaff().find(s => normalizePlate(s.plate) === norm) || null;
+}
+
+function doLookup(rawPlate) {
+  const plate = (rawPlate || '').trim();
+  if (!plate) { showToast('차량번호를 입력해주세요.'); return; }
+  const match = findStaffByPlate(plate);
+  renderLookupResult(plate, match);
+  const log = loadLog();
+  log.unshift({
+    id: Date.now(),
+    time: new Date().toISOString(),
+    plate,
+    matched: !!match,
+    name: match ? match.name : '',
+    dept: match ? match.dept : '',
+  });
+  saveLog(log.slice(0, 200));
+}
+
+function renderLookupResult(plate, match) {
+  if (match) {
+    resultArea.innerHTML = `
+      <div class="result-card">
+        <div class="plate-big">${plate}</div>
+        <div class="name">${match.name}</div>
+        <div class="dept">${match.dept || '소속 미등록'}</div>
+        <div class="phone">📞 ${match.phone || '연락처 미등록'}</div>
+        <div class="result-actions">
+          ${match.phone ? `<a class="btn btn-primary" href="tel:${match.phone}">전화 걸기</a>` : ''}
+          ${match.phone ? `<a class="btn btn-ghost" href="sms:${match.phone}">문자 보내기</a>` : ''}
+        </div>
+      </div>`;
+  } else {
+    resultArea.innerHTML = `
+      <div class="result-card notfound">
+        <div class="plate-big">${plate}</div>
+        <div class="name">등록되지 않은 차량입니다</div>
+      </div>`;
+  }
+}
+
+/* ---------- Staff registry ---------- */
+const addForm = document.getElementById('add-form');
+const editIdInput = document.getElementById('edit-id');
+const fName = document.getElementById('f-name');
+const fDept = document.getElementById('f-dept');
+const fPhone = document.getElementById('f-phone');
+const fPlate = document.getElementById('f-plate');
+
+function openAddForm(record) {
+  addForm.style.display = 'flex';
+  if (record) {
+    editIdInput.value = record.id;
+    fName.value = record.name;
+    fDept.value = record.dept;
+    fPhone.value = record.phone;
+    fPlate.value = record.plate;
+  } else {
+    editIdInput.value = '';
+    fName.value = ''; fDept.value = ''; fPhone.value = ''; fPlate.value = '';
+  }
+  fName.focus();
+}
+function closeAddForm() { addForm.style.display = 'none'; }
+
+document.getElementById('show-add-form-btn').addEventListener('click', () => openAddForm());
+document.getElementById('cancel-form-btn').addEventListener('click', closeAddForm);
+
+document.getElementById('save-form-btn').addEventListener('click', () => {
+  const name = fName.value.trim();
+  const plate = fPlate.value.trim();
+  if (!name || !plate) { showToast('이름과 차량번호는 필수입니다.'); return; }
+
+  const list = loadStaff();
+  const id = editIdInput.value ? Number(editIdInput.value) : Date.now();
+  const record = { id, name, dept: fDept.value.trim(), phone: fPhone.value.trim(), plate };
+
+  const idx = list.findIndex(s => s.id === id);
+  if (idx >= 0) list[idx] = record; else list.push(record);
+  saveStaffList(list);
+  closeAddForm();
+  renderStaffList();
+  showToast('저장되었습니다.');
+});
+
+document.getElementById('bulk-import-btn').addEventListener('click', () => {
+  const raw = document.getElementById('bulk-import').value;
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  const list = loadStaff();
+  let added = 0;
+  lines.forEach((line, i) => {
+    const parts = line.split(',').map(p => p.trim());
+    if (parts.length < 4 || !parts[0] || !parts[3]) return;
+    list.push({
+      id: Date.now() + i,
+      name: parts[0],
+      dept: parts[1] || '',
+      phone: parts[2] || '',
+      plate: parts[3],
+    });
+    added++;
+  });
+  saveStaffList(list);
+  document.getElementById('bulk-import').value = '';
+  renderStaffList();
+  showToast(`${added}건 등록되었습니다.`);
+});
+
+const HEADER_ALIASES = {
+  name: ['이름', '성명', '성함', 'name'],
+  dept: ['소속', '부서', '부서명', '소속부서', 'department', 'dept'],
+  phone: ['연락처', '전화번호', '휴대전화', '휴대폰', '핸드폰', 'phone'],
+  plate: ['차량번호', '차량번호판', '번호판', '차량', 'plate'],
+};
+
+function pickField(row, aliases) {
+  const keys = Object.keys(row);
+  const norm = s => String(s).replace(/[\s()]/g, '').toLowerCase();
+  for (const alias of aliases) {
+    const key = keys.find(k => norm(k) === norm(alias));
+    if (key !== undefined) return String(row[key] ?? '').trim();
+  }
+  return '';
+}
+
+function importStaffRows(rows) {
+  const list = loadStaff();
+  let added = 0, skipped = 0;
+  rows.forEach((row, i) => {
+    const name = pickField(row, HEADER_ALIASES.name);
+    const plate = pickField(row, HEADER_ALIASES.plate);
+    if (!name || !plate) { skipped++; return; }
+    list.push({
+      id: Date.now() + i,
+      name,
+      dept: pickField(row, HEADER_ALIASES.dept),
+      phone: pickField(row, HEADER_ALIASES.phone),
+      plate,
+    });
+    added++;
+  });
+  saveStaffList(list);
+  return { added, skipped };
+}
+
+const excelFileInput = document.getElementById('excel-file-input');
+document.getElementById('excel-upload-btn').addEventListener('click', () => excelFileInput.click());
+
+excelFileInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  excelFileInput.value = '';
+  if (!file) return;
+  try {
+    const buf = await file.arrayBuffer();
+    const workbook = XLSX.read(buf, { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    if (!rows.length) { showToast('엑셀 파일에 데이터가 없습니다.'); return; }
+    const { added, skipped } = importStaffRows(rows);
+    renderStaffList();
+    if (added) {
+      showToast(`${added}건 등록되었습니다.${skipped ? ` (${skipped}건 제외)` : ''}`);
+    } else {
+      showToast('등록 가능한 데이터를 찾지 못했습니다. 열 제목을 확인해주세요.');
+    }
+  } catch (err) {
+    showToast('엑셀 파일을 읽을 수 없습니다.');
+  }
+});
+
+document.getElementById('staff-search').addEventListener('input', renderStaffList);
+
+function renderStaffList() {
+  const list = loadStaff();
+  const q = document.getElementById('staff-search').value.trim().toLowerCase();
+  const filtered = q
+    ? list.filter(s =>
+        s.name.toLowerCase().includes(q) ||
+        (s.dept || '').toLowerCase().includes(q) ||
+        normalizePlate(s.plate).includes(normalizePlate(q)))
+    : list;
+
+  const container = document.getElementById('staff-list');
+  if (!filtered.length) {
+    container.innerHTML = `<div class="empty-note">${list.length ? '검색 결과가 없습니다.' : '등록된 차량 정보가 없습니다.'}</div>`;
+    return;
+  }
+  container.innerHTML = filtered.map(s => `
+    <div class="staff-item" data-id="${s.id}">
+      <div class="top">
+        <div>
+          <div class="name">${s.name}</div>
+          <div class="meta">${s.dept || '소속 미등록'} · ${s.phone || '연락처 미등록'}</div>
+          <div class="plate-tag">${s.plate}</div>
+        </div>
+        <div class="actions">
+          <button data-edit="${s.id}">✏️</button>
+          <button data-del="${s.id}">🗑️</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+document.getElementById('staff-list').addEventListener('click', e => {
+  const editBtn = e.target.closest('[data-edit]');
+  if (editBtn) {
+    const record = loadStaff().find(s => s.id === Number(editBtn.dataset.edit));
+    if (record) openAddForm(record);
+    return;
+  }
+  const delBtn = e.target.closest('[data-del]');
+  if (delBtn) {
+    const list = loadStaff().filter(s => s.id !== Number(delBtn.dataset.del));
+    saveStaffList(list);
+    renderStaffList();
+  }
+});
+
+/* ---------- History ---------- */
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })
+    + ' ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDateFull(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
+    + ' ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function fileTimestamp() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+}
+
+function escapeCsvField(value) {
+  const str = String(value == null ? '' : value);
+  if (/[",\n]/.test(str)) return '"' + str.replace(/"/g, '""') + '"';
+  return str;
+}
+
+function downloadHistoryExcel() {
+  const log = loadLog();
+  if (!log.length) { showToast('다운로드할 기록이 없습니다.'); return; }
+  const header = ['조회일시', '차량번호', '확인여부', '이름', '소속'];
+  const rows = log.map(r => [
+    formatDateFull(r.time),
+    r.plate,
+    r.matched ? '확인됨' : '미등록',
+    r.name || '',
+    r.dept || '',
+  ]);
+  const csvLines = [header, ...rows].map(row => row.map(escapeCsvField).join(','));
+  const csvContent = '\uFEFF' + csvLines.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `차량조회기록_${fileTimestamp()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function renderHistory() {
+  const log = loadLog();
+  const container = document.getElementById('history-list');
+  if (!log.length) {
+    container.innerHTML = '<div class="empty-note">조회 기록이 없습니다.</div>';
+    return;
+  }
+  container.innerHTML = `
+    <div style="display:flex; gap:8px; margin-bottom:4px;">
+      <button class="btn btn-ghost btn-sm" id="export-log-btn" style="flex:1;">엑셀 다운로드</button>
+      <button class="btn btn-danger-ghost btn-sm" id="clear-log-btn" style="flex:1;">전체 삭제</button>
+    </div>` +
+    log.map(r => `
+      <div class="history-item" data-id="${r.id}">
+        <div>
+          <div class="plate">${r.plate}</div>
+          <div class="when">${formatDate(r.time)}</div>
+          ${r.matched ? `<div class="who">${r.name} · ${r.dept || '소속 미등록'}</div>` : ''}
+        </div>
+        <span class="badge ${r.matched ? 'matched' : 'unmatched'}">${r.matched ? '확인됨' : '미등록'}</span>
+        <button class="del-btn" data-del-log="${r.id}">✕</button>
+      </div>`).join('');
+}
+
+document.getElementById('history-list').addEventListener('click', e => {
+  if (e.target.id === 'export-log-btn') {
+    downloadHistoryExcel();
+    return;
+  }
+  if (e.target.id === 'clear-log-btn') {
+    saveLog([]);
+    renderHistory();
+    return;
+  }
+  const del = e.target.closest('[data-del-log]');
+  if (del) {
+    const log = loadLog().filter(r => r.id !== Number(del.dataset.delLog));
+    saveLog(log);
+    renderHistory();
+  }
 });
 </script>
 </body>
