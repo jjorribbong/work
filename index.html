@@ -334,7 +334,7 @@
         </div>
 
         <div class="plate-input-row">
-          <input type="text" id="plate-input" placeholder="차량번호 (예: 12가3456)">
+          <input type="text" id="plate-input" placeholder="차량번호 또는 뒷자리 4자리">
           <button class="btn btn-primary btn-sm" id="lookup-btn">조회</button>
         </div>
       </div>
@@ -556,49 +556,65 @@ cameraInput.addEventListener('change', async (e) => {
 document.getElementById('lookup-btn').addEventListener('click', () => doLookup(plateInput.value));
 plateInput.addEventListener('keydown', e => { if (e.key === 'Enter') doLookup(plateInput.value); });
 
-function findStaffByPlate(plate) {
-  const norm = normalizePlate(plate);
-  if (!norm) return null;
-  return loadStaff().find(s => normalizePlate(s.plate) === norm) || null;
+function findStaffMatches(plate) {
+  const input = normalizePlate(plate);
+  if (!input) return [];
+  const list = loadStaff();
+  const exact = list.filter(s => normalizePlate(s.plate) === input);
+  if (exact.length) return exact;
+  if (/^\d{4}$/.test(input)) {
+    return list.filter(s => normalizePlate(s.plate).slice(-4) === input);
+  }
+  return [];
 }
 
 function doLookup(rawPlate) {
   const plate = (rawPlate || '').trim();
   if (!plate) { showToast('차량번호를 입력해주세요.'); return; }
-  const match = findStaffByPlate(plate);
-  renderLookupResult(plate, match);
+  const matches = findStaffMatches(plate);
+  renderLookupResult(plate, matches);
   const log = loadLog();
   log.unshift({
     id: Date.now(),
     time: new Date().toISOString(),
     plate,
-    matched: !!match,
-    name: match ? match.name : '',
-    dept: match ? match.dept : '',
+    matched: matches.length > 0,
+    name: matches.map(m => m.name).join(', '),
+    dept: matches.length === 1 ? (matches[0].dept || '') : (matches.length > 1 ? `${matches.length}건 일치` : ''),
   });
   saveLog(log.slice(0, 200));
 }
 
-function renderLookupResult(plate, match) {
-  if (match) {
-    resultArea.innerHTML = `
-      <div class="result-card">
-        <div class="plate-big">${plate}</div>
-        <div class="name">${match.name}</div>
-        <div class="dept">${match.dept || '소속 미등록'}</div>
-        <div class="phone">📞 ${match.phone || '연락처 미등록'}</div>
-        <div class="result-actions">
-          ${match.phone ? `<a class="btn btn-primary" href="tel:${match.phone}">전화 걸기</a>` : ''}
-          ${match.phone ? `<a class="btn btn-ghost" href="sms:${match.phone}">문자 보내기</a>` : ''}
-        </div>
-      </div>`;
-  } else {
+function renderMatchCard(match) {
+  return `
+    <div class="result-card">
+      <div class="plate-big">${match.plate}</div>
+      <div class="name">${match.name}</div>
+      <div class="dept">${match.dept || '소속 미등록'}</div>
+      <div class="phone">📞 ${match.phone || '연락처 미등록'}</div>
+      <div class="result-actions">
+        ${match.phone ? `<a class="btn btn-primary" href="tel:${match.phone}">전화 걸기</a>` : ''}
+        ${match.phone ? `<a class="btn btn-ghost" href="sms:${match.phone}">문자 보내기</a>` : ''}
+      </div>
+    </div>`;
+}
+
+function renderLookupResult(plate, matches) {
+  if (!matches.length) {
     resultArea.innerHTML = `
       <div class="result-card notfound">
         <div class="plate-big">${plate}</div>
         <div class="name">등록되지 않은 차량입니다</div>
       </div>`;
+    return;
   }
+  if (matches.length === 1) {
+    resultArea.innerHTML = renderMatchCard(matches[0]);
+    return;
+  }
+  resultArea.innerHTML =
+    `<div class="import-hint" style="margin-bottom:8px;">뒷자리 "${normalizePlate(plate)}"와 일치하는 차량이 ${matches.length}건 있습니다.</div>` +
+    matches.map(renderMatchCard).join('<div style="height:10px;"></div>');
 }
 
 /* ---------- Staff registry ---------- */
