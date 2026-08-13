@@ -346,6 +346,9 @@
     <div id="page-registry" class="page">
       <div class="card">
         <button class="btn btn-primary" id="show-add-form-btn">+ 새 차량 등록</button>
+        <button class="btn btn-ghost" id="excel-upload-btn" style="margin-top:8px;">📊 차량등록 현황 엑셀 업로드</button>
+        <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" style="display:none">
+        <div class="import-hint" style="margin-top:8px;">엑셀 파일의 첫 행은 열 제목(이름/소속/연락처/차량번호 등)이어야 합니다. 파일은 서버로 전송되지 않고 브라우저에서만 처리됩니다.</div>
 
         <div class="form-grid" id="add-form" style="display:none; margin-top:14px;">
           <input type="hidden" id="edit-id">
@@ -402,6 +405,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 const STAFF_KEY = 'staffVehicleDB';
 const LOG_KEY = 'plateLookupHistory';
@@ -662,6 +666,68 @@ document.getElementById('bulk-import-btn').addEventListener('click', () => {
   document.getElementById('bulk-import').value = '';
   renderStaffList();
   showToast(`${added}건 등록되었습니다.`);
+});
+
+const HEADER_ALIASES = {
+  name: ['이름', '성명', '성함', 'name'],
+  dept: ['소속', '부서', '부서명', '소속부서', 'department', 'dept'],
+  phone: ['연락처', '전화번호', '휴대전화', '휴대폰', '핸드폰', 'phone'],
+  plate: ['차량번호', '차량번호판', '번호판', '차량', 'plate'],
+};
+
+function pickField(row, aliases) {
+  const keys = Object.keys(row);
+  const norm = s => String(s).replace(/[\s()]/g, '').toLowerCase();
+  for (const alias of aliases) {
+    const key = keys.find(k => norm(k) === norm(alias));
+    if (key !== undefined) return String(row[key] ?? '').trim();
+  }
+  return '';
+}
+
+function importStaffRows(rows) {
+  const list = loadStaff();
+  let added = 0, skipped = 0;
+  rows.forEach((row, i) => {
+    const name = pickField(row, HEADER_ALIASES.name);
+    const plate = pickField(row, HEADER_ALIASES.plate);
+    if (!name || !plate) { skipped++; return; }
+    list.push({
+      id: Date.now() + i,
+      name,
+      dept: pickField(row, HEADER_ALIASES.dept),
+      phone: pickField(row, HEADER_ALIASES.phone),
+      plate,
+    });
+    added++;
+  });
+  saveStaffList(list);
+  return { added, skipped };
+}
+
+const excelFileInput = document.getElementById('excel-file-input');
+document.getElementById('excel-upload-btn').addEventListener('click', () => excelFileInput.click());
+
+excelFileInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  excelFileInput.value = '';
+  if (!file) return;
+  try {
+    const buf = await file.arrayBuffer();
+    const workbook = XLSX.read(buf, { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    if (!rows.length) { showToast('엑셀 파일에 데이터가 없습니다.'); return; }
+    const { added, skipped } = importStaffRows(rows);
+    renderStaffList();
+    if (added) {
+      showToast(`${added}건 등록되었습니다.${skipped ? ` (${skipped}건 제외)` : ''}`);
+    } else {
+      showToast('등록 가능한 데이터를 찾지 못했습니다. 열 제목을 확인해주세요.');
+    }
+  } catch (err) {
+    showToast('엑셀 파일을 읽을 수 없습니다.');
+  }
 });
 
 document.getElementById('staff-search').addEventListener('input', renderStaffList);
