@@ -1,0 +1,39 @@
+backend:
+  name: git-gateway
+  # ⚠️ Netlify에서 실제로 배포에 연결한 브랜치 이름으로 변경하세요
+  branch: main
+
+media_folder: "uploads"
+public_folder: "/uploads"
+
+publish_mode: simple
+
+collections:
+  - name: "site"
+    label: "홈페이지 콘텐츠"
+    files:
+      - name: "content"
+        label: "체험프로그램 & 갤러리"
+        file: "content/site.json"
+        fields:
+          - label: "체험프로그램"
+            name: "experiences"
+            widget: "list"
+            summary: "{{title}}"
+            fields:
+              - { label: "제목", name: "title", widget: "string" }
+              - { label: "소요시간 / 대상", name: "meta", widget: "string" }
+              - { label: "설명", name: "description", widget: "text" }
+          - label: "갤러리"
+            name: "gallery"
+            widget: "list"
+            summary: "{{label}}"
+            fields:
+              - { label: "라벨", name: "label", widget: "string" }
+              - {
+                  label: "사진",
+                  name: "image",
+                  widget: "image",
+                  required: false,
+                  hint: "비워두면 색상 플레이스홀더가 표시됩니다",
+                }
