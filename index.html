@@ -413,6 +413,7 @@ const SUMMARY_KEY = 'personnelSummaryImages';
 const NAME_ALIASES = ['이름', '성명', '성함', 'name'];
 const ID_ALIASES = ['사번', '교번', '학번', '사원번호', '직원번호', 'id', '번호'];
 const PHONE_ALIASES = ['연락처', '전화번호', '휴대전화', '휴대폰', '핸드폰', 'phone'];
+const BIRTHDATE_ALIASES = ['생년월일', '생일', 'birthdate', 'birth'];
 // A column like this means the table is a headcount/statistics recap (e.g.
 // "직종별 인원현황" listing several names per row next to a count), not a
 // one-row-per-person roster - even though it may also have a name column.
@@ -487,6 +488,7 @@ function resolveRoleKeys(columns) {
     nameKey: findAliasKey(cols, NAME_ALIASES),
     idKey: findAliasKey(cols, ID_ALIASES),
     phoneKey: findAliasKey(cols, PHONE_ALIASES),
+    birthDateKey: findAliasKey(cols, BIRTHDATE_ALIASES),
   };
 }
 function isNameAliasColumn(col) {
@@ -534,10 +536,15 @@ function importStaffRows(rows, category, headerCols, dedupeSet) {
     if (!name) { skipped++; return; }
     const values = {};
     cols.forEach(h => { values[h] = (row[h] ?? '').toString().trim(); });
-    // A row that is byte-for-byte identical (every column, not just the
-    // name) to one already imported in this batch is treated as an
-    // accidental duplicate in the source file, not a second person.
-    const sig = category + '|' + rowSignature(values);
+    // Same name + same birth date reliably identifies the same physical
+    // person even if one other field (e.g. department) was mistyped on a
+    // duplicated row - far more robust than requiring every column to
+    // match exactly. Two different people who share both a name and an
+    // exact birth date is not a realistic collision at this scale. Tables
+    // without a birth date column fall back to a full-row match.
+    const sig = roles.birthDateKey
+      ? category + '|n:' + normLabel(name) + '|b:' + normLabel(values[roles.birthDateKey] || '')
+      : category + '|' + rowSignature(values);
     if (dedupe.has(sig)) { duplicates++; return; }
     dedupe.add(sig);
     list.push({
