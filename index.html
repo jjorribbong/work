@@ -501,6 +501,14 @@ function looksLikePersonnelHeader(header) {
   const roles = resolveRoleKeys(header);
   return !!(roles.nameKey && !hasCountColumn(header));
 }
+// The overall "정·현원 현황" statistics table (정원/현원 by grade and track)
+// starts its header with two "구분" columns - a fingerprint that doesn't
+// match any other non-personnel table in these reports (department-level
+// 정원/현원/여석 boxes only have one "구분" column, not two). Everything
+// else that isn't personnel data is left out of the 현황표 tab entirely.
+function isCoreStatusHeader(header) {
+  return (header || []).length >= 2 && normLabel(header[0]) === '구분' && normLabel(header[1]) === '구분';
+}
 function rowSignature(values) {
   return Object.keys(values).sort().map(k => k + '=' + values[k]).join('|');
 }
@@ -963,27 +971,27 @@ function groupTablesByHeader(grids) {
     const header = grid[0];
     const sig = headerSignature(header);
     if (!sig) return;
-    if (!groups.has(sig)) groups.set(sig, { header, dataRows: [] });
+    if (!groups.has(sig)) groups.set(sig, { header: header.slice(), dataRows: [] });
     const group = groups.get(sig);
     grid.slice(1).forEach(row => {
       if (!row.some(c => c)) return;
-      if (isRepeatedHeaderRow(row, header)) return;
+      if (isRepeatedHeaderRow(row, header)) {
+        // A two-row header (e.g. "임용현황" merged across 3 columns in row 0,
+        // with 본교최초임용일/현직급임용일/현부서임용일 as the real column
+        // names in row 1) makes this row look like a repeated header rather
+        // than data - which is correct, it isn't a person. But its more
+        // specific labels are the real column names, so use them to replace
+        // the group-header text that colSpan otherwise repeated identically
+        // across those columns (which would collide when used as keys).
+        row.forEach((val, i) => {
+          if (val && val !== group.header[i]) group.header[i] = val;
+        });
+        return;
+      }
       group.dataRows.push(row);
     });
   });
   return groups;
-}
-
-function gridToCellsInfo(grid) {
-  const cellsInfo = [];
-  let maxCol = -1;
-  grid.forEach((row, r) => {
-    row.forEach((text, c) => {
-      cellsInfo.push({ rowAddr: r, colAddr: c, rowSpan: 1, colSpan: 1, text: text || '' });
-      if (c > maxCol) maxCol = c;
-    });
-  });
-  return { cellsInfo, maxRow: grid.length - 1, maxCol };
 }
 
 /* ---------- Summary/status table -> image ---------- */
@@ -1089,8 +1097,6 @@ async function handleHwpxFileSelected(e) {
     // for the 현황표 image tab.
     const allGroups = Array.from(groupTablesByHeader(tables.map(t => t.grid)).values());
     const personnelGroups = allGroups.filter(g => looksLikePersonnelHeader(g.header));
-    const summaryGroupList = allGroups.filter(g =>
-      !looksLikePersonnelHeader(g.header) && g.header.filter(Boolean).length >= 2 && g.dataRows.length >= 1);
 
     if (!personnelGroups.length) {
       showToast('표에서 이름이 포함된 인사자료를 찾지 못했습니다. 표의 첫 행(제목행)을 확인해주세요.');
@@ -1113,33 +1119,43 @@ async function handleHwpxFileSelected(e) {
     }
     renderStaffList();
 
+    // Only the overall 정·현원 현황 statistics table is captured as an
+    // image - everything else non-personnel (by-rank breakdowns, the
+    // 직군별 인원현황 recap, per-department 정원/현원/여석 boxes) is left
+    // out entirely. It's usually rendered as two side-by-side <hp:tbl>
+    // elements (e.g. 일반직/기술직 then 관리운영직/별정직), so all matching
+    // tables are stacked into a single combined image in document order.
+    const coreStatusTables = tables.filter(t =>
+      !looksLikePersonnelHeader(t.grid[0] || []) && isCoreStatusHeader(t.grid[0] || []));
+
     let summarySavedCount = 0;
     let summaryQuotaFailed = false;
-    if (summaryGroupList.length) {
-      const images = loadSummaryImages();
-      let idx = 1;
-      for (const g of summaryGroupList) {
-        try {
-          const mergedGrid = [g.header, ...g.dataRows];
-          const { cellsInfo, maxRow, maxCol } = gridToCellsInfo(mergedGrid);
-          const dataUrl = await captureTableAsImage(cellsInfo, maxRow, maxCol);
-          images.push({
-            id: nextRecordId(),
-            category,
-            label: `${category} 현황표 ${idx}`,
-            dataUrl,
-            capturedAt: new Date().toISOString(),
-          });
-          idx++;
-        } catch (imgErr) { /* skip this one image, keep going */ }
-      }
-      if (images.length > 12) images.splice(0, images.length - 12);
+    if (coreStatusTables.length) {
       try {
+        let rowOffset = 0;
+        let combinedMaxCol = 0;
+        const combinedCells = [];
+        coreStatusTables.forEach(t => {
+          t.cellsInfo.forEach(c => combinedCells.push({ ...c, rowAddr: c.rowAddr + rowOffset }));
+          combinedMaxCol = Math.max(combinedMaxCol, t.maxCol);
+          rowOffset += t.maxRow + 2; // blank row as a visual gap between stacked tables
+        });
+        const combinedMaxRow = rowOffset - 2;
+        const dataUrl = await captureTableAsImage(combinedCells, combinedMaxRow, combinedMaxCol);
+        const images = loadSummaryImages();
+        images.push({
+          id: nextRecordId(),
+          category,
+          label: `${category} 정·현원 현황`,
+          dataUrl,
+          capturedAt: new Date().toISOString(),
+        });
+        if (images.length > 12) images.splice(0, images.length - 12);
         saveSummaryImages(images);
-        summarySavedCount = idx - 1;
-      } catch (quotaErr) {
-        // localStorage full (base64 images are large) - don't fail the whole
-        // import over this, the personnel records above are already saved.
+        summarySavedCount = 1;
+      } catch (err) {
+        // Capture or localStorage-quota failure here shouldn't fail the
+        // whole import - the personnel records above are already saved.
         summaryQuotaFailed = true;
       }
     }
