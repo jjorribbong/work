@@ -300,7 +300,9 @@
       <div class="card">
         <button class="btn btn-primary" id="show-add-form-btn">+ 새 인사정보 등록</button>
         <button class="btn btn-ghost" id="hwpx-upload-btn" style="margin-top:8px;">📄 인사기록 현황 한글파일 업로드</button>
-        <input type="file" id="hwpx-file-input" accept=".hwpx,.hwp" style="display:none">
+        <input type="file" id="hwpx-file-input" accept=".hwpx,.hwp,application/haansofthwp,application/vnd.hancom.hwp,application/x-hwp,application/vnd.hancom.hwpx,application/hwp+zip,application/hwpx+zip,application/zip,application/x-zip-compressed,application/octet-stream,*/*" style="display:none">
+        <button class="btn btn-ghost btn-sm" id="hwpx-upload-btn-any" style="margin-top:8px;">파일이 안 보이면: 전체 파일에서 찾기</button>
+        <input type="file" id="hwpx-file-input-any" style="display:none">
         <div class="import-hint" style="margin-top:8px;">한글(HWP) 문서에 표로 작성된 인사자료 파일(.hwpx)을 업로드하세요. 표의 첫 행은 열 제목(이름/사번/부서/직급/입사일/연락처 등)이어야 합니다. 구버전 한글(.hwp) 형식은 지원되지 않으니 "다른 이름으로 저장"에서 한글 문서(*.hwpx)로 저장해주세요. 파일은 서버로 전송되지 않고 이 기기의 브라우저에서만 처리·저장됩니다.</div>
 
         <div class="form-grid" id="add-form" style="display:none; margin-top:14px;">
@@ -667,11 +669,14 @@ function gridToRecords(grid) {
 }
 
 const hwpxFileInput = document.getElementById('hwpx-file-input');
+const hwpxFileInputAny = document.getElementById('hwpx-file-input-any');
 document.getElementById('hwpx-upload-btn').addEventListener('click', () => hwpxFileInput.click());
+document.getElementById('hwpx-upload-btn-any').addEventListener('click', () => hwpxFileInputAny.click());
 
-hwpxFileInput.addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  hwpxFileInput.value = '';
+async function handleHwpxFileSelected(e) {
+  const input = e.target;
+  const file = input.files[0];
+  input.value = '';
   if (!file) return;
   try {
     const tables = await parseHwpxTables(file);
@@ -699,7 +704,10 @@ hwpxFileInput.addEventListener('change', async (e) => {
       showToast('한글 파일을 읽는 중 오류가 발생했습니다.');
     }
   }
-});
+}
+
+hwpxFileInput.addEventListener('change', handleHwpxFileSelected);
+hwpxFileInputAny.addEventListener('change', handleHwpxFileSelected);
 
 document.getElementById('staff-search').addEventListener('input', renderStaffList);
 
