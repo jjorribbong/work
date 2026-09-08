@@ -444,12 +444,12 @@ function loadSummaryImages() {
 }
 function saveSummaryImages(list) { localStorage.setItem(SUMMARY_KEY, JSON.stringify(list)); }
 
-function showToast(msg) {
+function showToast(msg, duration) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.style.display = 'block';
   clearTimeout(showToast._timer);
-  showToast._timer = setTimeout(() => { t.style.display = 'none'; }, 2400);
+  showToast._timer = setTimeout(() => { t.style.display = 'none'; }, duration || 2400);
 }
 
 /* ---------- Tab navigation ---------- */
@@ -962,8 +962,8 @@ async function captureTableAsImage(cellsInfo, maxRow, maxCol) {
   wrapper.appendChild(table);
   document.body.appendChild(wrapper);
   try {
-    const canvas = await html2canvas(wrapper, { backgroundColor: '#ffffff', scale: 2 });
-    return canvas.toDataURL('image/png');
+    const canvas = await html2canvas(wrapper, { backgroundColor: '#ffffff', scale: 1.5 });
+    return canvas.toDataURL('image/jpeg', 0.85);
   } finally {
     document.body.removeChild(wrapper);
   }
@@ -1006,6 +1006,11 @@ async function handleHwpxFileSelected(e) {
   if (!file) return;
   const category = document.getElementById('upload-category').value;
 
+  if (typeof JSZip === 'undefined' || typeof html2canvas === 'undefined') {
+    showToast('필요한 구성 요소를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침 후 다시 시도해주세요.', 6000);
+    return;
+  }
+
   try {
     const tables = await parseHwpxTables(file);
     if (!tables.length) {
@@ -1037,6 +1042,8 @@ async function handleHwpxFileSelected(e) {
       if (headerSignature(t.grid[0] || []) === mainSig) return false;
       return t.maxRow >= 1 && t.maxCol >= 1;
     });
+    let summarySavedCount = 0;
+    let summaryQuotaFailed = false;
     if (summaryTables.length) {
       const images = loadSummaryImages();
       let idx = 1;
@@ -1051,22 +1058,32 @@ async function handleHwpxFileSelected(e) {
             capturedAt: new Date().toISOString(),
           });
           idx++;
-        } catch (imgErr) { /* skip failed capture, keep going */ }
+        } catch (imgErr) { /* skip this one image, keep going */ }
       }
-      if (images.length > 30) images.splice(0, images.length - 30);
-      saveSummaryImages(images);
+      if (images.length > 12) images.splice(0, images.length - 12);
+      try {
+        saveSummaryImages(images);
+        summarySavedCount = idx - 1;
+      } catch (quotaErr) {
+        // localStorage full (base64 images are large) - don't fail the whole
+        // import over this, the personnel records above are already saved.
+        summaryQuotaFailed = true;
+      }
     }
 
     if (added) {
-      showToast(`${added}건 등록되었습니다.${skipped ? ` (${skipped}건 제외)` : ''}${summaryTables.length ? ` · 현황표 ${summaryTables.length}건 저장됨` : ''}`);
+      let msg = `${added}건 등록되었습니다.${skipped ? ` (${skipped}건 제외)` : ''}`;
+      if (summarySavedCount) msg += ` · 현황표 ${summarySavedCount}건 저장됨`;
+      if (summaryQuotaFailed) msg += ' · 현황표 이미지는 저장공간 부족으로 저장하지 못했습니다';
+      showToast(msg);
     } else {
       showToast('등록 가능한 데이터를 찾지 못했습니다. 표의 첫 행(제목행)을 확인해주세요.');
     }
   } catch (err) {
     if (err && err.message === 'NOT_HWPX') {
-      showToast('이 파일은 읽을 수 없습니다. 한글 프로그램에서 "다른 이름으로 저장" > 한글 문서(*.hwpx)로 저장한 뒤 다시 시도해주세요.');
+      showToast('이 파일은 읽을 수 없습니다. 한글 프로그램에서 "다른 이름으로 저장" > 한글 문서(*.hwpx)로 저장한 뒤 다시 시도해주세요.', 6000);
     } else {
-      showToast('한글 파일을 읽는 중 오류가 발생했습니다.');
+      showToast('오류가 발생했습니다: ' + (err && err.message ? err.message : String(err)), 6000);
     }
   }
 }
