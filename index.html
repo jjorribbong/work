@@ -909,6 +909,22 @@ function headerSignature(headerRow) {
   return (headerRow || []).map(h => normLabel(h)).filter(Boolean).join('|');
 }
 
+function isRepeatedHeaderRow(row, header) {
+  // Some documents repeat the header row before each department's block
+  // (for on-screen/print readability). Detect and drop those so they don't
+  // get imported as fake records (e.g. a "name" of literally "성명").
+  const roles = resolveRoleKeys(header);
+  if (roles.nameKey) {
+    const idx = header.indexOf(roles.nameKey);
+    if (NAME_ALIASES.some(a => normLabel(a) === normLabel(row[idx]))) return true;
+  }
+  const meaningfulCols = header.filter(Boolean);
+  if (meaningfulCols.length && meaningfulCols.every((h, i) => normLabel(row[header.indexOf(h)]) === normLabel(h))) {
+    return true;
+  }
+  return false;
+}
+
 function groupTablesByHeader(grids) {
   const groups = new Map();
   grids.forEach(grid => {
@@ -918,9 +934,25 @@ function groupTablesByHeader(grids) {
     if (!sig) return;
     if (!groups.has(sig)) groups.set(sig, { header, dataRows: [] });
     const group = groups.get(sig);
-    grid.slice(1).forEach(row => { if (row.some(c => c)) group.dataRows.push(row); });
+    grid.slice(1).forEach(row => {
+      if (!row.some(c => c)) return;
+      if (isRepeatedHeaderRow(row, header)) return;
+      group.dataRows.push(row);
+    });
   });
   return groups;
+}
+
+function gridToCellsInfo(grid) {
+  const cellsInfo = [];
+  let maxCol = -1;
+  grid.forEach((row, r) => {
+    row.forEach((text, c) => {
+      cellsInfo.push({ rowAddr: r, colAddr: c, rowSpan: 1, colSpan: 1, text: text || '' });
+      if (c > maxCol) maxCol = c;
+    });
+  });
+  return { cellsInfo, maxRow: grid.length - 1, maxCol };
 }
 
 /* ---------- Summary/status table -> image ---------- */
@@ -1038,18 +1070,26 @@ async function handleHwpxFileSelected(e) {
     const { added, skipped } = importStaffRows(recordRows, category, headerCols);
     renderStaffList();
 
-    const summaryTables = tables.filter(t => {
-      if (headerSignature(t.grid[0] || []) === mainSig) return false;
-      return t.maxRow >= 1 && t.maxCol >= 1;
-    });
+    // Non-main tables are grouped by header too: a per-department "정원/
+    // 현원/여석" box that repeats once per department is many separate
+    // <hp:tbl> elements sharing one header, and should become a single
+    // combined status table image rather than one image per department.
+    const nonMainGrids = tables
+      .filter(t => headerSignature(t.grid[0] || []) !== mainSig)
+      .map(t => t.grid);
+    const summaryGroupList = Array.from(groupTablesByHeader(nonMainGrids).values())
+      .filter(g => g.header.filter(Boolean).length >= 2 && g.dataRows.length >= 1);
+
     let summarySavedCount = 0;
     let summaryQuotaFailed = false;
-    if (summaryTables.length) {
+    if (summaryGroupList.length) {
       const images = loadSummaryImages();
       let idx = 1;
-      for (const t of summaryTables) {
+      for (const g of summaryGroupList) {
         try {
-          const dataUrl = await captureTableAsImage(t.cellsInfo, t.maxRow, t.maxCol);
+          const mergedGrid = [g.header, ...g.dataRows];
+          const { cellsInfo, maxRow, maxCol } = gridToCellsInfo(mergedGrid);
+          const dataUrl = await captureTableAsImage(cellsInfo, maxRow, maxCol);
           images.push({
             id: Date.now() + idx,
             category,
