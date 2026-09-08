@@ -413,6 +413,13 @@ const SUMMARY_KEY = 'personnelSummaryImages';
 const NAME_ALIASES = ['이름', '성명', '성함', 'name'];
 const ID_ALIASES = ['사번', '교번', '학번', '사원번호', '직원번호', 'id', '번호'];
 const PHONE_ALIASES = ['연락처', '전화번호', '휴대전화', '휴대폰', '핸드폰', 'phone'];
+// A column like this means the table is a headcount/statistics recap (e.g.
+// "직종별 인원현황" listing several names per row next to a count), not a
+// one-row-per-person roster - even though it may also have a name column.
+const COUNT_ALIASES = ['인원', '정원', '현원', '여석', '계', '합계', '소계'];
+
+let idCounter = Date.now();
+function nextRecordId() { return idCounter++; }
 
 function normalizeKey(str) {
   return (str || '').toString().replace(/[\s\-]/g, '').toUpperCase();
@@ -485,6 +492,16 @@ function resolveRoleKeys(columns) {
 function isNameAliasColumn(col) {
   return NAME_ALIASES.some(a => normLabel(a) === normLabel(col));
 }
+function hasCountColumn(header) {
+  return (header || []).some(h => h && COUNT_ALIASES.some(a => normLabel(a) === normLabel(h)));
+}
+function looksLikePersonnelHeader(header) {
+  const roles = resolveRoleKeys(header);
+  return !!(roles.nameKey && !hasCountColumn(header));
+}
+function rowSignature(values) {
+  return Object.keys(values).sort().map(k => k + '=' + values[k]).join('|');
+}
 function recordName(r) {
   if (r.nameKey && r.values[r.nameKey]) return r.values[r.nameKey];
   const firstCol = (r.columns || [])[0];
@@ -506,18 +523,25 @@ function computeGlobalSchema() {
   return seen;
 }
 
-function importStaffRows(rows, category, headerCols) {
+function importStaffRows(rows, category, headerCols, dedupeSet) {
   const cols = (headerCols || []).filter(Boolean);
   const roles = resolveRoleKeys(cols);
   const list = loadStaff();
-  let added = 0, skipped = 0;
-  rows.forEach((row, i) => {
+  const dedupe = dedupeSet || new Set();
+  let added = 0, skipped = 0, duplicates = 0;
+  rows.forEach(row => {
     const name = roles.nameKey ? (row[roles.nameKey] || '').toString().trim() : '';
     if (!name) { skipped++; return; }
     const values = {};
     cols.forEach(h => { values[h] = (row[h] ?? '').toString().trim(); });
+    // A row that is byte-for-byte identical (every column, not just the
+    // name) to one already imported in this batch is treated as an
+    // accidental duplicate in the source file, not a second person.
+    const sig = category + '|' + rowSignature(values);
+    if (dedupe.has(sig)) { duplicates++; return; }
+    dedupe.add(sig);
     list.push({
-      id: Date.now() + i,
+      id: nextRecordId(),
       category: category || '기타',
       columns: [...cols],
       values,
@@ -528,7 +552,7 @@ function importStaffRows(rows, category, headerCols) {
     added++;
   });
   saveStaffList(list);
-  return { added, skipped };
+  return { added, skipped, duplicates };
 }
 
 /* ---------- Search / Lookup ---------- */
@@ -1050,35 +1074,37 @@ async function handleHwpxFileSelected(e) {
       return;
     }
 
-    const groups = groupTablesByHeader(tables.map(t => t.grid));
-    let mainSig = null, mainCount = -1;
-    for (const [sig, g] of groups.entries()) {
-      if (g.dataRows.length > mainCount) { mainCount = g.dataRows.length; mainSig = sig; }
-    }
-    if (mainSig === null) {
-      showToast('표에서 데이터를 찾지 못했습니다.');
+    // A document can hold several distinct personnel rosters at once (e.g.
+    // separate 정규직/계약직 tables with different columns, each possibly
+    // split into one fragment per department/page). Every header-group that
+    // has a name column - and isn't itself a headcount/statistics recap -
+    // is imported as personnel data; everything else becomes a candidate
+    // for the 현황표 image tab.
+    const allGroups = Array.from(groupTablesByHeader(tables.map(t => t.grid)).values());
+    const personnelGroups = allGroups.filter(g => looksLikePersonnelHeader(g.header));
+    const summaryGroupList = allGroups.filter(g =>
+      !looksLikePersonnelHeader(g.header) && g.header.filter(Boolean).length >= 2 && g.dataRows.length >= 1);
+
+    if (!personnelGroups.length) {
+      showToast('표에서 이름이 포함된 인사자료를 찾지 못했습니다. 표의 첫 행(제목행)을 확인해주세요.');
       return;
     }
-    const mainGroup = groups.get(mainSig);
-    const headerCols = mainGroup.header.filter(Boolean);
-    const recordRows = mainGroup.dataRows.map(row => {
-      const obj = {};
-      mainGroup.header.forEach((h, i) => { if (h) obj[h] = row[i] ?? ''; });
-      return obj;
-    });
 
-    const { added, skipped } = importStaffRows(recordRows, category, headerCols);
+    let added = 0, skipped = 0, duplicates = 0;
+    const dedupeSet = new Set();
+    for (const g of personnelGroups) {
+      const headerCols = g.header.filter(Boolean);
+      const recordRows = g.dataRows.map(row => {
+        const obj = {};
+        g.header.forEach((h, i) => { if (h) obj[h] = row[i] ?? ''; });
+        return obj;
+      });
+      const result = importStaffRows(recordRows, category, headerCols, dedupeSet);
+      added += result.added;
+      skipped += result.skipped;
+      duplicates += result.duplicates;
+    }
     renderStaffList();
-
-    // Non-main tables are grouped by header too: a per-department "정원/
-    // 현원/여석" box that repeats once per department is many separate
-    // <hp:tbl> elements sharing one header, and should become a single
-    // combined status table image rather than one image per department.
-    const nonMainGrids = tables
-      .filter(t => headerSignature(t.grid[0] || []) !== mainSig)
-      .map(t => t.grid);
-    const summaryGroupList = Array.from(groupTablesByHeader(nonMainGrids).values())
-      .filter(g => g.header.filter(Boolean).length >= 2 && g.dataRows.length >= 1);
 
     let summarySavedCount = 0;
     let summaryQuotaFailed = false;
@@ -1091,7 +1117,7 @@ async function handleHwpxFileSelected(e) {
           const { cellsInfo, maxRow, maxCol } = gridToCellsInfo(mergedGrid);
           const dataUrl = await captureTableAsImage(cellsInfo, maxRow, maxCol);
           images.push({
-            id: Date.now() + idx,
+            id: nextRecordId(),
             category,
             label: `${category} 현황표 ${idx}`,
             dataUrl,
@@ -1112,10 +1138,14 @@ async function handleHwpxFileSelected(e) {
     }
 
     if (added) {
-      let msg = `${added}건 등록되었습니다.${skipped ? ` (${skipped}건 제외)` : ''}`;
+      let msg = `${added}건 등록되었습니다.`;
+      const notes = [];
+      if (skipped) notes.push(`이름 없음 ${skipped}건 제외`);
+      if (duplicates) notes.push(`중복 ${duplicates}건 제외`);
+      if (notes.length) msg += ` (${notes.join(', ')})`;
       if (summarySavedCount) msg += ` · 현황표 ${summarySavedCount}건 저장됨`;
       if (summaryQuotaFailed) msg += ' · 현황표 이미지는 저장공간 부족으로 저장하지 못했습니다';
-      showToast(msg);
+      showToast(msg, 6000);
     } else {
       showToast('등록 가능한 데이터를 찾지 못했습니다. 표의 첫 행(제목행)을 확인해주세요.');
     }
