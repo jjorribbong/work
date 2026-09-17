@@ -144,6 +144,8 @@
   .pattern-title { font-size: 14px; font-weight: 700; margin-top: 5px; }
   .pattern-meta { font-size: 12px; color: var(--sub); margin-top: 3px; }
   .del-btn { flex-shrink: 0; background: none; border: none; color: var(--gray); font-size: 16px; padding: 2px 4px; cursor: pointer; }
+  .month-group-title { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; font-weight: 800; margin-bottom: 8px; }
+  .month-group-count { font-size: 12px; color: var(--sub); font-weight: 500; }
 
   /* Schedule checkbox (inline in search results) */
   .sched-checkbox { flex-shrink: 0; width: 20px; height: 20px; margin-top: 2px; accent-color: var(--blue); }
@@ -234,6 +236,18 @@
 
     <!-- 일정 탭 -->
     <div id="page-schedule" class="page">
+      <div class="card">
+        <div class="filter-row" style="margin-bottom:0;">
+          <select id="sched-drafter-select" class="select-input"><option value="">담당자 전체</option></select>
+          <select id="sched-month-select" class="select-input">
+            <option value="">월 전체</option>
+            <option value="1">1월</option><option value="2">2월</option><option value="3">3월</option>
+            <option value="4">4월</option><option value="5">5월</option><option value="6">6월</option>
+            <option value="7">7월</option><option value="8">8월</option><option value="9">9월</option>
+            <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+          </select>
+        </div>
+      </div>
       <div id="schedule-content"></div>
     </div>
 
@@ -755,8 +769,7 @@ function getTodayMD() {
 // what tells the app "this is an annual task", so even a single registered
 // occurrence (minYears=1) is reminder-worthy. Clustering happens per
 // drafter so two different people's similarly-worded tasks never merge.
-function computeUpcomingAll(windowDays) {
-  const items = getSchedule();
+function computeUpcomingAll(items, windowDays) {
   const byDrafter = {};
   items.forEach(it => { (byDrafter[it.drafter] = byDrafter[it.drafter] || []).push(it); });
 
@@ -794,9 +807,9 @@ let calYear, calMonth, calSelectedMD;
   calSelectedMD = { month: now.getMonth() + 1, day: now.getDate() };
 })();
 
-function scheduleByMonthDay() {
+function scheduleByMonthDay(items) {
   const map = {};
-  getSchedule().forEach(it => {
+  items.forEach(it => {
     const k = it.month + '-' + it.day;
     (map[k] = map[k] || []).push(it);
   });
@@ -823,8 +836,8 @@ function renderCalDayItems(byMD) {
 // The calendar's displayed year only decides weekday alignment - a dot
 // matches by (month, day) alone, since a schedule item recurs every year
 // regardless of which year it was originally registered from.
-function renderScheduleCalendar() {
-  const byMD = scheduleByMonthDay();
+function renderScheduleCalendar(items) {
+  const byMD = scheduleByMonthDay(items);
   const dowNames = ['일', '월', '화', '수', '목', '금', '토'];
   const firstDow = new Date(calYear, calMonth, 1).getDay();
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
@@ -858,27 +871,83 @@ function renderScheduleCalendar() {
     </div>`;
 }
 
+// Every drafter who has at least one registered item - lets a team lead
+// pick a person out of the whole roster rather than typing a name.
+function populateScheduleDrafterOptions() {
+  const sel = document.getElementById('sched-drafter-select');
+  const current = sel.value;
+  const drafters = [...new Set(getSchedule().map(s => s.drafter).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
+  sel.innerHTML = '<option value="">담당자 전체</option>' +
+    drafters.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+  if (drafters.includes(current)) sel.value = current;
+}
+
+function getFilteredSchedule() {
+  const drafterFilter = document.getElementById('sched-drafter-select').value;
+  const monthFilter = document.getElementById('sched-month-select').value;
+  return getSchedule().filter(it => {
+    if (drafterFilter && it.drafter !== drafterFilter) return false;
+    if (monthFilter && it.month !== Number(monthFilter)) return false;
+    return true;
+  });
+}
+
+// Full roster view for a team lead: every matching item, grouped by month
+// so the whole team's registered work is scannable without clicking
+// through each calendar day one at a time.
+function renderScheduleFullList(items) {
+  const byMonth = Array.from({ length: 13 }, () => []);
+  items.forEach(it => byMonth[it.month].push(it));
+
+  let html = `<div class="card"><div class="stat-section-title">등록된 업무 일정 (${items.length.toLocaleString()}건)</div>`;
+  if (!items.length) {
+    html += `<div class="empty-note">조건에 맞는 등록된 일정이 없습니다.</div>`;
+  } else {
+    for (let m = 1; m <= 12; m++) {
+      if (!byMonth[m].length) continue;
+      const monthItems = byMonth[m].slice().sort((a, b) => a.day - b.day || a.drafter.localeCompare(b.drafter, 'ko'));
+      html += `<div class="month-group-title" style="margin-top:14px;"><span>${m}월</span><span class="month-group-count">${monthItems.length}건</span></div>`;
+      html += monthItems.map(it => `
+        <div class="pattern-item">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <div>
+              <div class="pattern-title">${escapeHtml(it.drafter)} · ${escapeHtml(it.title)}</div>
+              <div class="pattern-meta">${m}월 ${it.day}일 (${it.year}년 등록${it.docType ? ' · ' + escapeHtml(it.docType) : ''})</div>
+            </div>
+            <button type="button" class="del-btn" data-remove-key="${escapeHtml(it.key)}" title="스케줄에서 제거">✕</button>
+          </div>
+        </div>`).join('');
+    }
+  }
+  html += `</div>`;
+  return html;
+}
+
 function renderScheduleView() {
   const container = document.getElementById('schedule-content');
-  const items = getSchedule();
-  const upcoming = computeUpcomingAll(REMINDER_WINDOW_DAYS);
+  populateScheduleDrafterOptions();
+  const items = getFilteredSchedule();
+  const upcoming = computeUpcomingAll(items, REMINDER_WINDOW_DAYS);
 
   let html = `
     <div class="card">
       <div class="stat-section-title">다가오는 업무 (${REMINDER_WINDOW_DAYS}일 이내)</div>
-      <div class="import-hint" style="margin-top:0; margin-bottom:10px;">전체 등록된 일정 ${items.length.toLocaleString()}건</div>
       ${upcoming.length ? upcoming.map(u => `
         <div class="upcoming-item">
           <div class="upcoming-date">${u.month}월 ${u.day}일경 · D-${u.distance}</div>
           <div class="upcoming-title">${escapeHtml(u.drafter)} · ${escapeHtml(u.title)}</div>
           <div class="upcoming-years">스케줄 등록 · ${u.years.join(', ')}</div>
-        </div>`).join('') : `<div class="empty-note">${items.length ? '다가오는 반복 업무가 없습니다.' : '아직 스케줄에 등록된 업무가 없습니다. 조회 탭에서 검색한 뒤 체크박스로 등록해보세요.'}</div>`}
+        </div>`).join('') : `<div class="empty-note">${items.length ? '다가오는 반복 업무가 없습니다.' : '조건에 맞는 등록된 업무가 없습니다.'}</div>`}
     </div>`;
 
-  html += renderScheduleCalendar();
+  html += renderScheduleCalendar(items);
+  html += renderScheduleFullList(items);
 
   container.innerHTML = html;
 }
+
+document.getElementById('sched-drafter-select').addEventListener('change', renderScheduleView);
+document.getElementById('sched-month-select').addEventListener('change', renderScheduleView);
 
 document.getElementById('schedule-content').addEventListener('click', e => {
   if (e.target.id === 'sc-cal-prev') {
