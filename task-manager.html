@@ -132,22 +132,6 @@
   .stat-bar-fill { background: var(--blue); height: 100%; border-radius: 999px; }
 
   /* Schedule tab */
-  .schedule-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-  .schedule-name { font-size: 17px; font-weight: 800; }
-  .schedule-sub { font-size: 12px; color: var(--sub); margin-top: 2px; }
-  .schedule-header .btn { width: auto; }
-
-  .month-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-  .month-cell {
-    border: 1px solid var(--border); border-radius: 10px; background: #fff;
-    padding: 10px 4px; text-align: center; cursor: pointer;
-  }
-  .month-cell.active { background: var(--blue); border-color: var(--blue); }
-  .month-cell.active .m-label, .month-cell.active .m-count { color: #fff; }
-  .month-cell .m-label { font-size: 13px; font-weight: 700; }
-  .month-cell .m-count { font-size: 11px; color: var(--orange); margin-top: 3px; min-height: 14px; font-weight: 700; }
-  .month-cell.active .m-count { color: #fff; }
-
   .upcoming-item { padding: 10px 0; border-top: 1px solid var(--border); }
   .upcoming-item:first-child { border-top: none; padding-top: 0; }
   .upcoming-date { font-size: 12px; color: var(--orange); font-weight: 700; }
@@ -881,16 +865,8 @@ function renderScheduleView() {
 
   let html = `
     <div class="card">
-      <div class="schedule-header">
-        <div>
-          <div class="schedule-name">전체 일정</div>
-          <div class="schedule-sub">스케줄 등록 ${items.length.toLocaleString()}건</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
       <div class="stat-section-title">다가오는 업무 (${REMINDER_WINDOW_DAYS}일 이내)</div>
+      <div class="import-hint" style="margin-top:0; margin-bottom:10px;">전체 등록된 일정 ${items.length.toLocaleString()}건</div>
       ${upcoming.length ? upcoming.map(u => `
         <div class="upcoming-item">
           <div class="upcoming-date">${u.month}월 ${u.day}일경 · D-${u.distance}</div>
