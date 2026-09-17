@@ -170,20 +170,25 @@
   .pattern-meta { font-size: 12px; color: var(--sub); margin-top: 3px; }
   .del-btn { flex-shrink: 0; background: none; border: none; color: var(--gray); font-size: 16px; padding: 2px 4px; cursor: pointer; }
 
-  /* Schedule pick-list */
-  .sched-row {
-    display: flex; align-items: flex-start; gap: 10px;
-    padding: 12px 0; border-top: 1px solid var(--border); cursor: pointer;
-  }
-  .sched-row:first-child { border-top: none; padding-top: 0; }
+  /* Schedule checkbox (inline in search results) */
   .sched-checkbox { flex-shrink: 0; width: 20px; height: 20px; margin-top: 2px; accent-color: var(--blue); }
-  .sched-row-body { flex: 1; min-width: 0; }
-  .sched-row-top { display: flex; gap: 6px; margin-bottom: 5px; }
-  .sched-row-title { font-size: 14px; font-weight: 700; line-height: 1.4; }
-  .sched-row-date { font-size: 12px; color: var(--sub); margin-top: 3px; }
+  .doc-item-check-row { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
 
-  .month-group-title { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; font-weight: 800; margin-bottom: 8px; }
-  .month-group-count { font-size: 12px; color: var(--sub); font-weight: 500; }
+  /* Calendar */
+  .sc-cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .sc-cal-nav button { background: none; border: none; font-size: 18px; color: var(--blue); padding: 6px 10px; font-weight: 700; }
+  .sc-cal-nav .sc-cal-title { font-size: 16px; font-weight: 800; }
+  .sc-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+  .sc-cal-dow { font-size: 11px; color: var(--sub); font-weight: 700; padding-bottom: 6px; }
+  .sc-cal-cell {
+    aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border-radius: 10px; font-size: 13px; color: var(--text); cursor: pointer; position: relative; background: #fff;
+  }
+  .sc-cal-cell.empty { background: none; cursor: default; }
+  .sc-cal-cell.today { border: 1.5px solid var(--blue); font-weight: 700; }
+  .sc-cal-cell.selected { background: var(--blue); color: #fff; }
+  .sc-cal-cell .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--orange); margin-top: 2px; }
+  .sc-cal-cell.selected .dot { background: #fff; }
 
   details.import-box summary {
     font-size: 13px; color: var(--blue); font-weight: 700; cursor: pointer; padding: 6px 0;
@@ -235,8 +240,15 @@
         <button class="chip" data-regtype="발송">생산/발송</button>
       </div>
       <div class="filter-row">
-        <select id="doctype-select" class="select-input"><option value="">문서종류 전체</option></select>
-        <select id="year-select" class="select-input"><option value="">연도 전체</option></select>
+        <select id="doctype-select" class="select-input"><option value="">문서종류</option></select>
+        <select id="year-select" class="select-input"><option value="">연도</option></select>
+        <select id="month-select" class="select-input">
+          <option value="">월</option>
+          <option value="1">1월</option><option value="2">2월</option><option value="3">3월</option>
+          <option value="4">4월</option><option value="5">5월</option><option value="6">6월</option>
+          <option value="7">7월</option><option value="8">8월</option><option value="9">9월</option>
+          <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+        </select>
       </div>
       <button class="btn btn-primary" id="search-btn" style="margin-bottom:10px;">🔍 검색</button>
       <div class="list-toolbar">
@@ -524,6 +536,7 @@ const titleSearchInput = document.getElementById('title-search');
 const drafterSearchInput = document.getElementById('drafter-search');
 const docTypeSelect = document.getElementById('doctype-select');
 const yearSelect = document.getElementById('year-select');
+const monthSelect = document.getElementById('month-select');
 const listContainer = document.getElementById('doc-list');
 const countLabel = document.getElementById('count-label');
 const loadMoreBtn = document.getElementById('load-more-btn');
@@ -531,12 +544,12 @@ const sortToggleBtn = document.getElementById('sort-toggle-btn');
 
 function populateFilterOptions() {
   const docTypes = [...new Set(allDocs.map(d => d.docType).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
-  docTypeSelect.innerHTML = '<option value="">문서종류 전체</option>' +
+  docTypeSelect.innerHTML = '<option value="">문서종류</option>' +
     docTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
 
   const years = [...new Set(allDocs.map(d => (d.regDate || '').slice(0, 4)).filter(y => /^\d{4}$/.test(y)))]
     .sort((a, b) => b.localeCompare(a));
-  yearSelect.innerHTML = '<option value="">연도 전체</option>' +
+  yearSelect.innerHTML = '<option value="">연도</option>' +
     years.map(y => `<option value="${y}">${y}년</option>`).join('');
 
   const drafters = [...new Set(allDocs.map(d => d.drafter).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
@@ -556,10 +569,9 @@ document.getElementById('regtype-chip-row').addEventListener('click', e => {
   currentRegTypeChip = chip.dataset.regtype;
 });
 
-const SORT_LABELS = { desc: '최신순', asc: '오래된순', month: '월별' };
 sortToggleBtn.addEventListener('click', () => {
-  sortOrder = sortOrder === 'desc' ? 'asc' : sortOrder === 'asc' ? 'month' : 'desc';
-  sortToggleBtn.textContent = SORT_LABELS[sortOrder] + ' ▾';
+  sortOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+  sortToggleBtn.textContent = (sortOrder === 'desc' ? '최신순' : '오래된순') + ' ▾';
   applyFilters();
 });
 
@@ -584,26 +596,22 @@ function applyFilters() {
   const drafterQuery = drafterSearchInput.value.trim().toLowerCase();
   const docTypeFilter = docTypeSelect.value;
   const yearFilter = yearSelect.value;
+  const monthFilter = monthSelect.value;
 
   filteredDocs = allDocs.filter(d => {
     if (currentRegTypeChip !== 'all' && shortRegType(d.regType) !== currentRegTypeChip) return false;
     if (docTypeFilter && d.docType !== docTypeFilter) return false;
     if (yearFilter && !(d.regDate || '').startsWith(yearFilter)) return false;
+    if (monthFilter) {
+      const p = parseEntry(d);
+      if (!p || p.month !== Number(monthFilter)) return false;
+    }
     if (titleQuery && !(d.title || '').toLowerCase().includes(titleQuery)) return false;
     if (drafterQuery && !(d.drafter || '').toLowerCase().includes(drafterQuery)) return false;
     return true;
   });
 
   filteredDocs.sort((a, b) => {
-    if (sortOrder === 'month') {
-      const pa = parseEntry(a), pb = parseEntry(b);
-      if (!pa && !pb) return 0;
-      if (!pa) return 1;
-      if (!pb) return -1;
-      if (pa.month !== pb.month) return pa.month - pb.month;
-      if (pa.day !== pb.day) return pa.day - pb.day;
-      return pb.year - pa.year;
-    }
     const ad = a.regDate || '', bd = b.regDate || '';
     if (ad === bd) return 0;
     return sortOrder === 'desc' ? (ad < bd ? 1 : -1) : (ad < bd ? -1 : 1);
@@ -613,41 +621,29 @@ function applyFilters() {
   renderList();
 }
 
-function renderDocCard(d) {
+// Every search-result row carries the same schedule checkbox used in the
+// 일정 tab, so a recurring task can be registered right from these results.
+function renderDocCard(d, checked) {
   const short = shortRegType(d.regType);
   return `
     <div class="doc-item">
-      <div class="title-row">
-        <span class="badge ${short === '접수' ? 'badge-receive' : 'badge-send'}">${escapeHtml(short)}</span>
-        ${d.docType ? `<span class="badge badge-doctype">${escapeHtml(d.docType)}</span>` : ''}
-      </div>
-      <div class="doc-title">${escapeHtml(d.title)}</div>
-      ${d.regDate ? `<div class="doc-meta">${escapeHtml(d.regDate)}</div>` : ''}
-      <div class="doc-rows">
-        ${d.approverPosition ? `<div class="row"><span class="k">결재권자</span>${escapeHtml(d.approverPosition)}</div>` : ''}
-        ${d.drafter ? `<div class="row"><span class="k">기안자</span>${escapeHtml(d.drafter)}</div>` : ''}
-        ${d.recipient ? `<div class="row"><span class="k">수신/발신</span>${escapeHtml(d.recipient)}</div>` : ''}
-      </div>
+      <label class="doc-item-check-row">
+        <input type="checkbox" class="sched-checkbox" data-doc-id="${d.id}" ${checked ? 'checked' : ''}>
+        <div style="flex:1; min-width:0;">
+          <div class="title-row">
+            <span class="badge ${short === '접수' ? 'badge-receive' : 'badge-send'}">${escapeHtml(short)}</span>
+            ${d.docType ? `<span class="badge badge-doctype">${escapeHtml(d.docType)}</span>` : ''}
+          </div>
+          <div class="doc-title">${escapeHtml(d.title)}</div>
+          ${d.regDate ? `<div class="doc-meta">${escapeHtml(d.regDate)}</div>` : ''}
+          <div class="doc-rows">
+            ${d.approverPosition ? `<div class="row"><span class="k">결재권자</span>${escapeHtml(d.approverPosition)}</div>` : ''}
+            ${d.drafter ? `<div class="row"><span class="k">기안자</span>${escapeHtml(d.drafter)}</div>` : ''}
+            ${d.recipient ? `<div class="row"><span class="k">수신/발신</span>${escapeHtml(d.recipient)}</div>` : ''}
+          </div>
+        </div>
+      </label>
     </div>`;
-}
-
-function renderMonthGroupedList(docs) {
-  const scheduledKeys = new Set(getSchedule().map(s => s.key));
-  const groups = Array.from({ length: 13 }, () => []);
-  docs.forEach(d => {
-    const p = parseEntry(d);
-    if (p) groups[p.month].push(d);
-  });
-  let html = `<div class="import-hint" style="margin-bottom:10px;">체크박스를 선택하면 해당 업무가 매년 반복되는 일정으로 스케줄에 등록됩니다 (일정 탭에서 확인 가능).</div>`;
-  for (let m = 1; m <= 12; m++) {
-    if (!groups[m].length) continue;
-    html += `
-      <div class="card">
-        <div class="month-group-title"><span>${m}월</span><span class="month-group-count">${groups[m].length.toLocaleString()}건</span></div>
-        ${groups[m].map(d => renderScheduleDocRow(d, scheduledKeys.has(scheduleKey(d)))).join('')}
-      </div>`;
-  }
-  return html;
 }
 
 function renderList() {
@@ -660,7 +656,8 @@ function renderList() {
     loadMoreBtn.style.display = 'none';
     return;
   }
-  listContainer.innerHTML = sortOrder === 'month' ? renderMonthGroupedList(slice) : slice.map(renderDocCard).join('');
+  const scheduledKeys = new Set(getSchedule().map(s => s.key));
+  listContainer.innerHTML = slice.map(d => renderDocCard(d, scheduledKeys.has(scheduleKey(d)))).join('');
   loadMoreBtn.style.display = visibleCount < filteredDocs.length ? 'block' : 'none';
 }
 
@@ -742,24 +739,6 @@ function toggleScheduleItem(d) {
 }
 function removeScheduleItem(key) {
   saveSchedule(getSchedule().filter(s => s.key !== key));
-}
-
-// Used by the 조회 tab's 월별 sort mode to let a search result be checked
-// straight into the schedule without a separate step.
-function renderScheduleDocRow(d, checked) {
-  const short = shortRegType(d.regType);
-  return `
-    <label class="sched-row">
-      <input type="checkbox" class="sched-checkbox" data-doc-id="${d.id}" ${checked ? 'checked' : ''}>
-      <div class="sched-row-body">
-        <div class="sched-row-top">
-          <span class="badge ${short === '접수' ? 'badge-receive' : 'badge-send'}">${escapeHtml(short)}</span>
-          ${d.docType ? `<span class="badge badge-doctype">${escapeHtml(d.docType)}</span>` : ''}
-        </div>
-        <div class="sched-row-title">${d.drafter ? escapeHtml(d.drafter) + ' · ' : ''}${escapeHtml(d.title)}</div>
-        <div class="sched-row-date">${escapeHtml(d.regDate)}</div>
-      </div>
-    </label>`;
 }
 
 function normalizeTitleForMatch(title) {
@@ -886,51 +865,79 @@ function checkReminders() {
   if (gotoBtn) gotoBtn.addEventListener('click', () => switchPage('schedule'));
 }
 
-/* ---------- .ics calendar export ---------- */
-function icsEscape(s) {
-  return String(s == null ? '' : s).replace(/([,;])/g, '\\$1').replace(/\n/g, '\\n');
-}
-function toIcsDate(y, m, d) { return `${y}${String(m).padStart(2, '0')}${String(d).padStart(2, '0')}`; }
-
-// One VEVENT per registered item, set to repeat yearly (RRULE FREQ=YEARLY)
-// from its original date - calendar apps handle a past DTSTART fine and
-// keep recurring it every year going forward.
-function generateIcs(items) {
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//청주대학교 업무 매니저//KO', 'CALSCALE:GREGORIAN'];
-  const stamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-  items.forEach((it, i) => {
-    lines.push('BEGIN:VEVENT');
-    lines.push(`UID:cju-taskmgr-${i}-${Date.now()}@local`);
-    lines.push(`DTSTAMP:${stamp}`);
-    lines.push(`DTSTART;VALUE=DATE:${toIcsDate(it.year, it.month, it.day)}`);
-    lines.push('RRULE:FREQ=YEARLY');
-    lines.push(`SUMMARY:${icsEscape((it.drafter ? '[' + it.drafter + '] ' : '') + it.title)}`);
-    if (it.docType) lines.push(`DESCRIPTION:${icsEscape('문서종류: ' + it.docType)}`);
-    lines.push('END:VEVENT');
-  });
-  lines.push('END:VCALENDAR');
-  return lines.join('\r\n');
-}
-
-function exportScheduleIcs() {
-  const items = getSchedule();
-  if (!items.length) { showToast('내보낼 스케줄이 없습니다.'); return; }
-  const ics = generateIcs(items);
-  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const pad = n => String(n).padStart(2, '0');
-  const d = new Date();
-  a.href = url;
-  a.download = `업무일정_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.ics`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('ics 파일을 다운로드했습니다. 휴대폰 캘린더 앱에서 "가져오기"로 열어주세요.', 5000);
-}
-
 /* ---------- Schedule tab rendering ---------- */
+let calYear, calMonth, calSelectedMD;
+(function initCal() {
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+  calSelectedMD = { month: now.getMonth() + 1, day: now.getDate() };
+})();
+
+function scheduleByMonthDay() {
+  const map = {};
+  getSchedule().forEach(it => {
+    const k = it.month + '-' + it.day;
+    (map[k] = map[k] || []).push(it);
+  });
+  return map;
+}
+
+function renderCalDayItems(byMD) {
+  if (!calSelectedMD) return '';
+  const key = calSelectedMD.month + '-' + calSelectedMD.day;
+  const items = (byMD[key] || []).slice().sort((a, b) => b.year - a.year);
+  if (!items.length) return '<div class="empty-note">이 날짜에 등록된 업무가 없습니다.</div>';
+  return items.map(it => `
+    <div class="pattern-item">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+        <div>
+          <div class="pattern-title">${escapeHtml(it.drafter)} · ${escapeHtml(it.title)}</div>
+          <div class="pattern-meta">${it.year}년 등록${it.docType ? ' · ' + escapeHtml(it.docType) : ''}</div>
+        </div>
+        <button type="button" class="del-btn" data-remove-key="${escapeHtml(it.key)}" title="스케줄에서 제거">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+// The calendar's displayed year only decides weekday alignment - a dot
+// matches by (month, day) alone, since a schedule item recurs every year
+// regardless of which year it was originally registered from.
+function renderScheduleCalendar() {
+  const byMD = scheduleByMonthDay();
+  const dowNames = ['일', '월', '화', '수', '목', '금', '토'];
+  const firstDow = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const today = new Date();
+  const isToday = d => today.getFullYear() === calYear && today.getMonth() === calMonth && today.getDate() === d;
+
+  let grid = dowNames.map(d => `<div class="sc-cal-dow">${d}</div>`).join('');
+  for (let i = 0; i < firstDow; i++) grid += `<div class="sc-cal-cell empty"></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = (calMonth + 1) + '-' + d;
+    const has = byMD[key] && byMD[key].length;
+    const isSelected = calSelectedMD && calSelectedMD.month === calMonth + 1 && calSelectedMD.day === d;
+    const cls = ['sc-cal-cell'];
+    if (isToday(d)) cls.push('today');
+    if (isSelected) cls.push('selected');
+    grid += `<div class="${cls.join(' ')}" data-month="${calMonth + 1}" data-day="${d}">${d}${has ? '<span class="dot"></span>' : ''}</div>`;
+  }
+
+  return `
+    <div class="card">
+      <div class="sc-cal-nav">
+        <button type="button" id="sc-cal-prev">‹</button>
+        <div class="sc-cal-title">${calYear}년 ${calMonth + 1}월</div>
+        <button type="button" id="sc-cal-next">›</button>
+      </div>
+      <div class="sc-cal-grid">${grid}</div>
+    </div>
+    <div class="card">
+      <div class="stat-section-title">${calSelectedMD ? calSelectedMD.month + '월 ' + calSelectedMD.day + '일 업무' : '날짜를 선택하세요'}</div>
+      ${renderCalDayItems(byMD)}
+    </div>`;
+}
+
 function renderScheduleView() {
   const container = document.getElementById('schedule-content');
   const items = getSchedule();
@@ -958,46 +965,16 @@ function renderScheduleView() {
 
   html += `
     <div class="card">
-      <button class="btn btn-ghost" id="ics-export-btn">📅 휴대폰 캘린더 앱으로 내보내기 (.ics)</button>
-      <div class="import-hint">다운로드한 파일을 휴대폰 캘린더 앱(구글 캘린더 등)에서 "가져오기"로 열면 매년 반복되는 일정으로 등록됩니다. 실시간 자동 동기화는 아니라서, 스케줄을 추가/삭제한 뒤에는 다시 내보내기 해서 다시 가져와야 최신 상태로 맞춰집니다.</div>
-    </div>
-
-    <div class="card">
       <div class="stat-section-title">다가오는 업무 (${REMINDER_WINDOW_DAYS}일 이내)</div>
       ${upcoming.length ? upcoming.map(u => `
         <div class="upcoming-item">
           <div class="upcoming-date">${u.month}월 ${u.day}일경 · D-${u.distance}</div>
           <div class="upcoming-title">${escapeHtml(u.drafter)} · ${escapeHtml(u.title)}</div>
           <div class="upcoming-years">스케줄 등록 · ${u.years.join(', ')}</div>
-        </div>`).join('') : `<div class="empty-note">${items.length ? '다가오는 반복 업무가 없습니다.' : '아직 스케줄에 등록된 업무가 없습니다. 조회 탭에서 월별 정렬로 검색한 뒤 체크박스로 등록해보세요.'}</div>`}
+        </div>`).join('') : `<div class="empty-note">${items.length ? '다가오는 반복 업무가 없습니다.' : '아직 스케줄에 등록된 업무가 없습니다. 조회 탭에서 검색한 뒤 체크박스로 등록해보세요.'}</div>`}
     </div>`;
 
-  const byMonth = Array.from({ length: 13 }, () => []);
-  items.forEach(it => byMonth[it.month].push(it));
-
-  html += `<div class="card"><div class="stat-section-title">월별 일정</div>`;
-  const anyMonth = items.length > 0;
-  if (!anyMonth) {
-    html += `<div class="empty-note">등록된 일정이 없습니다.</div>`;
-  } else {
-    for (let m = 1; m <= 12; m++) {
-      if (!byMonth[m].length) continue;
-      const monthItems = byMonth[m].slice().sort((a, b) => a.day - b.day || b.year - a.year);
-      html += `
-        <div class="month-group-title" style="margin-top:14px;"><span>${m}월</span><span class="month-group-count">${monthItems.length}건</span></div>
-        ${monthItems.map(it => `
-          <div class="pattern-item">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-              <div>
-                <div class="pattern-title">${escapeHtml(it.drafter)} · ${escapeHtml(it.title)}</div>
-                <div class="pattern-meta">${m}월 ${it.day}일 (${it.year}년 등록${it.docType ? ' · ' + escapeHtml(it.docType) : ''})</div>
-              </div>
-              <button type="button" class="del-btn" data-remove-key="${escapeHtml(it.key)}" title="스케줄에서 제거">✕</button>
-            </div>
-          </div>`).join('')}`;
-    }
-  }
-  html += `</div>`;
+  html += renderScheduleCalendar();
 
   container.innerHTML = html;
 }
@@ -1010,7 +987,22 @@ document.getElementById('schedule-content').addEventListener('click', e => {
     return;
   }
   if (e.target.id === 'request-notify-btn') { requestNotifyPermission(); return; }
-  if (e.target.id === 'ics-export-btn') { exportScheduleIcs(); return; }
+  if (e.target.id === 'sc-cal-prev') {
+    calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; }
+    renderScheduleView();
+    return;
+  }
+  if (e.target.id === 'sc-cal-next') {
+    calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; }
+    renderScheduleView();
+    return;
+  }
+  const cell = e.target.closest('.sc-cal-cell[data-day]');
+  if (cell) {
+    calSelectedMD = { month: Number(cell.dataset.month), day: Number(cell.dataset.day) };
+    renderScheduleView();
+    return;
+  }
   const removeBtn = e.target.closest('[data-remove-key]');
   if (removeBtn) {
     removeScheduleItem(removeBtn.dataset.removeKey);
