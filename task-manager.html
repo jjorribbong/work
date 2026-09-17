@@ -221,7 +221,7 @@
           <select id="doctype-select" class="select-input"><option value="">전체</option></select>
         </div>
         <div>
-          <span class="field-label">연도</span>
+          <span class="field-label">학년도</span>
           <select id="year-select" class="select-input"><option value="">전체</option></select>
         </div>
         <div>
@@ -235,7 +235,7 @@
           </select>
         </div>
       </div>
-      <div class="import-hint" style="margin-top:-4px;">연도는 3월 1일 ~ 다음해 2월 말일 기준입니다 (예: 2025년 1월 문서는 "2024년").</div>
+      <div class="import-hint" style="margin-top:-4px;">학년도는 3월 1일부터 다음해 2월 말일까지입니다 (예: 2026년 1월 문서는 "2025학년도").</div>
       <div style="display:flex; gap:8px; margin-bottom:10px; margin-top:8px;">
         <button class="btn btn-primary" id="search-btn" style="flex:2;">🔍 검색</button>
         <button class="btn btn-ghost" id="reset-filters-btn" style="flex:1;">초기화</button>
@@ -303,9 +303,14 @@
     <!-- 통계 탭 -->
     <div id="page-stats" class="page">
       <div class="card">
+        <span class="field-label">학년도</span>
+        <select id="stat-year-select" class="select-input"><option value="">전체</option></select>
+        <div class="import-hint" style="margin-bottom:0;">학년도는 3월 1일부터 다음해 2월 말일까지입니다. 선택하면 아래 통계(학년도별 제외)가 해당 학년도 기준으로 좁혀집니다.</div>
+      </div>
+      <div class="card">
         <div class="stat-total">
           <div class="num" id="stat-total-num">0건</div>
-          <div class="label">전체 등록 문서</div>
+          <div class="label" id="stat-total-label">전체 등록 문서</div>
         </div>
       </div>
       <div class="card">
@@ -317,13 +322,12 @@
         <div id="stat-doctype"></div>
       </div>
       <div class="card">
-        <div class="stat-section-title">연도별</div>
-        <div class="import-hint" style="margin-top:0; margin-bottom:10px;">3월 1일 ~ 다음해 2월 말일 기준</div>
-        <div id="stat-year"></div>
-      </div>
-      <div class="card">
         <div class="stat-section-title">담당자별 (상위 15명)</div>
         <div id="stat-drafter"></div>
+      </div>
+      <div class="card">
+        <div class="stat-section-title">학년도별</div>
+        <div id="stat-year"></div>
       </div>
     </div>
   </main>
@@ -435,6 +439,7 @@ function switchPage(name) {
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => switchPage(btn.dataset.tab));
 });
+document.getElementById('stat-year-select').addEventListener('change', renderStats);
 
 /* ---------- Excel parsing ---------- */
 function parseSheetRows(rows) {
@@ -561,15 +566,25 @@ const countLabel = document.getElementById('count-label');
 const loadMoreBtn = document.getElementById('load-more-btn');
 const sortToggleBtn = document.getElementById('sort-toggle-btn');
 
+// 학년도(3월 1일~다음해 2월 말일) 목록. 조회 탭 필터와 통계 탭 드롭다운이 함께 쓴다.
+function getFiscalYears() {
+  return [...new Set(allDocs.map(d => { const p = parseEntry(d); return p ? p.year : null; }).filter(y => y != null))]
+    .sort((a, b) => b - a);
+}
+
 function populateFilterOptions() {
   const docTypes = [...new Set(allDocs.map(d => d.docType).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
   docTypeSelect.innerHTML = '<option value="">전체</option>' +
     docTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
 
-  const years = [...new Set(allDocs.map(d => { const p = parseEntry(d); return p ? p.year : null; }).filter(y => y != null))]
-    .sort((a, b) => b - a);
-  yearSelect.innerHTML = '<option value="">전체</option>' +
-    years.map(y => `<option value="${y}">${y}년</option>`).join('');
+  const years = getFiscalYears();
+  const yearOptionsHtml = years.map(y => `<option value="${y}">${y}학년도</option>`).join('');
+  yearSelect.innerHTML = '<option value="">전체</option>' + yearOptionsHtml;
+
+  const statYearSelect = document.getElementById('stat-year-select');
+  const currentStatYear = statYearSelect.value;
+  statYearSelect.innerHTML = '<option value="">전체</option>' + yearOptionsHtml;
+  if (years.some(y => String(y) === currentStatYear)) statYearSelect.value = currentStatYear;
 
   const drafters = [...new Set(allDocs.map(d => d.drafter).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
   document.getElementById('drafter-datalist').innerHTML = drafters.map(n => `<option value="${escapeHtml(n)}">`).join('');
@@ -771,31 +786,39 @@ function statBarHtml(label, count, total) {
 }
 
 function renderStats() {
-  const total = allDocs.length;
+  const yearFilter = document.getElementById('stat-year-select').value;
+  const scoped = yearFilter
+    ? allDocs.filter(d => { const p = parseEntry(d); return p && String(p.year) === yearFilter; })
+    : allDocs;
+
+  const total = scoped.length;
   document.getElementById('stat-total-num').textContent = total.toLocaleString() + '건';
+  document.getElementById('stat-total-label').textContent = yearFilter ? `${yearFilter}학년도 등록 문서` : '전체 등록 문서';
 
   const byRegType = {};
-  allDocs.forEach(d => { const s = shortRegType(d.regType); byRegType[s] = (byRegType[s] || 0) + 1; });
+  scoped.forEach(d => { const s = shortRegType(d.regType); byRegType[s] = (byRegType[s] || 0) + 1; });
   document.getElementById('stat-regtype').innerHTML =
     Object.entries(byRegType).sort((a, b) => b[1] - a[1]).map(([k, v]) => statBarHtml(k, v, total)).join('')
     || '<div class="empty-note">데이터가 없습니다.</div>';
 
   const byDocType = {};
-  allDocs.forEach(d => { if (d.docType) byDocType[d.docType] = (byDocType[d.docType] || 0) + 1; });
+  scoped.forEach(d => { if (d.docType) byDocType[d.docType] = (byDocType[d.docType] || 0) + 1; });
   document.getElementById('stat-doctype').innerHTML =
     Object.entries(byDocType).sort((a, b) => b[1] - a[1]).map(([k, v]) => statBarHtml(k, v, total)).join('')
     || '<div class="empty-note">데이터가 없습니다.</div>';
 
+  const byDrafter = {};
+  scoped.forEach(d => { if (d.drafter) byDrafter[d.drafter] = (byDrafter[d.drafter] || 0) + 1; });
+  document.getElementById('stat-drafter').innerHTML =
+    Object.entries(byDrafter).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([k, v]) => statBarHtml(k, v, total)).join('')
+    || '<div class="empty-note">데이터가 없습니다.</div>';
+
+  // 학년도별 분포는 드롭다운 선택과 무관하게 항상 전체 학년도를 보여준다.
+  const grandTotal = allDocs.length;
   const byYear = {};
   allDocs.forEach(d => { const p = parseEntry(d); if (p) byYear[p.year] = (byYear[p.year] || 0) + 1; });
   document.getElementById('stat-year').innerHTML =
-    Object.entries(byYear).sort((a, b) => Number(b[0]) - Number(a[0])).map(([k, v]) => statBarHtml(k + '년', v, total)).join('')
-    || '<div class="empty-note">데이터가 없습니다.</div>';
-
-  const byDrafter = {};
-  allDocs.forEach(d => { if (d.drafter) byDrafter[d.drafter] = (byDrafter[d.drafter] || 0) + 1; });
-  document.getElementById('stat-drafter').innerHTML =
-    Object.entries(byDrafter).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([k, v]) => statBarHtml(k, v, total)).join('')
+    Object.entries(byYear).sort((a, b) => Number(b[0]) - Number(a[0])).map(([k, v]) => statBarHtml(k + '학년도', v, grandTotal)).join('')
     || '<div class="empty-note">데이터가 없습니다.</div>';
 }
 
@@ -803,9 +826,10 @@ function renderStats() {
 const SCHEDULE_KEY = 'cjuDocRegisterSchedule';
 const REMINDER_WINDOW_DAYS = 14;
 
-// 청주대학교 업무연도는 3월 1일부터 다음해 2월 말일까지이므로, 1~2월 문서는
-// 달력상 해당 연도가 아니라 전년도 업무연도로 계산한다 (예: 2025년 1월 문서는
-// "2024년"). month/day는 달력 기준 그대로 유지 - 재귀 매칭·달력 렌더링에 쓰인다.
+// 청주대학교는 학년도(3월 1일~다음해 2월 말일) 단위로 업무가 운영되므로, 1~2월
+// 문서는 달력상 해당 연도가 아니라 전년도 학년도로 계산한다 (예: 2026년 1월
+// 문서는 "2025학년도"). month/day는 달력 기준 그대로 유지 - 재귀 매칭·달력
+// 렌더링에 쓰인다.
 function parseEntry(d) {
   const m = /^(\d{4})\/(\d{2})\/(\d{2})/.exec(d.regDate || '');
   if (!m) return null;
@@ -1008,7 +1032,7 @@ function renderCalDayItems(byMD) {
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
         <div>
           <div class="pattern-title"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${colorForDrafter(it.drafter)};"></span> ${escapeHtml(it.drafter)} · ${escapeHtml(it.title)}</div>
-          <div class="pattern-meta">${it.year}년 등록${it.docType ? ' · ' + escapeHtml(it.docType) : ''}</div>
+          <div class="pattern-meta">${it.year}학년도 등록${it.docType ? ' · ' + escapeHtml(it.docType) : ''}</div>
         </div>
         <button type="button" class="del-btn" data-remove-key="${escapeHtml(it.key)}" title="스케줄에서 제거">✕</button>
       </div>
@@ -1106,7 +1130,7 @@ function renderScheduleFullList(items) {
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
             <div>
               <div class="pattern-title"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${colorForDrafter(it.drafter)};"></span> ${escapeHtml(it.drafter)} · ${escapeHtml(it.title)}</div>
-              <div class="pattern-meta">${m}월 ${it.day}일 (${it.year}년 등록${it.docType ? ' · ' + escapeHtml(it.docType) : ''})</div>
+              <div class="pattern-meta">${m}월 ${it.day}일 (${it.year}학년도 등록${it.docType ? ' · ' + escapeHtml(it.docType) : ''})</div>
             </div>
             <button type="button" class="del-btn" data-remove-key="${escapeHtml(it.key)}" title="스케줄에서 제거">✕</button>
           </div>
@@ -1130,7 +1154,7 @@ function renderScheduleView() {
         <div class="upcoming-item">
           <div class="upcoming-date">${u.month}월 ${u.day}일경 · D-${u.distance}</div>
           <div class="upcoming-title">${escapeHtml(u.drafter)} · ${escapeHtml(u.title)}</div>
-          <div class="upcoming-years">스케줄 등록 · ${u.years.join(', ')}</div>
+          <div class="upcoming-years">스케줄 등록 · ${u.years.map(y => y + '학년도').join(', ')}</div>
         </div>`).join('') : `<div class="empty-note">${items.length ? '다가오는 반복 업무가 없습니다.' : '조건에 맞는 등록된 업무가 없습니다.'}</div>`}
     </div>`;
 
