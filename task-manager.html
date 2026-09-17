@@ -45,15 +45,10 @@
     top: 0;
     z-index: 20;
   }
-
   header h1 { font-size: 20px; font-weight: 700; }
   header .sub { font-size: 12px; opacity: 0.85; margin-top: 2px; }
 
-  main {
-    flex: 1;
-    padding: 16px 16px 110px;
-  }
-
+  main { flex: 1; padding: 16px 16px 100px; }
   .page { display: none; }
   .page.active { display: block; }
 
@@ -66,16 +61,9 @@
   .card + .card { margin-top: 14px; }
 
   .btn {
-    display: block;
-    width: 100%;
-    border: none;
-    border-radius: 12px;
-    padding: 15px;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    text-align: center;
-    text-decoration: none;
+    display: block; width: 100%; border: none; border-radius: 12px;
+    padding: 15px; font-size: 15px; font-weight: 700; cursor: pointer;
+    text-align: center; text-decoration: none;
   }
   .btn-primary { background: var(--blue); color: #fff; }
   .btn-ghost { background: none; color: var(--blue); border: 1.5px solid var(--blue); }
@@ -83,229 +71,78 @@
   .btn-sm { padding: 9px 12px; font-size: 13px; border-radius: 9px; }
   .btn[disabled] { opacity: 0.5; cursor: default; }
 
-  .field-label {
-    font-size: 12px;
-    color: var(--sub);
-    font-weight: 700;
-    margin-bottom: 6px;
-    display: block;
+  input[type=text] {
+    width: 100%; border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; font-size: 15px; background: #fff;
   }
-
-  input[type=text], input[type=date], textarea {
-    width: 100%;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 14px;
-    font-size: 15px;
-    background: #fff;
-    font-family: inherit;
-  }
-  textarea { resize: vertical; min-height: 70px; }
-
   select.select-input {
-    width: 100%;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 14px;
-    font-size: 15px;
-    background: #fff;
-    color: var(--text);
+    width: 100%; border: 1px solid var(--border); border-radius: 10px;
+    padding: 11px 12px; font-size: 14px; background: #fff; color: var(--text);
   }
 
-  .form-grid { display: flex; flex-direction: column; gap: 10px; }
-  .form-actions { display: flex; gap: 8px; margin-top: 4px; }
-  .form-actions .btn { flex: 1; }
-  .field-row { display: flex; flex-direction: column; gap: 4px; }
-  .field-row-2 { display: flex; gap: 10px; }
-  .field-row-2 > div { flex: 1; }
+  .search-row { margin-bottom: 10px; }
+  .filter-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .filter-row > * { flex: 1; min-width: 0; }
 
-  .empty-note {
-    text-align: center;
-    color: var(--sub);
-    font-size: 13px;
-    padding: 30px 10px;
-  }
-
-  /* ---- Filter chips ---- */
-  .chip-row {
-    display: flex;
-    gap: 6px;
-    overflow-x: auto;
-    padding-bottom: 2px;
-  }
+  .chip-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; margin-bottom: 10px; }
   .chip {
-    flex-shrink: 0;
-    padding: 7px 14px;
-    border-radius: 999px;
-    font-size: 13px;
-    font-weight: 700;
-    background: #fff;
-    color: var(--sub);
-    border: 1px solid var(--border);
-    cursor: pointer;
+    flex-shrink: 0; padding: 7px 14px; border-radius: 999px; font-size: 13px;
+    font-weight: 700; background: #fff; color: var(--sub); border: 1px solid var(--border); cursor: pointer;
   }
   .chip.active { background: var(--blue); color: #fff; border-color: var(--blue); }
 
-  /* ---- Badges ---- */
-  .badge {
-    display: inline-block;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 2px 8px;
-    border-radius: 999px;
-    vertical-align: middle;
-  }
-  .badge.dept { background: #eef2ff; color: #4338ca; margin-left: 6px; }
-  .badge.assignee { background: #f0fdf4; color: #15803d; margin-left: 6px; }
-  .badge.prio-high { background: #fef2f2; color: var(--red); }
-  .badge.prio-mid { background: #fff7ed; color: var(--orange); }
-  .badge.prio-low { background: #f3f4f6; color: var(--sub); }
-  .badge.status-done { background: #ecfdf3; color: var(--green); }
-  .badge.status-open { background: #eff6ff; color: var(--blue); }
-  .badge.dday-over { background: #fef2f2; color: var(--red); }
+  .list-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .count-label { font-size: 12px; color: var(--sub); }
+  .sort-btn { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12px; color: var(--sub); }
 
-  /* ---- Task list ---- */
-  .task-item {
-    background: var(--card);
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-top: 10px;
-  }
-  .task-item.done { opacity: 0.6; }
-  .task-item .top { display: flex; align-items: flex-start; gap: 10px; }
-  .task-item .check {
-    flex-shrink: 0;
-    width: 24px; height: 24px;
-    border-radius: 50%;
-    border: 2px solid var(--border);
-    background: #fff;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px;
-    color: #fff;
-    margin-top: 1px;
-  }
-  .task-item.done .check { background: var(--green); border-color: var(--green); }
-  .task-item .body { flex: 1; min-width: 0; }
-  .task-item .title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
-  .task-item .title { font-weight: 700; font-size: 15px; }
-  .task-item.done .title { text-decoration: line-through; color: var(--sub); }
-  .task-item .meta-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
-  .task-item .due { font-size: 12px; color: var(--sub); }
-  .task-item .actions { display: flex; gap: 6px; flex-shrink: 0; }
-  .task-item .actions button {
-    background: none; border: none; font-size: 16px; padding: 4px; color: var(--sub);
-  }
-  .task-item .memo-preview {
-    font-size: 13px; color: var(--sub); margin-top: 8px;
-    padding-top: 8px; border-top: 1px solid var(--border);
-    white-space: pre-wrap;
-  }
-  .task-item .attach-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .task-item .attach-chip {
-    font-size: 11px; color: var(--blue); background: #eff6ff;
-    padding: 4px 9px; border-radius: 999px; text-decoration: none;
-  }
+  .empty-note { text-align: center; color: var(--sub); font-size: 13px; padding: 30px 10px; }
 
-  .custom-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
-  .custom-row input { flex: 1; }
-  .attach-preview-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .attach-preview-chip {
-    font-size: 12px; background: #f3f4f6; padding: 5px 8px 5px 10px; border-radius: 999px;
-    display: flex; align-items: center; gap: 6px;
-  }
-  .attach-preview-chip button { background: none; border: none; color: var(--red); font-size: 13px; cursor: pointer; }
+  /* Document card */
+  .doc-item { background: var(--card); border-radius: 12px; padding: 14px 16px; margin-top: 10px; }
+  .doc-item .title-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; }
+  .badge-receive { background: #eff6ff; color: var(--blue); }
+  .badge-send { background: #ecfdf3; color: var(--green); }
+  .badge-doctype { background: #eef2ff; color: #4338ca; }
+  .doc-title { font-weight: 700; font-size: 15px; line-height: 1.4; }
+  .doc-meta { font-size: 12px; color: var(--sub); margin-top: 4px; }
+  .doc-rows { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .doc-rows .row { font-size: 13px; margin-top: 4px; color: var(--text); }
+  .doc-rows .row .k { color: var(--sub); margin-right: 6px; }
 
-  /* ---- Calendar ---- */
-  .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-  .cal-nav button { background: none; border: none; font-size: 18px; color: var(--blue); padding: 6px 10px; font-weight: 700; }
-  .cal-nav .cal-title { font-size: 16px; font-weight: 800; }
-  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
-  .cal-dow { font-size: 11px; color: var(--sub); font-weight: 700; padding-bottom: 6px; }
-  .cal-cell {
-    aspect-ratio: 1;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    border-radius: 10px;
-    font-size: 13px;
-    color: var(--text);
-    cursor: pointer;
-    position: relative;
-    background: #fff;
-  }
-  .cal-cell.empty { background: none; cursor: default; }
-  .cal-cell.today { border: 1.5px solid var(--blue); font-weight: 700; }
-  .cal-cell.selected { background: var(--blue); color: #fff; }
-  .cal-cell .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--orange); margin-top: 2px; }
-  .cal-cell.selected .dot { background: #fff; }
-  .cal-day-list { margin-top: 16px; }
-  .cal-day-list .label { font-size: 13px; font-weight: 700; color: var(--sub); margin-bottom: 6px; }
+  /* Upload page */
+  .upload-stat { display: flex; justify-content: space-between; align-items: center; }
+  .upload-stat .num { font-size: 28px; font-weight: 800; color: var(--blue); }
+  .upload-stat .label { font-size: 13px; color: var(--sub); margin-top: 2px; }
+  .upload-meta { font-size: 12px; color: var(--sub); margin-top: 10px; line-height: 1.6; }
+  .import-hint { font-size: 11px; color: var(--sub); margin-top: 8px; line-height: 1.5; }
 
-  /* ---- Assignee groups ---- */
-  .group-card { margin-top: 12px; }
-  .group-card .group-head {
-    display: flex; justify-content: space-between; align-items: center;
-    font-weight: 800; font-size: 15px; margin-bottom: 10px;
-  }
-  .group-card .group-head .count { font-size: 12px; color: var(--sub); font-weight: 500; }
-  .search-row { margin-bottom: 12px; }
+  /* Stats page */
+  .stat-total { text-align: center; padding: 10px 0; }
+  .stat-total .num { font-size: 34px; font-weight: 800; color: var(--blue); }
+  .stat-total .label { font-size: 13px; color: var(--sub); margin-top: 4px; }
+  .stat-section-title { font-size: 14px; font-weight: 800; margin-bottom: 12px; }
+  .stat-row { margin-top: 10px; }
+  .stat-row:first-child { margin-top: 0; }
+  .stat-row-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+  .stat-row-label span:last-child { color: var(--sub); }
+  .stat-bar-bg { background: #f3f4f6; border-radius: 999px; height: 8px; overflow: hidden; }
+  .stat-bar-fill { background: var(--blue); height: 100%; border-radius: 999px; }
 
   footer {
-    position: fixed;
-    left: 0; right: 0; bottom: 0;
-    max-width: 480px;
-    margin: 0 auto;
-    background: var(--card);
-    border-top: 1px solid var(--border);
+    position: fixed; left: 0; right: 0; bottom: 0; max-width: 480px; margin: 0 auto;
+    background: var(--card); border-top: 1px solid var(--border);
     padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
-    display: flex;
-    gap: 4px;
-    z-index: 20;
+    display: flex; gap: 4px; z-index: 20;
   }
-  .tab-btn {
-    flex: 1;
-    text-align: center;
-    padding: 8px 0 4px;
-    font-size: 11px;
-    color: var(--sub);
-    background: none;
-    border: none;
-    cursor: pointer;
-  }
+  .tab-btn { flex: 1; text-align: center; padding: 8px 0 4px; font-size: 11px; color: var(--sub); background: none; border: none; cursor: pointer; }
   .tab-btn .icon { font-size: 20px; display: block; }
   .tab-btn.active { color: var(--blue); font-weight: 700; }
 
   .toast {
-    position: fixed;
-    bottom: 84px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(17,24,39,0.9);
-    color: #fff;
-    padding: 10px 18px;
-    border-radius: 10px;
-    font-size: 13px;
-    z-index: 50;
-    display: none;
-    max-width: 90%;
-    text-align: center;
-  }
-
-  .fab {
-    position: fixed;
-    right: calc(50% - 240px + 18px);
-    bottom: calc(78px + env(safe-area-inset-bottom, 0px));
-    width: 54px; height: 54px;
-    border-radius: 50%;
-    background: var(--blue);
-    color: #fff;
-    font-size: 26px;
-    border: none;
-    box-shadow: 0 4px 12px rgba(37,99,235,0.4);
-    z-index: 25;
-    cursor: pointer;
-  }
-  @media (max-width: 516px) {
-    .fab { right: 18px; }
+    position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%);
+    background: rgba(17,24,39,0.9); color: #fff; padding: 10px 18px; border-radius: 10px;
+    font-size: 13px; z-index: 50; display: none; max-width: 90%; text-align: center;
   }
 </style>
 </head>
@@ -314,134 +151,113 @@
 
   <header>
     <h1>청주대학교 업무 매니저</h1>
-    <div class="sub">부서·담당자별 업무 관리</div>
+    <div class="sub">문서 접수·발송 등록대장</div>
   </header>
 
   <main>
-    <!-- 할일 탭 -->
-    <div id="page-tasks" class="page active">
-      <div class="card" id="task-form-card" style="display:none;">
-        <div class="form-grid">
-          <input type="hidden" id="edit-id">
-          <div>
-            <span class="field-label">업무 제목</span>
-            <input type="text" id="f-title" placeholder="예: 2학기 수강신청 안내문 발송">
-          </div>
-          <div class="field-row-2">
-            <div>
-              <span class="field-label">부서</span>
-              <input type="text" id="f-department" placeholder="예: 교무처" list="dept-list">
-              <datalist id="dept-list"></datalist>
-            </div>
-            <div>
-              <span class="field-label">담당자</span>
-              <input type="text" id="f-assignee" placeholder="예: 홍길동" list="assignee-list">
-              <datalist id="assignee-list"></datalist>
-            </div>
-          </div>
-          <div class="field-row-2">
-            <div>
-              <span class="field-label">마감일</span>
-              <input type="date" id="f-duedate">
-            </div>
-            <div>
-              <span class="field-label">우선순위</span>
-              <select id="f-priority" class="select-input">
-                <option value="보통">보통</option>
-                <option value="높음">높음</option>
-                <option value="낮음">낮음</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <span class="field-label">메모</span>
-            <textarea id="f-memo" placeholder="업무 관련 메모를 입력하세요"></textarea>
-          </div>
-          <div>
-            <span class="field-label">첨부파일</span>
-            <button type="button" class="btn btn-ghost btn-sm" id="attach-btn">📎 파일 선택</button>
-            <input type="file" id="f-attach-input" multiple style="display:none">
-            <div class="attach-preview-row" id="attach-preview"></div>
-          </div>
-          <div class="form-actions">
-            <button class="btn btn-ghost" id="cancel-form-btn">취소</button>
-            <button class="btn btn-primary" id="save-form-btn">저장</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="chip-row" id="status-chip-row" style="margin-top:14px;">
-        <button class="chip active" data-status="all">전체</button>
-        <button class="chip" data-status="open">진행중</button>
-        <button class="chip" data-status="done">완료</button>
-      </div>
-
-      <div class="search-row" style="margin-top:12px;">
-        <input type="text" id="task-search" placeholder="제목, 부서, 담당자로 검색">
-      </div>
-
-      <div id="task-list"></div>
-      <button class="fab" id="fab-add-btn">＋</button>
-    </div>
-
-    <!-- 캘린더 탭 -->
-    <div id="page-calendar" class="page">
-      <div class="card">
-        <div class="cal-nav">
-          <button id="cal-prev">‹</button>
-          <div class="cal-title" id="cal-title"></div>
-          <button id="cal-next">›</button>
-        </div>
-        <div class="cal-grid" id="cal-grid"></div>
-      </div>
-      <div class="cal-day-list">
-        <div class="label" id="cal-day-label"></div>
-        <div id="cal-day-tasks"></div>
-      </div>
-    </div>
-
-    <!-- 담당자 탭 -->
-    <div id="page-assignee" class="page">
+    <!-- 조회 탭 -->
+    <div id="page-browse" class="page active">
       <div class="search-row">
-        <input type="text" id="assignee-search" placeholder="부서 또는 담당자 검색">
+        <input type="text" id="doc-search" placeholder="제목, 기안자, 수신/발신처로 검색">
       </div>
-      <div id="assignee-groups"></div>
+      <div class="chip-row" id="regtype-chip-row">
+        <button class="chip active" data-regtype="all">전체</button>
+        <button class="chip" data-regtype="접수">접수</button>
+        <button class="chip" data-regtype="발송">발송</button>
+      </div>
+      <div class="filter-row">
+        <select id="doctype-select" class="select-input"><option value="">문서종류 전체</option></select>
+        <select id="year-select" class="select-input"><option value="">연도 전체</option></select>
+      </div>
+      <div class="list-toolbar">
+        <span class="count-label" id="count-label"></span>
+        <button class="sort-btn" id="sort-toggle-btn">최신순 ▾</button>
+      </div>
+      <div id="doc-list"></div>
+      <button class="btn btn-ghost" id="load-more-btn" style="margin-top:12px; display:none;">더 보기</button>
     </div>
 
-    <!-- 완료함 탭 -->
-    <div id="page-done" class="page">
-      <div id="done-list"></div>
+    <!-- 업로드 탭 -->
+    <div id="page-upload" class="page">
+      <div class="card">
+        <div class="upload-stat">
+          <div>
+            <div class="num" id="upload-count">0건</div>
+            <div class="label">저장된 문서 건수</div>
+          </div>
+        </div>
+        <div class="upload-meta" id="upload-meta">업로드된 파일이 없습니다.</div>
+      </div>
+
+      <div class="card">
+        <button class="btn btn-primary" id="upload-btn">📤 등록대장 엑셀 업로드</button>
+        <input type="file" id="upload-file-input" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
+        <div class="import-hint">문서등록대장 엑셀 파일(.xls/.xlsx)을 업로드하세요. "등록구분" 열이 있는 표를 자동으로 인식합니다. 새로 업로드하면 기존 데이터는 새 파일 내용으로 전체 교체됩니다. 파일은 서버로 전송되지 않고 이 기기의 브라우저에서만 처리·저장됩니다.</div>
+        <button class="btn btn-danger-ghost btn-sm" id="clear-all-btn" style="margin-top:12px;">전체 삭제</button>
+      </div>
+    </div>
+
+    <!-- 통계 탭 -->
+    <div id="page-stats" class="page">
+      <div class="card">
+        <div class="stat-total">
+          <div class="num" id="stat-total-num">0건</div>
+          <div class="label">전체 등록 문서</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="stat-section-title">등록구분별</div>
+        <div id="stat-regtype"></div>
+      </div>
+      <div class="card">
+        <div class="stat-section-title">문서종류별</div>
+        <div id="stat-doctype"></div>
+      </div>
+      <div class="card">
+        <div class="stat-section-title">연도별</div>
+        <div id="stat-year"></div>
+      </div>
     </div>
   </main>
 
   <footer>
-    <button class="tab-btn active" data-tab="tasks"><span class="icon">📋</span>할일</button>
-    <button class="tab-btn" data-tab="calendar"><span class="icon">📅</span>캘린더</button>
-    <button class="tab-btn" data-tab="assignee"><span class="icon">👥</span>담당자</button>
-    <button class="tab-btn" data-tab="done"><span class="icon">✅</span>완료함</button>
+    <button class="tab-btn active" data-tab="browse"><span class="icon">🔍</span>조회</button>
+    <button class="tab-btn" data-tab="upload"><span class="icon">📤</span>업로드</button>
+    <button class="tab-btn" data-tab="stats"><span class="icon">📊</span>통계</button>
   </footer>
 
   <div class="toast" id="toast"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
-const TASK_KEY = 'cjuTaskManagerTasks';
+const DB_NAME = 'cjuDocRegisterDB';
+const DB_VERSION = 1;
+const STORE = 'documents';
+const META_KEY = 'cjuDocRegisterMeta';
 
-let idCounter = Date.now();
-function nextId() { return idCounter++; }
+const FIELD_MAP = {
+  regType: '등록구분',
+  regDate: '생산접수등록일자',
+  title: '제목',
+  docType: '문서종류',
+  approverPosition: '결재권자직위',
+  drafter: '원기안자',
+  recipient: '수신자발신자',
+};
+
+let allDocs = [];
+let filteredDocs = [];
+let visibleCount = 0;
+const PAGE_SIZE = 40;
+let sortOrder = 'desc';
+let currentRegTypeChip = 'all';
 
 function escapeHtml(str) {
   return String(str == null ? '' : str).replace(/[&<>"']/g, c => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
 }
-
-function loadTasks() {
-  try { return JSON.parse(localStorage.getItem(TASK_KEY) || '[]'); }
-  catch (e) { return []; }
-}
-function saveTasks(list) { localStorage.setItem(TASK_KEY, JSON.stringify(list)); }
-
 function showToast(msg, duration) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -450,20 +266,53 @@ function showToast(msg, duration) {
   showToast._timer = setTimeout(() => { t.style.display = 'none'; }, duration || 2400);
 }
 
-function todayStr() {
-  const d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+/* ---------- IndexedDB ---------- */
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'id' });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function dbGetAll() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function dbReplaceAll(records) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const store = tx.objectStore(STORE);
+    store.clear();
+    records.forEach(r => store.put(r));
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function dbClearAll() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
-function dDayLabel(dueDate) {
-  if (!dueDate) return '';
-  const today = new Date(todayStr());
-  const due = new Date(dueDate);
-  const diff = Math.round((due - today) / 86400000);
-  if (diff === 0) return 'D-day';
-  if (diff > 0) return 'D-' + diff;
-  return 'D+' + Math.abs(diff);
+function loadMeta() {
+  try { return JSON.parse(localStorage.getItem(META_KEY) || 'null'); }
+  catch (e) { return null; }
 }
+function saveMeta(meta) { localStorage.setItem(META_KEY, JSON.stringify(meta)); }
 
 /* ---------- Tab navigation ---------- */
 function switchPage(name) {
@@ -471,433 +320,276 @@ function switchPage(name) {
   document.getElementById('page-' + name).classList.add('active');
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelector(`.tab-btn[data-tab="${name}"]`).classList.add('active');
-  if (name === 'tasks') renderTaskList();
-  if (name === 'calendar') renderCalendar();
-  if (name === 'assignee') renderAssigneeGroups();
-  if (name === 'done') renderDoneList();
+  if (name === 'stats') renderStats();
 }
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => switchPage(btn.dataset.tab));
 });
 
-/* ---------- Task form ---------- */
-const taskFormCard = document.getElementById('task-form-card');
-const editIdInput = document.getElementById('edit-id');
-const fTitle = document.getElementById('f-title');
-const fDepartment = document.getElementById('f-department');
-const fAssignee = document.getElementById('f-assignee');
-const fDuedate = document.getElementById('f-duedate');
-const fPriority = document.getElementById('f-priority');
-const fMemo = document.getElementById('f-memo');
-const attachPreview = document.getElementById('attach-preview');
-let pendingAttachments = [];
+/* ---------- Excel parsing ---------- */
+function parseSheetRows(rows) {
+  let headerRowIdx = -1;
+  for (let i = 0; i < Math.min(rows.length, 20); i++) {
+    const row = rows[i] || [];
+    if (row.some(c => String(c == null ? '' : c).trim() === '등록구분')) { headerRowIdx = i; break; }
+  }
+  if (headerRowIdx === -1) throw new Error('HEADER_NOT_FOUND');
 
-function refreshDatalists() {
-  const tasks = loadTasks();
-  const depts = [...new Set(tasks.map(t => t.department).filter(Boolean))];
-  const assignees = [...new Set(tasks.map(t => t.assignee).filter(Boolean))];
-  document.getElementById('dept-list').innerHTML = depts.map(d => `<option value="${escapeHtml(d)}">`).join('');
-  document.getElementById('assignee-list').innerHTML = assignees.map(a => `<option value="${escapeHtml(a)}">`).join('');
+  const header = (rows[headerRowIdx] || []).map(h => String(h == null ? '' : h).trim());
+  const idx = {};
+  for (const key in FIELD_MAP) idx[key] = header.indexOf(FIELD_MAP[key]);
+  if (idx.regType === -1 || idx.title === -1) throw new Error('MISSING_COLUMN');
+
+  const records = [];
+  let localId = 1;
+  for (let r = headerRowIdx + 1; r < rows.length; r++) {
+    const row = rows[r] || [];
+    const title = String(row[idx.title] == null ? '' : row[idx.title]).trim();
+    const regType = String(row[idx.regType] == null ? '' : row[idx.regType]).trim();
+    if (!title || !regType) continue;
+    const rec = { id: localId++, regType, title };
+    for (const key of ['regDate', 'docType', 'approverPosition', 'drafter', 'recipient']) {
+      const col = idx[key];
+      rec[key] = col === -1 ? '' : String(row[col] == null ? '' : row[col]).trim();
+    }
+    records.push(rec);
+  }
+  return records;
 }
 
-function renderAttachPreview() {
-  attachPreview.innerHTML = pendingAttachments.map((a, i) => `
-    <span class="attach-preview-chip">📎 ${escapeHtml(a.name)}<button type="button" data-remove-attach="${i}">✕</button></span>
-  `).join('');
+function shortRegType(rt) {
+  if ((rt || '').includes('접수')) return '접수';
+  if ((rt || '').includes('발송')) return '발송';
+  return rt || '';
 }
-attachPreview.addEventListener('click', e => {
-  const btn = e.target.closest('[data-remove-attach]');
-  if (btn) { pendingAttachments.splice(Number(btn.dataset.removeAttach), 1); renderAttachPreview(); }
-});
 
-document.getElementById('attach-btn').addEventListener('click', () => document.getElementById('f-attach-input').click());
-document.getElementById('f-attach-input').addEventListener('change', async e => {
-  const files = Array.from(e.target.files || []);
+/* ---------- Upload ---------- */
+document.getElementById('upload-btn').addEventListener('click', () => document.getElementById('upload-file-input').click());
+
+document.getElementById('upload-file-input').addEventListener('change', async e => {
+  const file = e.target.files[0];
   e.target.value = '';
-  for (const file of files) {
-    if (file.size > 4 * 1024 * 1024) { showToast(`"${file.name}" 파일이 너무 큽니다 (4MB 이하만 첨부 가능).`); continue; }
-    try {
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      pendingAttachments.push({ id: nextId(), name: file.name, dataUrl });
-    } catch (err) { showToast(`"${file.name}" 파일을 읽지 못했습니다.`); }
+  if (!file) return;
+
+  if (typeof XLSX === 'undefined') {
+    showToast('엑셀 처리 기능을 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침 후 다시 시도해주세요.', 6000);
+    return;
   }
-  renderAttachPreview();
+
+  showToast('파일을 분석하는 중입니다...', 60000);
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+    const records = parseSheetRows(rows);
+
+    if (!records.length) { showToast('파일에서 유효한 데이터를 찾지 못했습니다.'); return; }
+
+    const prevCount = allDocs.length;
+    if (prevCount > 0) {
+      const ok = confirm(`기존에 저장된 ${prevCount.toLocaleString()}건을 새 파일의 ${records.length.toLocaleString()}건으로 교체할까요?`);
+      if (!ok) { showToast('업로드가 취소되었습니다.'); return; }
+    }
+
+    await dbReplaceAll(records);
+    allDocs = records;
+    saveMeta({ fileName: file.name, uploadedAt: new Date().toISOString(), count: records.length });
+
+    renderUploadInfo();
+    populateFilterOptions();
+    applyFilters();
+    showToast(`${records.length.toLocaleString()}건 업로드 완료`, 4000);
+  } catch (err) {
+    if (err && err.message === 'HEADER_NOT_FOUND') {
+      showToast('제목행("등록구분" 열)을 찾지 못했습니다. 문서등록대장 형식의 엑셀 파일인지 확인해주세요.', 6000);
+    } else if (err && err.message === 'MISSING_COLUMN') {
+      showToast('필수 열(등록구분, 제목)이 없습니다. 파일 형식을 확인해주세요.', 6000);
+    } else {
+      showToast('오류가 발생했습니다: ' + (err && err.message ? err.message : String(err)), 6000);
+    }
+  }
 });
 
-function openTaskForm(task) {
-  taskFormCard.style.display = 'block';
-  refreshDatalists();
-  if (task) {
-    editIdInput.value = task.id;
-    fTitle.value = task.title || '';
-    fDepartment.value = task.department || '';
-    fAssignee.value = task.assignee || '';
-    fDuedate.value = task.dueDate || '';
-    fPriority.value = task.priority || '보통';
-    fMemo.value = task.memo || '';
-    pendingAttachments = (task.attachments || []).slice();
-  } else {
-    editIdInput.value = '';
-    fTitle.value = '';
-    fDepartment.value = '';
-    fAssignee.value = '';
-    fDuedate.value = '';
-    fPriority.value = '보통';
-    fMemo.value = '';
-    pendingAttachments = [];
-  }
-  renderAttachPreview();
-  fTitle.focus();
-  taskFormCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+document.getElementById('clear-all-btn').addEventListener('click', async () => {
+  if (!allDocs.length) { showToast('삭제할 데이터가 없습니다.'); return; }
+  if (!confirm('저장된 모든 문서 데이터를 삭제할까요? 이 작업은 되돌릴 수 없습니다.')) return;
+  await dbClearAll();
+  allDocs = [];
+  localStorage.removeItem(META_KEY);
+  renderUploadInfo();
+  populateFilterOptions();
+  applyFilters();
+  showToast('전체 삭제되었습니다.');
+});
+
+function formatDateTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
+    + ' ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 }
-function closeTaskForm() { taskFormCard.style.display = 'none'; }
 
-document.getElementById('fab-add-btn').addEventListener('click', () => openTaskForm());
-document.getElementById('cancel-form-btn').addEventListener('click', closeTaskForm);
+function renderUploadInfo() {
+  document.getElementById('upload-count').textContent = allDocs.length.toLocaleString() + '건';
+  const meta = loadMeta();
+  const metaEl = document.getElementById('upload-meta');
+  if (meta) {
+    metaEl.textContent = `최근 업로드: ${escapeHtml(meta.fileName)} · ${formatDateTime(meta.uploadedAt)}`;
+  } else {
+    metaEl.textContent = '업로드된 파일이 없습니다.';
+  }
+}
 
-document.getElementById('save-form-btn').addEventListener('click', () => {
-  const title = fTitle.value.trim();
-  if (!title) { showToast('업무 제목은 필수입니다.'); return; }
+/* ---------- Browse / search / filter ---------- */
+const searchInput = document.getElementById('doc-search');
+const docTypeSelect = document.getElementById('doctype-select');
+const yearSelect = document.getElementById('year-select');
+const listContainer = document.getElementById('doc-list');
+const countLabel = document.getElementById('count-label');
+const loadMoreBtn = document.getElementById('load-more-btn');
+const sortToggleBtn = document.getElementById('sort-toggle-btn');
 
-  const list = loadTasks();
-  const id = editIdInput.value ? Number(editIdInput.value) : nextId();
-  const existing = list.find(t => t.id === id);
-  const task = {
-    id,
-    title,
-    department: fDepartment.value.trim(),
-    assignee: fAssignee.value.trim(),
-    dueDate: fDuedate.value || '',
-    priority: fPriority.value,
-    memo: fMemo.value.trim(),
-    attachments: pendingAttachments,
-    status: existing ? existing.status : '진행중',
-    createdAt: existing ? existing.createdAt : new Date().toISOString(),
-    completedAt: existing ? existing.completedAt : null,
-  };
+function populateFilterOptions() {
+  const docTypes = [...new Set(allDocs.map(d => d.docType).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
+  docTypeSelect.innerHTML = '<option value="">문서종류 전체</option>' +
+    docTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
 
-  const idx = list.findIndex(t => t.id === id);
-  if (idx >= 0) list[idx] = task; else list.unshift(task);
-  saveTasks(list);
-  closeTaskForm();
-  renderTaskList();
-  showToast('저장되었습니다.');
+  const years = [...new Set(allDocs.map(d => (d.regDate || '').slice(0, 4)).filter(y => /^\d{4}$/.test(y)))]
+    .sort((a, b) => b.localeCompare(a));
+  yearSelect.innerHTML = '<option value="">연도 전체</option>' +
+    years.map(y => `<option value="${y}">${y}년</option>`).join('');
+}
+
+let searchDebounce;
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(applyFilters, 150);
 });
+docTypeSelect.addEventListener('change', applyFilters);
+yearSelect.addEventListener('change', applyFilters);
 
-/* ---------- Task list ---------- */
-let currentStatusFilter = 'all';
-document.getElementById('status-chip-row').addEventListener('click', e => {
+document.getElementById('regtype-chip-row').addEventListener('click', e => {
   const chip = e.target.closest('.chip');
   if (!chip) return;
-  document.querySelectorAll('#status-chip-row .chip').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('#regtype-chip-row .chip').forEach(c => c.classList.remove('active'));
   chip.classList.add('active');
-  currentStatusFilter = chip.dataset.status;
-  renderTaskList();
+  currentRegTypeChip = chip.dataset.regtype;
+  applyFilters();
 });
-document.getElementById('task-search').addEventListener('input', renderTaskList);
 
-function priorityBadgeClass(p) {
-  if (p === '높음') return 'prio-high';
-  if (p === '낮음') return 'prio-low';
-  return 'prio-mid';
+sortToggleBtn.addEventListener('click', () => {
+  sortOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+  sortToggleBtn.textContent = (sortOrder === 'desc' ? '최신순' : '오래된순') + ' ▾';
+  applyFilters();
+});
+
+loadMoreBtn.addEventListener('click', () => {
+  visibleCount += PAGE_SIZE;
+  renderList();
+});
+
+function applyFilters() {
+  const q = searchInput.value.trim().toLowerCase();
+  const docTypeFilter = docTypeSelect.value;
+  const yearFilter = yearSelect.value;
+
+  filteredDocs = allDocs.filter(d => {
+    if (currentRegTypeChip !== 'all' && shortRegType(d.regType) !== currentRegTypeChip) return false;
+    if (docTypeFilter && d.docType !== docTypeFilter) return false;
+    if (yearFilter && !(d.regDate || '').startsWith(yearFilter)) return false;
+    if (q) {
+      const hay = [d.title, d.drafter, d.recipient, d.approverPosition, d.docType].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  filteredDocs.sort((a, b) => {
+    const ad = a.regDate || '', bd = b.regDate || '';
+    if (ad === bd) return 0;
+    return sortOrder === 'desc' ? (ad < bd ? 1 : -1) : (ad < bd ? -1 : 1);
+  });
+
+  visibleCount = PAGE_SIZE;
+  renderList();
 }
 
-function renderTaskItem(t) {
-  const isDone = t.status === '완료';
-  const dday = t.dueDate ? dDayLabel(t.dueDate) : '';
-  const overdue = !isDone && t.dueDate && t.dueDate < todayStr();
+function renderDocCard(d) {
+  const short = shortRegType(d.regType);
   return `
-    <div class="task-item ${isDone ? 'done' : ''}" data-id="${t.id}">
-      <div class="top">
-        <button class="check" data-toggle="${t.id}">${isDone ? '✓' : ''}</button>
-        <div class="body">
-          <div class="title-row">
-            <span class="title">${escapeHtml(t.title)}</span>
-            ${t.department ? `<span class="badge dept">${escapeHtml(t.department)}</span>` : ''}
-            ${t.assignee ? `<span class="badge assignee">${escapeHtml(t.assignee)}</span>` : ''}
-          </div>
-          <div class="meta-row">
-            <span class="badge ${priorityBadgeClass(t.priority)}">${escapeHtml(t.priority)}</span>
-            <span class="badge ${isDone ? 'status-done' : 'status-open'}">${isDone ? '완료' : '진행중'}</span>
-            ${t.dueDate ? `<span class="due ${overdue ? 'dday-over' : ''}">${escapeHtml(t.dueDate)} · ${dday}</span>` : ''}
-          </div>
-          ${t.memo ? `<div class="memo-preview">${escapeHtml(t.memo)}</div>` : ''}
-          ${(t.attachments || []).length ? `<div class="attach-list">${t.attachments.map(a => `<a class="attach-chip" href="${a.dataUrl}" download="${escapeHtml(a.name)}">📎 ${escapeHtml(a.name)}</a>`).join('')}</div>` : ''}
-        </div>
-        <div class="actions">
-          <button data-edit="${t.id}">✏️</button>
-          <button data-del="${t.id}">🗑️</button>
-        </div>
+    <div class="doc-item">
+      <div class="title-row">
+        <span class="badge ${short === '접수' ? 'badge-receive' : 'badge-send'}">${escapeHtml(short)}</span>
+        ${d.docType ? `<span class="badge badge-doctype">${escapeHtml(d.docType)}</span>` : ''}
+      </div>
+      <div class="doc-title">${escapeHtml(d.title)}</div>
+      ${d.regDate ? `<div class="doc-meta">${escapeHtml(d.regDate)}</div>` : ''}
+      <div class="doc-rows">
+        ${d.approverPosition ? `<div class="row"><span class="k">결재권자</span>${escapeHtml(d.approverPosition)}</div>` : ''}
+        ${d.drafter ? `<div class="row"><span class="k">기안자</span>${escapeHtml(d.drafter)}</div>` : ''}
+        ${d.recipient ? `<div class="row"><span class="k">수신/발신</span>${escapeHtml(d.recipient)}</div>` : ''}
       </div>
     </div>`;
 }
 
-function filterTasks(list) {
-  const q = document.getElementById('task-search').value.trim().toLowerCase();
-  return list.filter(t => {
-    if (currentStatusFilter === 'open' && t.status === '완료') return false;
-    if (currentStatusFilter === 'done' && t.status !== '완료') return false;
-    if (!q) return true;
-    return (t.title || '').toLowerCase().includes(q)
-      || (t.department || '').toLowerCase().includes(q)
-      || (t.assignee || '').toLowerCase().includes(q);
-  });
-}
-
-function sortTasks(list) {
-  return list.slice().sort((a, b) => {
-    if (a.status !== b.status) return a.status === '완료' ? 1 : -1;
-    if (a.dueDate && b.dueDate) return a.dueDate < b.dueDate ? -1 : (a.dueDate > b.dueDate ? 1 : 0);
-    if (a.dueDate) return -1;
-    if (b.dueDate) return 1;
-    return b.createdAt < a.createdAt ? -1 : 1;
-  });
-}
-
-function renderTaskList() {
-  const all = loadTasks();
-  const filtered = sortTasks(filterTasks(all));
-  const container = document.getElementById('task-list');
-  if (!filtered.length) {
-    container.innerHTML = `<div class="empty-note">${all.length ? '조건에 맞는 업무가 없습니다.' : '등록된 업무가 없습니다. 오른쪽 아래 + 버튼으로 새 업무를 등록하세요.'}</div>`;
+function renderList() {
+  const slice = filteredDocs.slice(0, visibleCount);
+  countLabel.textContent = allDocs.length
+    ? `전체 ${allDocs.length.toLocaleString()}건 중 ${filteredDocs.length.toLocaleString()}건`
+    : '';
+  if (!filteredDocs.length) {
+    listContainer.innerHTML = `<div class="empty-note">${allDocs.length ? '검색 결과가 없습니다.' : '업로드된 문서가 없습니다. "업로드" 탭에서 등록대장 엑셀 파일을 올려주세요.'}</div>`;
+    loadMoreBtn.style.display = 'none';
     return;
   }
-  container.innerHTML = filtered.map(renderTaskItem).join('');
+  listContainer.innerHTML = slice.map(renderDocCard).join('');
+  loadMoreBtn.style.display = visibleCount < filteredDocs.length ? 'block' : 'none';
 }
 
-document.getElementById('task-list').addEventListener('click', e => {
-  const toggleBtn = e.target.closest('[data-toggle]');
-  if (toggleBtn) {
-    const list = loadTasks();
-    const t = list.find(x => x.id === Number(toggleBtn.dataset.toggle));
-    if (t) {
-      t.status = t.status === '완료' ? '진행중' : '완료';
-      t.completedAt = t.status === '완료' ? new Date().toISOString() : null;
-      saveTasks(list);
-      renderTaskList();
-    }
-    return;
-  }
-  const editBtn = e.target.closest('[data-edit]');
-  if (editBtn) {
-    const t = loadTasks().find(x => x.id === Number(editBtn.dataset.edit));
-    if (t) openTaskForm(t);
-    return;
-  }
-  const delBtn = e.target.closest('[data-del]');
-  if (delBtn) {
-    if (!confirm('이 업무를 삭제할까요?')) return;
-    saveTasks(loadTasks().filter(x => x.id !== Number(delBtn.dataset.del)));
-    renderTaskList();
-  }
-});
+/* ---------- Stats ---------- */
+function statBarHtml(label, count, total) {
+  const pct = total ? Math.round((count / total) * 1000) / 10 : 0;
+  return `
+    <div class="stat-row">
+      <div class="stat-row-label"><span>${escapeHtml(label)}</span><span>${count.toLocaleString()}건 (${pct}%)</span></div>
+      <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:${pct}%"></div></div>
+    </div>`;
+}
 
-/* ---------- Calendar ---------- */
-let calYear, calMonth, calSelectedDate = null;
-(function initCal() {
-  const now = new Date();
-  calYear = now.getFullYear();
-  calMonth = now.getMonth();
+function renderStats() {
+  const total = allDocs.length;
+  document.getElementById('stat-total-num').textContent = total.toLocaleString() + '건';
+
+  const byRegType = {};
+  allDocs.forEach(d => { const s = shortRegType(d.regType); byRegType[s] = (byRegType[s] || 0) + 1; });
+  document.getElementById('stat-regtype').innerHTML =
+    Object.entries(byRegType).sort((a, b) => b[1] - a[1]).map(([k, v]) => statBarHtml(k, v, total)).join('')
+    || '<div class="empty-note">데이터가 없습니다.</div>';
+
+  const byDocType = {};
+  allDocs.forEach(d => { if (d.docType) byDocType[d.docType] = (byDocType[d.docType] || 0) + 1; });
+  document.getElementById('stat-doctype').innerHTML =
+    Object.entries(byDocType).sort((a, b) => b[1] - a[1]).map(([k, v]) => statBarHtml(k, v, total)).join('')
+    || '<div class="empty-note">데이터가 없습니다.</div>';
+
+  const byYear = {};
+  allDocs.forEach(d => { const y = (d.regDate || '').slice(0, 4); if (/^\d{4}$/.test(y)) byYear[y] = (byYear[y] || 0) + 1; });
+  document.getElementById('stat-year').innerHTML =
+    Object.entries(byYear).sort((a, b) => b[0].localeCompare(a[0])).map(([k, v]) => statBarHtml(k + '년', v, total)).join('')
+    || '<div class="empty-note">데이터가 없습니다.</div>';
+}
+
+/* ---------- Init ---------- */
+(async function init() {
+  try {
+    allDocs = await dbGetAll();
+  } catch (e) {
+    allDocs = [];
+  }
+  renderUploadInfo();
+  populateFilterOptions();
+  applyFilters();
 })();
-
-function renderCalendar() {
-  const tasks = loadTasks();
-  const byDate = {};
-  tasks.forEach(t => { if (t.dueDate) (byDate[t.dueDate] = byDate[t.dueDate] || []).push(t); });
-
-  document.getElementById('cal-title').textContent = `${calYear}년 ${calMonth + 1}월`;
-  const firstDow = new Date(calYear, calMonth, 1).getDay();
-  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-  const today = todayStr();
-
-  const dowNames = ['일', '월', '화', '수', '목', '금', '토'];
-  let html = dowNames.map(d => `<div class="cal-dow">${d}</div>`).join('');
-  for (let i = 0; i < firstDow; i++) html += `<div class="cal-cell empty"></div>`;
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const has = byDate[dateStr] && byDate[dateStr].length;
-    const cls = ['cal-cell'];
-    if (dateStr === today) cls.push('today');
-    if (dateStr === calSelectedDate) cls.push('selected');
-    html += `<div class="${cls.join(' ')}" data-date="${dateStr}">${d}${has ? '<span class="dot"></span>' : ''}</div>`;
-  }
-  document.getElementById('cal-grid').innerHTML = html;
-
-  if (!calSelectedDate) calSelectedDate = today;
-  renderCalDayTasks(byDate);
-}
-
-function renderCalDayTasks(byDate) {
-  const label = document.getElementById('cal-day-label');
-  const container = document.getElementById('cal-day-tasks');
-  if (!calSelectedDate) { label.textContent = ''; container.innerHTML = ''; return; }
-  label.textContent = `${calSelectedDate} 마감 업무`;
-  const items = (byDate || {})[calSelectedDate] || loadTasks().filter(t => t.dueDate === calSelectedDate);
-  if (!items.length) { container.innerHTML = `<div class="empty-note">이 날짜에 마감인 업무가 없습니다.</div>`; return; }
-  container.innerHTML = sortTasks(items).map(renderTaskItem).join('');
-}
-
-document.getElementById('cal-prev').addEventListener('click', () => {
-  calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; }
-  renderCalendar();
-});
-document.getElementById('cal-next').addEventListener('click', () => {
-  calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; }
-  renderCalendar();
-});
-document.getElementById('cal-grid').addEventListener('click', e => {
-  const cell = e.target.closest('.cal-cell[data-date]');
-  if (!cell) return;
-  calSelectedDate = cell.dataset.date;
-  renderCalendar();
-});
-document.getElementById('cal-day-tasks').addEventListener('click', e => {
-  const toggleBtn = e.target.closest('[data-toggle]');
-  if (toggleBtn) {
-    const list = loadTasks();
-    const t = list.find(x => x.id === Number(toggleBtn.dataset.toggle));
-    if (t) {
-      t.status = t.status === '완료' ? '진행중' : '완료';
-      t.completedAt = t.status === '완료' ? new Date().toISOString() : null;
-      saveTasks(list);
-      renderCalendar();
-    }
-    return;
-  }
-  const editBtn = e.target.closest('[data-edit]');
-  if (editBtn) {
-    const t = loadTasks().find(x => x.id === Number(editBtn.dataset.edit));
-    if (t) { switchPage('tasks'); openTaskForm(t); }
-    return;
-  }
-  const delBtn = e.target.closest('[data-del]');
-  if (delBtn) {
-    if (!confirm('이 업무를 삭제할까요?')) return;
-    saveTasks(loadTasks().filter(x => x.id !== Number(delBtn.dataset.del)));
-    renderCalendar();
-  }
-});
-
-/* ---------- Assignee / department groups ---------- */
-document.getElementById('assignee-search').addEventListener('input', renderAssigneeGroups);
-
-function renderAssigneeGroups() {
-  const tasks = loadTasks();
-  const q = document.getElementById('assignee-search').value.trim().toLowerCase();
-  const groups = new Map();
-  tasks.forEach(t => {
-    const dept = t.department || '부서 미지정';
-    const assignee = t.assignee || '담당자 미지정';
-    const key = dept + ' / ' + assignee;
-    if (!groups.has(key)) groups.set(key, { dept, assignee, tasks: [] });
-    groups.get(key).tasks.push(t);
-  });
-
-  let entries = [...groups.values()];
-  if (q) entries = entries.filter(g => g.dept.toLowerCase().includes(q) || g.assignee.toLowerCase().includes(q));
-  entries.sort((a, b) => (a.dept + a.assignee).localeCompare(b.dept + b.assignee, 'ko'));
-
-  const container = document.getElementById('assignee-groups');
-  if (!entries.length) {
-    container.innerHTML = `<div class="empty-note">${tasks.length ? '검색 결과가 없습니다.' : '등록된 업무가 없습니다.'}</div>`;
-    return;
-  }
-  container.innerHTML = entries.map(g => {
-    const openCount = g.tasks.filter(t => t.status !== '완료').length;
-    const doneCount = g.tasks.length - openCount;
-    return `
-      <div class="card group-card">
-        <div class="group-head">
-          <span>${escapeHtml(g.dept)} · ${escapeHtml(g.assignee)}</span>
-          <span class="count">진행중 ${openCount} · 완료 ${doneCount}</span>
-        </div>
-        ${sortTasks(g.tasks).map(renderTaskItem).join('')}
-      </div>`;
-  }).join('');
-}
-
-document.getElementById('assignee-groups').addEventListener('click', e => {
-  const toggleBtn = e.target.closest('[data-toggle]');
-  if (toggleBtn) {
-    const list = loadTasks();
-    const t = list.find(x => x.id === Number(toggleBtn.dataset.toggle));
-    if (t) {
-      t.status = t.status === '완료' ? '진행중' : '완료';
-      t.completedAt = t.status === '완료' ? new Date().toISOString() : null;
-      saveTasks(list);
-      renderAssigneeGroups();
-    }
-    return;
-  }
-  const editBtn = e.target.closest('[data-edit]');
-  if (editBtn) {
-    const t = loadTasks().find(x => x.id === Number(editBtn.dataset.edit));
-    if (t) { switchPage('tasks'); openTaskForm(t); }
-    return;
-  }
-  const delBtn = e.target.closest('[data-del]');
-  if (delBtn) {
-    if (!confirm('이 업무를 삭제할까요?')) return;
-    saveTasks(loadTasks().filter(x => x.id !== Number(delBtn.dataset.del)));
-    renderAssigneeGroups();
-  }
-});
-
-/* ---------- Done archive ---------- */
-function renderDoneList() {
-  const list = loadTasks().filter(t => t.status === '완료')
-    .sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''));
-  const container = document.getElementById('done-list');
-  if (!list.length) {
-    container.innerHTML = `<div class="empty-note">완료된 업무가 없습니다.</div>`;
-    return;
-  }
-  container.innerHTML =
-    `<div style="display:flex; gap:8px; margin-bottom:4px;">
-      <button class="btn btn-danger-ghost btn-sm" id="clear-done-btn" style="flex:1;">완료 업무 전체 삭제</button>
-    </div>` +
-    list.map(renderTaskItem).join('');
-}
-
-document.getElementById('done-list').addEventListener('click', e => {
-  if (e.target.id === 'clear-done-btn') {
-    if (!confirm('완료된 업무를 모두 삭제할까요? 이 작업은 되돌릴 수 없습니다.')) return;
-    saveTasks(loadTasks().filter(t => t.status !== '완료'));
-    renderDoneList();
-    return;
-  }
-  const toggleBtn = e.target.closest('[data-toggle]');
-  if (toggleBtn) {
-    const list = loadTasks();
-    const t = list.find(x => x.id === Number(toggleBtn.dataset.toggle));
-    if (t) {
-      t.status = t.status === '완료' ? '진행중' : '완료';
-      t.completedAt = t.status === '완료' ? new Date().toISOString() : null;
-      saveTasks(list);
-      renderDoneList();
-    }
-    return;
-  }
-  const editBtn = e.target.closest('[data-edit]');
-  if (editBtn) {
-    const t = loadTasks().find(x => x.id === Number(editBtn.dataset.edit));
-    if (t) { switchPage('tasks'); openTaskForm(t); }
-    return;
-  }
-  const delBtn = e.target.closest('[data-del]');
-  if (delBtn) {
-    if (!confirm('이 업무를 삭제할까요?')) return;
-    saveTasks(loadTasks().filter(x => x.id !== Number(delBtn.dataset.del)));
-    renderDoneList();
-  }
-});
-
-renderTaskList();
 </script>
 </body>
 </html>
