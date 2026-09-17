@@ -235,7 +235,8 @@
           </select>
         </div>
       </div>
-      <div style="display:flex; gap:8px; margin-bottom:10px;">
+      <div class="import-hint" style="margin-top:-4px;">연도는 3월 1일 ~ 다음해 2월 말일 기준입니다 (예: 2025년 1월 문서는 "2024년").</div>
+      <div style="display:flex; gap:8px; margin-bottom:10px; margin-top:8px;">
         <button class="btn btn-primary" id="search-btn" style="flex:2;">🔍 검색</button>
         <button class="btn btn-ghost" id="reset-filters-btn" style="flex:1;">초기화</button>
       </div>
@@ -317,6 +318,7 @@
       </div>
       <div class="card">
         <div class="stat-section-title">연도별</div>
+        <div class="import-hint" style="margin-top:0; margin-bottom:10px;">3월 1일 ~ 다음해 2월 말일 기준</div>
         <div id="stat-year"></div>
       </div>
       <div class="card">
@@ -564,8 +566,8 @@ function populateFilterOptions() {
   docTypeSelect.innerHTML = '<option value="">전체</option>' +
     docTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
 
-  const years = [...new Set(allDocs.map(d => (d.regDate || '').slice(0, 4)).filter(y => /^\d{4}$/.test(y)))]
-    .sort((a, b) => b.localeCompare(a));
+  const years = [...new Set(allDocs.map(d => { const p = parseEntry(d); return p ? p.year : null; }).filter(y => y != null))]
+    .sort((a, b) => b - a);
   yearSelect.innerHTML = '<option value="">전체</option>' +
     years.map(y => `<option value="${y}">${y}년</option>`).join('');
 
@@ -696,10 +698,11 @@ function applyFilters() {
   filteredDocs = allDocs.filter(d => {
     if (currentRegTypeChip !== 'all' && shortRegType(d.regType) !== currentRegTypeChip) return false;
     if (docTypeFilter && d.docType !== docTypeFilter) return false;
-    if (yearFilter && !(d.regDate || '').startsWith(yearFilter)) return false;
-    if (monthFilter) {
+    if (yearFilter || monthFilter) {
       const p = parseEntry(d);
-      if (!p || p.month !== Number(monthFilter)) return false;
+      if (!p) return false;
+      if (yearFilter && String(p.year) !== yearFilter) return false;
+      if (monthFilter && p.month !== Number(monthFilter)) return false;
     }
     if (titleQuery && !(d.title || '').toLowerCase().includes(titleQuery)) return false;
     if (drafterQuery && !(d.drafter || '').toLowerCase().includes(drafterQuery)) return false;
@@ -784,9 +787,9 @@ function renderStats() {
     || '<div class="empty-note">데이터가 없습니다.</div>';
 
   const byYear = {};
-  allDocs.forEach(d => { const y = (d.regDate || '').slice(0, 4); if (/^\d{4}$/.test(y)) byYear[y] = (byYear[y] || 0) + 1; });
+  allDocs.forEach(d => { const p = parseEntry(d); if (p) byYear[p.year] = (byYear[p.year] || 0) + 1; });
   document.getElementById('stat-year').innerHTML =
-    Object.entries(byYear).sort((a, b) => b[0].localeCompare(a[0])).map(([k, v]) => statBarHtml(k + '년', v, total)).join('')
+    Object.entries(byYear).sort((a, b) => Number(b[0]) - Number(a[0])).map(([k, v]) => statBarHtml(k + '년', v, total)).join('')
     || '<div class="empty-note">데이터가 없습니다.</div>';
 
   const byDrafter = {};
@@ -800,10 +803,15 @@ function renderStats() {
 const SCHEDULE_KEY = 'cjuDocRegisterSchedule';
 const REMINDER_WINDOW_DAYS = 14;
 
+// 청주대학교 업무연도는 3월 1일부터 다음해 2월 말일까지이므로, 1~2월 문서는
+// 달력상 해당 연도가 아니라 전년도 업무연도로 계산한다 (예: 2025년 1월 문서는
+// "2024년"). month/day는 달력 기준 그대로 유지 - 재귀 매칭·달력 렌더링에 쓰인다.
 function parseEntry(d) {
   const m = /^(\d{4})\/(\d{2})\/(\d{2})/.exec(d.regDate || '');
   if (!m) return null;
-  return { year: Number(m[1]), month: Number(m[2]), day: Number(m[3]), title: d.title, docType: d.docType, regDate: d.regDate };
+  const calYear = Number(m[1]), month = Number(m[2]), day = Number(m[3]);
+  const year = month <= 2 ? calYear - 1 : calYear;
+  return { year, month, day, title: d.title, docType: d.docType, regDate: d.regDate };
 }
 
 // The excel gets re-uploaded periodically and re-parsed from scratch, so a
