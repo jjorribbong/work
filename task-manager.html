@@ -171,6 +171,18 @@
   .pattern-title { font-size: 14px; font-weight: 700; margin-top: 5px; }
   .pattern-meta { font-size: 12px; color: var(--sub); margin-top: 3px; }
 
+  /* Schedule pick-list */
+  .sched-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px 0; border-top: 1px solid var(--border); cursor: pointer;
+  }
+  .sched-row:first-child { border-top: none; padding-top: 0; }
+  .sched-checkbox { flex-shrink: 0; width: 20px; height: 20px; margin-top: 2px; accent-color: var(--blue); }
+  .sched-row-body { flex: 1; min-width: 0; }
+  .sched-row-top { display: flex; gap: 6px; margin-bottom: 5px; }
+  .sched-row-title { font-size: 14px; font-weight: 700; line-height: 1.4; }
+  .sched-row-date { font-size: 12px; color: var(--sub); margin-top: 3px; }
+
   details.import-box summary {
     font-size: 13px; color: var(--blue); font-weight: 700; cursor: pointer; padding: 6px 0;
   }
@@ -243,7 +255,11 @@
           <input type="text" id="schedule-drafter-input" list="drafter-datalist" placeholder="담당자 이름 입력" style="flex:1;">
           <button class="btn btn-primary btn-sm" id="schedule-search-btn" style="width:auto;">조회</button>
         </div>
-        <div class="import-hint">연도가 달라도 매년 비슷한 시기에 반복되는 업무를 자동으로 찾아 월별로 보여줍니다. 담당자별 알림을 켜두면 다가오는 반복 업무를 앱을 열 때마다 알려드립니다.</div>
+        <div style="margin-top:10px;">
+          <span class="field-label">연도</span>
+          <select id="schedule-year-select" class="select-input"><option value="">연도 전체</option></select>
+        </div>
+        <div class="import-hint">담당자와 연도를 선택하면 업무 목록이 쭉 표시됩니다. 매년 반복되는 업무 앞의 체크박스를 선택해 스케줄에 등록하면, 다가오는 업무 알림에 반영됩니다.</div>
       </div>
       <div id="schedule-content"></div>
     </div>
@@ -552,10 +568,7 @@ yearSelect.addEventListener('change', applyFilters);
 document.getElementById('go-schedule-btn').addEventListener('click', () => {
   const name = drafterSearchInput.value.trim();
   if (!name) { showToast('담당자를 먼저 입력해주세요.'); return; }
-  document.getElementById('schedule-drafter-input').value = name;
-  currentScheduleDrafter = name;
-  selectedScheduleMonth = new Date().getMonth() + 1;
-  switchPage('schedule');
+  openSchedule(name);
 });
 
 document.getElementById('regtype-chip-row').addEventListener('click', e => {
@@ -671,10 +684,13 @@ function renderStats() {
 /* ---------- Annual schedule / recurring-pattern detection ---------- */
 const WATCHLIST_KEY = 'cjuDocRegisterWatchlist';
 const NOTIFY_LOG_KEY = 'cjuDocRegisterNotifyLog';
+const SCHEDULE_KEY = 'cjuDocRegisterSchedule';
 const REMINDER_WINDOW_DAYS = 14;
+const SCHEDULE_PAGE_SIZE = 40;
 
 let currentScheduleDrafter = '';
-let selectedScheduleMonth = null;
+let scheduleListVisibleCount = SCHEDULE_PAGE_SIZE;
+let scheduleListDocsById = {};
 let notifyPermission = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported';
 
 function getWatchlist() {
@@ -702,6 +718,31 @@ function parseEntry(d) {
   return { year: Number(m[1]), month: Number(m[2]), day: Number(m[3]), title: d.title, docType: d.docType, regDate: d.regDate };
 }
 
+// The excel gets re-uploaded periodically and re-parsed from scratch, so a
+// row's auto-increment `id` is not stable across uploads - schedule entries
+// key off drafter+title+regDate instead, which is stable as long as the
+// source registry doesn't rewrite past rows (it only appends).
+function scheduleKey(d) { return [d.drafter, d.title, d.regDate].join('||'); }
+
+function getSchedule() {
+  try { return JSON.parse(localStorage.getItem(SCHEDULE_KEY) || '[]'); }
+  catch (e) { return []; }
+}
+function saveSchedule(list) { localStorage.setItem(SCHEDULE_KEY, JSON.stringify(list)); }
+function getScheduleForDrafter(name) { return getSchedule().filter(s => s.drafter === name); }
+
+function toggleScheduleItem(d) {
+  const parsed = parseEntry(d);
+  if (!parsed) { showToast('등록일자 정보가 없어 스케줄에 등록할 수 없습니다.'); return false; }
+  const key = scheduleKey(d);
+  const list = getSchedule();
+  const idx = list.findIndex(s => s.key === key);
+  if (idx >= 0) list.splice(idx, 1);
+  else list.push({ key, drafter: d.drafter, title: d.title, docType: d.docType, regDate: d.regDate, year: parsed.year, month: parsed.month, day: parsed.day });
+  saveSchedule(list);
+  return true;
+}
+
 function normalizeTitleForMatch(title) {
   return (title || '')
     .replace(/\d+/g, ' ')
@@ -716,12 +757,14 @@ function tokenOverlapRatio(a, b) {
   setA.forEach(t => { if (setB.has(t)) common++; });
   return common / Math.max(setA.size, setB.size);
 }
-// Groups a person's documents into recurring yearly patterns by comparing
+// Groups schedule entries into recurring yearly patterns by comparing
 // normalized titles (numbers/punctuation stripped) with a token-overlap
 // threshold, since the same annual task is rarely worded identically
 // across years (e.g. "2022년 5월 강사 국민연금..." vs "2023년도 5월 강사 국민연금...").
-// Only clusters spanning 2+ distinct years count as "recurring".
-function buildRecurringClusters(entries) {
+// minYears defaults to 1 since every entry here was deliberately picked by
+// the user via the checklist below, not statistically inferred.
+function buildRecurringClusters(entries, minYears) {
+  minYears = minYears == null ? 1 : minYears;
   const clusters = [];
   entries.forEach(e => {
     const tokens = normalizeTitleForMatch(e.title).split(' ').filter(Boolean);
@@ -733,13 +776,7 @@ function buildRecurringClusters(entries) {
     if (best && bestScore >= 0.6) best.items.push(e);
     else clusters.push({ tokens, items: [e] });
   });
-  return clusters.filter(c => new Set(c.items.map(i => i.year)).size >= 2);
-}
-
-function mostCommon(arr) {
-  const counts = {};
-  arr.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
-  return Number(Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]);
+  return clusters.filter(c => new Set(c.items.map(i => i.year)).size >= minYears);
 }
 
 const MONTH_CUM_DAYS = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
@@ -755,9 +792,13 @@ function getTodayMD() {
   return { month: d.getMonth() + 1, day: d.getDate() };
 }
 
+// Upcoming reminders are computed from the user-curated schedule (checked
+// items), not the full document history - registering an item is what
+// tells the app "this is an annual task", so even a single registered
+// occurrence (minYears=1) is reminder-worthy.
 function computeUpcomingForDrafter(name, windowDays) {
-  const entries = allDocs.filter(d => d.drafter === name).map(parseEntry).filter(Boolean);
-  const clusters = buildRecurringClusters(entries);
+  const items = getScheduleForDrafter(name);
+  const clusters = buildRecurringClusters(items, 1);
   const today = getTodayMD();
   const upcoming = [];
   clusters.forEach(c => {
@@ -787,7 +828,7 @@ async function requestNotifyPermission() {
   } catch (e) { notifyPermission = 'denied'; }
   if (notifyPermission === 'granted') showToast('브라우저 알림이 켜졌습니다.');
   else if (notifyPermission === 'denied') showToast('알림이 거부되었습니다. 브라우저 설정에서 허용해주세요.');
-  renderScheduleView();
+  renderScheduleSummary();
 }
 
 // Best-effort only: this fires while the app tab is open (checked once per
@@ -826,35 +867,55 @@ function checkReminders() {
       <button type="button" class="more-link" id="reminder-goto-schedule">일정 탭에서 자세히 보기 →</button>
     </div>`;
   const gotoBtn = document.getElementById('reminder-goto-schedule');
-  if (gotoBtn) gotoBtn.addEventListener('click', () => {
-    document.getElementById('schedule-drafter-input').value = top[0].name;
-    currentScheduleDrafter = top[0].name;
-    selectedScheduleMonth = new Date().getMonth() + 1;
-    switchPage('schedule');
-  });
+  if (gotoBtn) gotoBtn.addEventListener('click', () => openSchedule(top[0].name));
+}
+
+/* ---------- Schedule tab rendering ---------- */
+function populateScheduleYearOptions(name) {
+  const years = [...new Set(allDocs.filter(d => d.drafter === name).map(d => (d.regDate || '').slice(0, 4)).filter(y => /^\d{4}$/.test(y)))]
+    .sort((a, b) => b.localeCompare(a));
+  const sel = document.getElementById('schedule-year-select');
+  sel.innerHTML = '<option value="">연도 전체</option>' + years.map(y => `<option value="${y}">${y}년</option>`).join('');
+}
+
+function openSchedule(name) {
+  document.getElementById('schedule-drafter-input').value = name;
+  currentScheduleDrafter = name;
+  scheduleListVisibleCount = SCHEDULE_PAGE_SIZE;
+  populateScheduleYearOptions(name);
+  switchPage('schedule');
 }
 
 function renderScheduleView() {
   const container = document.getElementById('schedule-content');
+  if (!currentScheduleDrafter) { container.innerHTML = '<div class="empty-note">담당자를 선택하면 연간 업무 일정을 볼 수 있습니다.</div>'; return; }
+  if (!allDocs.some(d => d.drafter === currentScheduleDrafter)) { container.innerHTML = '<div class="empty-note">해당 담당자의 문서 이력이 없습니다.</div>'; return; }
+
+  container.innerHTML = `
+    <div id="schedule-summary-area"></div>
+    <div id="schedule-list-area"></div>`;
+  renderScheduleSummary();
+  renderScheduleList();
+}
+
+function renderScheduleSummary() {
+  const area = document.getElementById('schedule-summary-area');
+  if (!area) return;
   const name = currentScheduleDrafter;
-  if (!name) { container.innerHTML = '<div class="empty-note">담당자를 선택하면 연간 업무 일정을 볼 수 있습니다.</div>'; return; }
-
-  const entries = allDocs.filter(d => d.drafter === name).map(parseEntry).filter(Boolean);
-  if (!entries.length) { container.innerHTML = '<div class="empty-note">해당 담당자의 문서 이력이 없습니다.</div>'; return; }
-
-  const clusters = buildRecurringClusters(entries);
-  const monthClusters = Array.from({ length: 13 }, () => []);
-  clusters.forEach(c => { monthClusters[mostCommon(c.items.map(i => i.month))].push(c); });
-
+  const totalCount = allDocs.filter(d => d.drafter === name).length;
+  const scheduleItems = getScheduleForDrafter(name);
   const watched = isWatched(name);
   const upcoming = computeUpcomingForDrafter(name, REMINDER_WINDOW_DAYS);
+
+  const monthCounts = Array.from({ length: 13 }, () => 0);
+  scheduleItems.forEach(s => { monthCounts[s.month]++; });
 
   let html = `
     <div class="card">
       <div class="schedule-header">
         <div>
           <div class="schedule-name">${escapeHtml(name)}</div>
-          <div class="schedule-sub">총 ${entries.length.toLocaleString()}건 · 반복 업무 패턴 ${clusters.length}개</div>
+          <div class="schedule-sub">전체 이력 ${totalCount.toLocaleString()}건 · 스케줄 등록 ${scheduleItems.length.toLocaleString()}건</div>
         </div>
         <button class="btn btn-sm ${watched ? 'btn-primary' : 'btn-ghost'}" id="watch-toggle-btn">${watched ? '🔔 알림 켜짐' : '🔕 알림 받기'}</button>
       </div>
@@ -875,74 +936,105 @@ function renderScheduleView() {
         <div class="upcoming-item">
           <div class="upcoming-date">${u.month}월 ${u.day}일경 · D-${u.distance}</div>
           <div class="upcoming-title">${escapeHtml(u.title)}</div>
-          <div class="upcoming-years">매년 반복 · ${u.years.join(', ')}</div>
-        </div>`).join('') : '<div class="empty-note">다가오는 반복 업무가 없습니다.</div>'}
+          <div class="upcoming-years">스케줄 등록 · ${u.years.join(', ')}</div>
+        </div>`).join('') : `<div class="empty-note">${scheduleItems.length ? '다가오는 반복 업무가 없습니다.' : '아직 스케줄에 등록된 업무가 없습니다. 아래 목록에서 체크박스로 등록해보세요.'}</div>`}
     </div>
 
     <div class="card">
-      <div class="stat-section-title">월별 업무 캘린더</div>
+      <div class="stat-section-title">월별 스케줄 등록 현황</div>
       <div class="month-grid">
         ${Array.from({ length: 12 }, (_, i) => i + 1).map(m => `
-          <button type="button" class="month-cell ${m === selectedScheduleMonth ? 'active' : ''}" data-month="${m}">
+          <div class="month-cell">
             <div class="m-label">${m}월</div>
-            <div class="m-count">${monthClusters[m].length ? monthClusters[m].length + '개 패턴' : ''}</div>
-          </button>`).join('')}
+            <div class="m-count">${monthCounts[m] ? monthCounts[m] + '건' : ''}</div>
+          </div>`).join('')}
       </div>
     </div>`;
 
-  if (selectedScheduleMonth) {
-    const mClusters = monthClusters[selectedScheduleMonth];
-    const clusteredEntries = new Set(clusters.flatMap(c => c.items));
-    const singles = entries.filter(e => e.month === selectedScheduleMonth && !clusteredEntries.has(e));
+  area.innerHTML = html;
+}
 
-    html += `
-      <div class="card">
-        <div class="stat-section-title">${selectedScheduleMonth}월 업무</div>
-        ${mClusters.map(c => {
-          const years = [...new Set(c.items.map(i => i.year))].sort();
-          const days = [...new Set(c.items.map(i => i.day))].sort((a, b) => a - b);
-          const latest = c.items.slice().sort((a, b) => b.year - a.year)[0];
-          return `
-          <div class="pattern-item">
-            <span class="badge badge-pattern">매년 반복</span>
-            <div class="pattern-title">${escapeHtml(latest.title)}</div>
-            <div class="pattern-meta">${selectedScheduleMonth}월 ${days.join('·')}일경 · ${years.join(', ')} (${years.length}개 연도)</div>
-          </div>`;
-        }).join('')}
-        ${singles.length ? `
-          <details class="import-box" style="margin-top:${mClusters.length ? '10px' : '0'};">
-            <summary>1회성 업무 ${singles.length}건</summary>
-            ${singles.sort((a, b) => a.day - b.day).map(e => `
-              <div class="pattern-item">
-                <div class="pattern-title">${escapeHtml(e.title)}</div>
-                <div class="pattern-meta">${e.year}/${String(e.month).padStart(2, '0')}/${String(e.day).padStart(2, '0')}</div>
-              </div>`).join('')}
-          </details>` : ''}
-        ${!mClusters.length && !singles.length ? '<div class="empty-note">해당 월 업무 이력이 없습니다.</div>' : ''}
-      </div>`;
-  }
+function renderScheduleList() {
+  const area = document.getElementById('schedule-list-area');
+  if (!area) return;
+  const name = currentScheduleDrafter;
+  const yearFilter = document.getElementById('schedule-year-select').value;
 
-  container.innerHTML = html;
+  const listDocs = allDocs
+    .filter(d => d.drafter === name && (!yearFilter || (d.regDate || '').startsWith(yearFilter)))
+    .sort((a, b) => (a.regDate < b.regDate ? -1 : a.regDate > b.regDate ? 1 : 0));
+
+  scheduleListDocsById = {};
+  listDocs.forEach(d => { scheduleListDocsById[d.id] = d; });
+
+  const scheduledKeys = new Set(getSchedule().map(s => s.key));
+  const visible = listDocs.slice(0, scheduleListVisibleCount);
+
+  area.innerHTML = `
+    <div class="card">
+      <div class="stat-section-title">${escapeHtml(name)} · ${yearFilter ? yearFilter + '년' : '전체 연도'} 업무 목록 (${listDocs.length.toLocaleString()}건)</div>
+      <div class="import-hint" style="margin-top:0; margin-bottom:6px;">체크박스를 선택하면 매년 반복되는 업무로 스케줄에 등록되어 "다가오는 업무" 알림에 반영됩니다.</div>
+      <div id="schedule-doc-list">
+        ${visible.length ? visible.map(d => renderScheduleDocRow(d, scheduledKeys.has(scheduleKey(d)))).join('') : '<div class="empty-note">해당 연도 업무 이력이 없습니다.</div>'}
+      </div>
+      ${listDocs.length > scheduleListVisibleCount ? `<button class="btn btn-ghost btn-sm" id="schedule-list-more-btn" style="margin-top:12px;">더 보기</button>` : ''}
+    </div>`;
+}
+
+function renderScheduleDocRow(d, checked) {
+  const short = shortRegType(d.regType);
+  return `
+    <label class="sched-row">
+      <input type="checkbox" class="sched-checkbox" data-doc-id="${d.id}" ${checked ? 'checked' : ''}>
+      <div class="sched-row-body">
+        <div class="sched-row-top">
+          <span class="badge ${short === '접수' ? 'badge-receive' : 'badge-send'}">${escapeHtml(short)}</span>
+          ${d.docType ? `<span class="badge badge-doctype">${escapeHtml(d.docType)}</span>` : ''}
+        </div>
+        <div class="sched-row-title">${escapeHtml(d.title)}</div>
+        <div class="sched-row-date">${escapeHtml(d.regDate)}</div>
+      </div>
+    </label>`;
 }
 
 document.getElementById('schedule-search-btn').addEventListener('click', () => {
   const name = document.getElementById('schedule-drafter-input').value.trim();
   if (!name) { showToast('담당자를 입력해주세요.'); return; }
+  scheduleListVisibleCount = SCHEDULE_PAGE_SIZE;
   currentScheduleDrafter = name;
-  selectedScheduleMonth = new Date().getMonth() + 1;
+  populateScheduleYearOptions(name);
   renderScheduleView();
 });
 
+document.getElementById('schedule-year-select').addEventListener('change', () => {
+  scheduleListVisibleCount = SCHEDULE_PAGE_SIZE;
+  renderScheduleList();
+});
+
 document.getElementById('schedule-content').addEventListener('click', e => {
-  const monthBtn = e.target.closest('.month-cell');
-  if (monthBtn) { selectedScheduleMonth = Number(monthBtn.dataset.month); renderScheduleView(); return; }
   if (e.target.id === 'watch-toggle-btn') {
     toggleWatch(currentScheduleDrafter);
-    renderScheduleView();
+    renderScheduleSummary();
     checkReminders();
     return;
   }
   if (e.target.id === 'request-notify-btn') { requestNotifyPermission(); return; }
+  if (e.target.id === 'schedule-list-more-btn') {
+    scheduleListVisibleCount += SCHEDULE_PAGE_SIZE;
+    renderScheduleList();
+    return;
+  }
+});
+
+document.getElementById('schedule-content').addEventListener('change', e => {
+  const cb = e.target.closest('.sched-checkbox');
+  if (!cb) return;
+  const doc = scheduleListDocsById[Number(cb.dataset.docId)];
+  if (!doc) return;
+  const ok = toggleScheduleItem(doc);
+  if (ok === false) { cb.checked = !cb.checked; return; }
+  renderScheduleSummary();
+  checkReminders();
 });
 
 /* ---------- Init ---------- */
