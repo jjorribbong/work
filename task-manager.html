@@ -81,8 +81,12 @@
   }
 
   .search-row { margin-bottom: 10px; }
+  .search-row + .search-row { margin-top: -4px; }
   .filter-row { display: flex; gap: 8px; margin-bottom: 10px; }
   .filter-row > * { flex: 1; min-width: 0; }
+  .field-label { font-size: 12px; color: var(--sub); font-weight: 700; margin-bottom: 6px; display: block; }
+  .schedule-link-row { margin: -4px 0 10px; }
+  .schedule-link-row .btn { padding: 10px; font-size: 13px; }
 
   .chip-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; margin-bottom: 10px; }
   .chip {
@@ -129,6 +133,48 @@
   .stat-bar-bg { background: #f3f4f6; border-radius: 999px; height: 8px; overflow: hidden; }
   .stat-bar-fill { background: var(--blue); height: 100%; border-radius: 999px; }
 
+  /* Reminder banner */
+  .reminder-banner {
+    background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 12px; font-size: 13px; color: #9a3412;
+  }
+  .reminder-banner .title { font-weight: 800; margin-bottom: 4px; }
+  .reminder-banner .item { margin-top: 2px; }
+  .reminder-banner .more-link { background: none; border: none; color: var(--blue); font-size: 12px; font-weight: 700; margin-top: 6px; padding: 0; }
+
+  /* Schedule tab */
+  .schedule-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .schedule-name { font-size: 17px; font-weight: 800; }
+  .schedule-sub { font-size: 12px; color: var(--sub); margin-top: 2px; }
+  .schedule-header .btn { width: auto; }
+
+  .month-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .month-cell {
+    border: 1px solid var(--border); border-radius: 10px; background: #fff;
+    padding: 10px 4px; text-align: center; cursor: pointer;
+  }
+  .month-cell.active { background: var(--blue); border-color: var(--blue); }
+  .month-cell.active .m-label, .month-cell.active .m-count { color: #fff; }
+  .month-cell .m-label { font-size: 13px; font-weight: 700; }
+  .month-cell .m-count { font-size: 11px; color: var(--orange); margin-top: 3px; min-height: 14px; font-weight: 700; }
+  .month-cell.active .m-count { color: #fff; }
+
+  .upcoming-item { padding: 10px 0; border-top: 1px solid var(--border); }
+  .upcoming-item:first-child { border-top: none; padding-top: 0; }
+  .upcoming-date { font-size: 12px; color: var(--orange); font-weight: 700; }
+  .upcoming-title { font-size: 14px; font-weight: 700; margin-top: 3px; }
+  .upcoming-years { font-size: 12px; color: var(--sub); margin-top: 3px; }
+
+  .pattern-item { padding: 10px 0; border-top: 1px solid var(--border); }
+  .pattern-item:first-child { border-top: none; padding-top: 0; }
+  .badge-pattern { background: #fef3c7; color: #92400e; }
+  .pattern-title { font-size: 14px; font-weight: 700; margin-top: 5px; }
+  .pattern-meta { font-size: 12px; color: var(--sub); margin-top: 3px; }
+
+  details.import-box summary {
+    font-size: 13px; color: var(--blue); font-weight: 700; cursor: pointer; padding: 6px 0;
+  }
+
   footer {
     position: fixed; left: 0; right: 0; bottom: 0; max-width: 480px; margin: 0 auto;
     background: var(--card); border-top: 1px solid var(--border);
@@ -157,9 +203,21 @@
   <main>
     <!-- 조회 탭 -->
     <div id="page-browse" class="page active">
+      <div id="reminder-banner-area"></div>
+
       <div class="search-row">
-        <input type="text" id="doc-search" placeholder="제목, 기안자, 수신/발신처로 검색">
+        <span class="field-label">제목 키워드</span>
+        <input type="text" id="title-search" placeholder="제목에 포함된 단어로 검색">
       </div>
+      <div class="search-row">
+        <span class="field-label">담당자(원기안자)</span>
+        <input type="text" id="drafter-search" list="drafter-datalist" placeholder="담당자 이름으로 검색">
+      </div>
+      <div class="schedule-link-row">
+        <button class="btn btn-ghost" id="go-schedule-btn">📅 이 담당자 연간 업무 일정 보기</button>
+      </div>
+      <datalist id="drafter-datalist"></datalist>
+
       <div class="chip-row" id="regtype-chip-row">
         <button class="chip active" data-regtype="all">전체</button>
         <button class="chip" data-regtype="접수">접수</button>
@@ -175,6 +233,19 @@
       </div>
       <div id="doc-list"></div>
       <button class="btn btn-ghost" id="load-more-btn" style="margin-top:12px; display:none;">더 보기</button>
+    </div>
+
+    <!-- 일정 탭 -->
+    <div id="page-schedule" class="page">
+      <div class="card">
+        <span class="field-label">담당자 선택</span>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="schedule-drafter-input" list="drafter-datalist" placeholder="담당자 이름 입력" style="flex:1;">
+          <button class="btn btn-primary btn-sm" id="schedule-search-btn" style="width:auto;">조회</button>
+        </div>
+        <div class="import-hint">연도가 달라도 매년 비슷한 시기에 반복되는 업무를 자동으로 찾아 월별로 보여줍니다. 담당자별 알림을 켜두면 다가오는 반복 업무를 앱을 열 때마다 알려드립니다.</div>
+      </div>
+      <div id="schedule-content"></div>
     </div>
 
     <!-- 업로드 탭 -->
@@ -222,6 +293,7 @@
 
   <footer>
     <button class="tab-btn active" data-tab="browse"><span class="icon">🔍</span>조회</button>
+    <button class="tab-btn" data-tab="schedule"><span class="icon">📅</span>일정</button>
     <button class="tab-btn" data-tab="upload"><span class="icon">📤</span>업로드</button>
     <button class="tab-btn" data-tab="stats"><span class="icon">📊</span>통계</button>
   </footer>
@@ -321,6 +393,7 @@ function switchPage(name) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelector(`.tab-btn[data-tab="${name}"]`).classList.add('active');
   if (name === 'stats') renderStats();
+  if (name === 'schedule') renderScheduleView();
 }
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => switchPage(btn.dataset.tab));
@@ -399,6 +472,7 @@ document.getElementById('upload-file-input').addEventListener('change', async e 
     renderUploadInfo();
     populateFilterOptions();
     applyFilters();
+    checkReminders();
     showToast(`${records.length.toLocaleString()}건 업로드 완료`, 4000);
   } catch (err) {
     if (err && err.message === 'HEADER_NOT_FOUND') {
@@ -420,6 +494,7 @@ document.getElementById('clear-all-btn').addEventListener('click', async () => {
   renderUploadInfo();
   populateFilterOptions();
   applyFilters();
+  checkReminders();
   showToast('전체 삭제되었습니다.');
 });
 
@@ -441,7 +516,8 @@ function renderUploadInfo() {
 }
 
 /* ---------- Browse / search / filter ---------- */
-const searchInput = document.getElementById('doc-search');
+const titleSearchInput = document.getElementById('title-search');
+const drafterSearchInput = document.getElementById('drafter-search');
 const docTypeSelect = document.getElementById('doctype-select');
 const yearSelect = document.getElementById('year-select');
 const listContainer = document.getElementById('doc-list');
@@ -458,15 +534,29 @@ function populateFilterOptions() {
     .sort((a, b) => b.localeCompare(a));
   yearSelect.innerHTML = '<option value="">연도 전체</option>' +
     years.map(y => `<option value="${y}">${y}년</option>`).join('');
+
+  const drafters = [...new Set(allDocs.map(d => d.drafter).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
+  document.getElementById('drafter-datalist').innerHTML = drafters.map(n => `<option value="${escapeHtml(n)}">`).join('');
 }
 
 let searchDebounce;
-searchInput.addEventListener('input', () => {
+function debouncedApplyFilters() {
   clearTimeout(searchDebounce);
   searchDebounce = setTimeout(applyFilters, 150);
-});
+}
+titleSearchInput.addEventListener('input', debouncedApplyFilters);
+drafterSearchInput.addEventListener('input', debouncedApplyFilters);
 docTypeSelect.addEventListener('change', applyFilters);
 yearSelect.addEventListener('change', applyFilters);
+
+document.getElementById('go-schedule-btn').addEventListener('click', () => {
+  const name = drafterSearchInput.value.trim();
+  if (!name) { showToast('담당자를 먼저 입력해주세요.'); return; }
+  document.getElementById('schedule-drafter-input').value = name;
+  currentScheduleDrafter = name;
+  selectedScheduleMonth = new Date().getMonth() + 1;
+  switchPage('schedule');
+});
 
 document.getElementById('regtype-chip-row').addEventListener('click', e => {
   const chip = e.target.closest('.chip');
@@ -489,7 +579,8 @@ loadMoreBtn.addEventListener('click', () => {
 });
 
 function applyFilters() {
-  const q = searchInput.value.trim().toLowerCase();
+  const titleQuery = titleSearchInput.value.trim().toLowerCase();
+  const drafterQuery = drafterSearchInput.value.trim().toLowerCase();
   const docTypeFilter = docTypeSelect.value;
   const yearFilter = yearSelect.value;
 
@@ -497,10 +588,8 @@ function applyFilters() {
     if (currentRegTypeChip !== 'all' && shortRegType(d.regType) !== currentRegTypeChip) return false;
     if (docTypeFilter && d.docType !== docTypeFilter) return false;
     if (yearFilter && !(d.regDate || '').startsWith(yearFilter)) return false;
-    if (q) {
-      const hay = [d.title, d.drafter, d.recipient, d.approverPosition, d.docType].join(' ').toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
+    if (titleQuery && !(d.title || '').toLowerCase().includes(titleQuery)) return false;
+    if (drafterQuery && !(d.drafter || '').toLowerCase().includes(drafterQuery)) return false;
     return true;
   });
 
@@ -579,6 +668,283 @@ function renderStats() {
     || '<div class="empty-note">데이터가 없습니다.</div>';
 }
 
+/* ---------- Annual schedule / recurring-pattern detection ---------- */
+const WATCHLIST_KEY = 'cjuDocRegisterWatchlist';
+const NOTIFY_LOG_KEY = 'cjuDocRegisterNotifyLog';
+const REMINDER_WINDOW_DAYS = 14;
+
+let currentScheduleDrafter = '';
+let selectedScheduleMonth = null;
+let notifyPermission = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported';
+
+function getWatchlist() {
+  try { return JSON.parse(localStorage.getItem(WATCHLIST_KEY) || '[]'); }
+  catch (e) { return []; }
+}
+function saveWatchlist(list) { localStorage.setItem(WATCHLIST_KEY, JSON.stringify(list)); }
+function isWatched(name) { return getWatchlist().includes(name); }
+function toggleWatch(name) {
+  const list = getWatchlist();
+  const i = list.indexOf(name);
+  if (i >= 0) list.splice(i, 1); else list.push(name);
+  saveWatchlist(list);
+}
+
+function getNotifyLog() {
+  try { return JSON.parse(localStorage.getItem(NOTIFY_LOG_KEY) || '{}'); }
+  catch (e) { return {}; }
+}
+function saveNotifyLog(log) { localStorage.setItem(NOTIFY_LOG_KEY, JSON.stringify(log)); }
+
+function parseEntry(d) {
+  const m = /^(\d{4})\/(\d{2})\/(\d{2})/.exec(d.regDate || '');
+  if (!m) return null;
+  return { year: Number(m[1]), month: Number(m[2]), day: Number(m[3]), title: d.title, docType: d.docType, regDate: d.regDate };
+}
+
+function normalizeTitleForMatch(title) {
+  return (title || '')
+    .replace(/\d+/g, ' ')
+    .replace(/[().,~\-\/·※\[\]"'`]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function tokenOverlapRatio(a, b) {
+  if (!a.length || !b.length) return 0;
+  const setA = new Set(a), setB = new Set(b);
+  let common = 0;
+  setA.forEach(t => { if (setB.has(t)) common++; });
+  return common / Math.max(setA.size, setB.size);
+}
+// Groups a person's documents into recurring yearly patterns by comparing
+// normalized titles (numbers/punctuation stripped) with a token-overlap
+// threshold, since the same annual task is rarely worded identically
+// across years (e.g. "2022년 5월 강사 국민연금..." vs "2023년도 5월 강사 국민연금...").
+// Only clusters spanning 2+ distinct years count as "recurring".
+function buildRecurringClusters(entries) {
+  const clusters = [];
+  entries.forEach(e => {
+    const tokens = normalizeTitleForMatch(e.title).split(' ').filter(Boolean);
+    let best = null, bestScore = 0;
+    clusters.forEach(c => {
+      const score = tokenOverlapRatio(tokens, c.tokens);
+      if (score > bestScore) { bestScore = score; best = c; }
+    });
+    if (best && bestScore >= 0.6) best.items.push(e);
+    else clusters.push({ tokens, items: [e] });
+  });
+  return clusters.filter(c => new Set(c.items.map(i => i.year)).size >= 2);
+}
+
+function mostCommon(arr) {
+  const counts = {};
+  arr.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+  return Number(Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]);
+}
+
+const MONTH_CUM_DAYS = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+function forwardDistance(fromMD, toMD) {
+  const a = MONTH_CUM_DAYS[fromMD.month - 1] + fromMD.day;
+  const b = MONTH_CUM_DAYS[toMD.month - 1] + toMD.day;
+  let diff = b - a;
+  if (diff < 0) diff += 365;
+  return diff;
+}
+function getTodayMD() {
+  const d = new Date();
+  return { month: d.getMonth() + 1, day: d.getDate() };
+}
+
+function computeUpcomingForDrafter(name, windowDays) {
+  const entries = allDocs.filter(d => d.drafter === name).map(parseEntry).filter(Boolean);
+  const clusters = buildRecurringClusters(entries);
+  const today = getTodayMD();
+  const upcoming = [];
+  clusters.forEach(c => {
+    let minDist = Infinity, closestItem = null;
+    c.items.forEach(it => {
+      const dist = forwardDistance(today, { month: it.month, day: it.day });
+      if (dist < minDist) { minDist = dist; closestItem = it; }
+    });
+    if (minDist <= windowDays) {
+      upcoming.push({
+        title: closestItem.title,
+        month: closestItem.month,
+        day: closestItem.day,
+        distance: minDist,
+        years: [...new Set(c.items.map(i => i.year))].sort(),
+      });
+    }
+  });
+  upcoming.sort((a, b) => a.distance - b.distance);
+  return upcoming;
+}
+
+async function requestNotifyPermission() {
+  if (typeof Notification === 'undefined') { showToast('이 브라우저는 알림 기능을 지원하지 않습니다.'); return; }
+  try {
+    notifyPermission = await Notification.requestPermission();
+  } catch (e) { notifyPermission = 'denied'; }
+  if (notifyPermission === 'granted') showToast('브라우저 알림이 켜졌습니다.');
+  else if (notifyPermission === 'denied') showToast('알림이 거부되었습니다. 브라우저 설정에서 허용해주세요.');
+  renderScheduleView();
+}
+
+// Best-effort only: this fires while the app tab is open (checked once per
+// load), not as a true background push - there is no server here to deliver
+// notifications when the browser/tab is closed.
+function checkReminders() {
+  const watchlist = getWatchlist();
+  const bannerArea = document.getElementById('reminder-banner-area');
+  if (!watchlist.length || !allDocs.length) { bannerArea.innerHTML = ''; return; }
+
+  const notifyLog = getNotifyLog();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const all = [];
+
+  watchlist.forEach(name => {
+    const upcoming = computeUpcomingForDrafter(name, REMINDER_WINDOW_DAYS);
+    upcoming.forEach(u => all.push({ name, ...u }));
+    if (upcoming.length && notifyPermission === 'granted' && notifyLog[name] !== todayStr) {
+      try {
+        new Notification(`${name}님 다가오는 업무 알림`, {
+          body: upcoming.slice(0, 3).map(u => `${u.month}월 ${u.day}일경 · ${u.title}`).join('\n'),
+        });
+      } catch (e) { /* Notification unsupported in this context (e.g. file://) */ }
+      notifyLog[name] = todayStr;
+    }
+  });
+  saveNotifyLog(notifyLog);
+
+  all.sort((a, b) => a.distance - b.distance);
+  if (!all.length) { bannerArea.innerHTML = ''; return; }
+  const top = all.slice(0, 3);
+  bannerArea.innerHTML = `
+    <div class="reminder-banner">
+      <div class="title">🔔 다가오는 반복 업무 ${all.length}건</div>
+      ${top.map(u => `<div class="item">${u.month}월 ${u.day}일경 · <b>${escapeHtml(u.name)}</b> · ${escapeHtml(u.title)}</div>`).join('')}
+      <button type="button" class="more-link" id="reminder-goto-schedule">일정 탭에서 자세히 보기 →</button>
+    </div>`;
+  const gotoBtn = document.getElementById('reminder-goto-schedule');
+  if (gotoBtn) gotoBtn.addEventListener('click', () => {
+    document.getElementById('schedule-drafter-input').value = top[0].name;
+    currentScheduleDrafter = top[0].name;
+    selectedScheduleMonth = new Date().getMonth() + 1;
+    switchPage('schedule');
+  });
+}
+
+function renderScheduleView() {
+  const container = document.getElementById('schedule-content');
+  const name = currentScheduleDrafter;
+  if (!name) { container.innerHTML = '<div class="empty-note">담당자를 선택하면 연간 업무 일정을 볼 수 있습니다.</div>'; return; }
+
+  const entries = allDocs.filter(d => d.drafter === name).map(parseEntry).filter(Boolean);
+  if (!entries.length) { container.innerHTML = '<div class="empty-note">해당 담당자의 문서 이력이 없습니다.</div>'; return; }
+
+  const clusters = buildRecurringClusters(entries);
+  const monthClusters = Array.from({ length: 13 }, () => []);
+  clusters.forEach(c => { monthClusters[mostCommon(c.items.map(i => i.month))].push(c); });
+
+  const watched = isWatched(name);
+  const upcoming = computeUpcomingForDrafter(name, REMINDER_WINDOW_DAYS);
+
+  let html = `
+    <div class="card">
+      <div class="schedule-header">
+        <div>
+          <div class="schedule-name">${escapeHtml(name)}</div>
+          <div class="schedule-sub">총 ${entries.length.toLocaleString()}건 · 반복 업무 패턴 ${clusters.length}개</div>
+        </div>
+        <button class="btn btn-sm ${watched ? 'btn-primary' : 'btn-ghost'}" id="watch-toggle-btn">${watched ? '🔔 알림 켜짐' : '🔕 알림 받기'}</button>
+      </div>
+    </div>`;
+
+  if (watched && notifyPermission !== 'granted' && typeof Notification !== 'undefined') {
+    html += `
+      <div class="card">
+        <div class="import-hint" style="margin-top:0;">브라우저 알림으로 받으려면 알림 권한을 허용해주세요. 이 앱을 열어둔 상태에서만 알림이 울립니다.</div>
+        <button class="btn btn-ghost btn-sm" id="request-notify-btn" style="margin-top:8px;">알림 권한 요청</button>
+      </div>`;
+  }
+
+  html += `
+    <div class="card">
+      <div class="stat-section-title">다가오는 업무 (${REMINDER_WINDOW_DAYS}일 이내)</div>
+      ${upcoming.length ? upcoming.map(u => `
+        <div class="upcoming-item">
+          <div class="upcoming-date">${u.month}월 ${u.day}일경 · D-${u.distance}</div>
+          <div class="upcoming-title">${escapeHtml(u.title)}</div>
+          <div class="upcoming-years">매년 반복 · ${u.years.join(', ')}</div>
+        </div>`).join('') : '<div class="empty-note">다가오는 반복 업무가 없습니다.</div>'}
+    </div>
+
+    <div class="card">
+      <div class="stat-section-title">월별 업무 캘린더</div>
+      <div class="month-grid">
+        ${Array.from({ length: 12 }, (_, i) => i + 1).map(m => `
+          <button type="button" class="month-cell ${m === selectedScheduleMonth ? 'active' : ''}" data-month="${m}">
+            <div class="m-label">${m}월</div>
+            <div class="m-count">${monthClusters[m].length ? monthClusters[m].length + '개 패턴' : ''}</div>
+          </button>`).join('')}
+      </div>
+    </div>`;
+
+  if (selectedScheduleMonth) {
+    const mClusters = monthClusters[selectedScheduleMonth];
+    const clusteredEntries = new Set(clusters.flatMap(c => c.items));
+    const singles = entries.filter(e => e.month === selectedScheduleMonth && !clusteredEntries.has(e));
+
+    html += `
+      <div class="card">
+        <div class="stat-section-title">${selectedScheduleMonth}월 업무</div>
+        ${mClusters.map(c => {
+          const years = [...new Set(c.items.map(i => i.year))].sort();
+          const days = [...new Set(c.items.map(i => i.day))].sort((a, b) => a - b);
+          const latest = c.items.slice().sort((a, b) => b.year - a.year)[0];
+          return `
+          <div class="pattern-item">
+            <span class="badge badge-pattern">매년 반복</span>
+            <div class="pattern-title">${escapeHtml(latest.title)}</div>
+            <div class="pattern-meta">${selectedScheduleMonth}월 ${days.join('·')}일경 · ${years.join(', ')} (${years.length}개 연도)</div>
+          </div>`;
+        }).join('')}
+        ${singles.length ? `
+          <details class="import-box" style="margin-top:${mClusters.length ? '10px' : '0'};">
+            <summary>1회성 업무 ${singles.length}건</summary>
+            ${singles.sort((a, b) => a.day - b.day).map(e => `
+              <div class="pattern-item">
+                <div class="pattern-title">${escapeHtml(e.title)}</div>
+                <div class="pattern-meta">${e.year}/${String(e.month).padStart(2, '0')}/${String(e.day).padStart(2, '0')}</div>
+              </div>`).join('')}
+          </details>` : ''}
+        ${!mClusters.length && !singles.length ? '<div class="empty-note">해당 월 업무 이력이 없습니다.</div>' : ''}
+      </div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+document.getElementById('schedule-search-btn').addEventListener('click', () => {
+  const name = document.getElementById('schedule-drafter-input').value.trim();
+  if (!name) { showToast('담당자를 입력해주세요.'); return; }
+  currentScheduleDrafter = name;
+  selectedScheduleMonth = new Date().getMonth() + 1;
+  renderScheduleView();
+});
+
+document.getElementById('schedule-content').addEventListener('click', e => {
+  const monthBtn = e.target.closest('.month-cell');
+  if (monthBtn) { selectedScheduleMonth = Number(monthBtn.dataset.month); renderScheduleView(); return; }
+  if (e.target.id === 'watch-toggle-btn') {
+    toggleWatch(currentScheduleDrafter);
+    renderScheduleView();
+    checkReminders();
+    return;
+  }
+  if (e.target.id === 'request-notify-btn') { requestNotifyPermission(); return; }
+});
+
 /* ---------- Init ---------- */
 (async function init() {
   try {
@@ -589,6 +955,7 @@ function renderStats() {
   renderUploadInfo();
   populateFilterOptions();
   applyFilters();
+  checkReminders();
 })();
 </script>
 </body>
