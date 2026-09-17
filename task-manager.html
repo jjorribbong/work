@@ -131,15 +131,6 @@
   .stat-bar-bg { background: #f3f4f6; border-radius: 999px; height: 8px; overflow: hidden; }
   .stat-bar-fill { background: var(--blue); height: 100%; border-radius: 999px; }
 
-  /* Reminder banner */
-  .reminder-banner {
-    background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px;
-    padding: 12px 14px; margin-bottom: 12px; font-size: 13px; color: #9a3412;
-  }
-  .reminder-banner .title { font-weight: 800; margin-bottom: 4px; }
-  .reminder-banner .item { margin-top: 2px; }
-  .reminder-banner .more-link { background: none; border: none; color: var(--blue); font-size: 12px; font-weight: 700; margin-top: 6px; padding: 0; }
-
   /* Schedule tab */
   .schedule-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
   .schedule-name { font-size: 17px; font-weight: 800; }
@@ -222,8 +213,6 @@
   <main>
     <!-- 조회 탭 -->
     <div id="page-browse" class="page active">
-      <div id="reminder-banner-area"></div>
-
       <div class="search-row">
         <span class="field-label">제목 키워드</span>
         <input type="text" id="title-search" placeholder="제목에 포함된 단어로 검색">
@@ -488,7 +477,6 @@ document.getElementById('upload-file-input').addEventListener('change', async e 
     renderUploadInfo();
     populateFilterOptions();
     applyFilters();
-    checkReminders();
     showToast(`${records.length.toLocaleString()}건 업로드 완료`, 4000);
   } catch (err) {
     if (err && err.message === 'HEADER_NOT_FOUND') {
@@ -510,7 +498,6 @@ document.getElementById('clear-all-btn').addEventListener('click', async () => {
   renderUploadInfo();
   populateFilterOptions();
   applyFilters();
-  checkReminders();
   showToast('전체 삭제되었습니다.');
 });
 
@@ -588,7 +575,6 @@ listContainer.addEventListener('change', e => {
   const ok = toggleScheduleItem(doc);
   if (ok === false) { cb.checked = !cb.checked; return; }
   showToast(cb.checked ? '스케줄에 등록되었습니다.' : '스케줄에서 제거되었습니다.', 1500);
-  checkReminders();
 });
 
 function applyFilters() {
@@ -695,18 +681,8 @@ function renderStats() {
 }
 
 /* ---------- Annual schedule / recurring-pattern detection ---------- */
-const NOTIFY_ENABLED_KEY = 'cjuDocRegisterNotifyEnabled';
-const NOTIFY_LOG_KEY = 'cjuDocRegisterNotifyLastDate';
 const SCHEDULE_KEY = 'cjuDocRegisterSchedule';
 const REMINDER_WINDOW_DAYS = 14;
-
-let notifyPermission = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported';
-
-function getNotifyEnabled() { return localStorage.getItem(NOTIFY_ENABLED_KEY) === '1'; }
-function setNotifyEnabled(on) { localStorage.setItem(NOTIFY_ENABLED_KEY, on ? '1' : '0'); }
-
-function getNotifyLastDate() { return localStorage.getItem(NOTIFY_LOG_KEY) || ''; }
-function setNotifyLastDate(dateStr) { localStorage.setItem(NOTIFY_LOG_KEY, dateStr); }
 
 function parseEntry(d) {
   const m = /^(\d{4})\/(\d{2})\/(\d{2})/.exec(d.regDate || '');
@@ -825,46 +801,6 @@ function computeUpcomingAll(windowDays) {
   return upcoming;
 }
 
-async function requestNotifyPermission() {
-  if (typeof Notification === 'undefined') { showToast('이 브라우저는 알림 기능을 지원하지 않습니다.'); return; }
-  try {
-    notifyPermission = await Notification.requestPermission();
-  } catch (e) { notifyPermission = 'denied'; }
-  if (notifyPermission === 'granted') showToast('브라우저 알림이 켜졌습니다.');
-  else if (notifyPermission === 'denied') showToast('알림이 거부되었습니다. 브라우저 설정에서 허용해주세요.');
-  renderScheduleView();
-}
-
-// Best-effort only: this fires while the app tab is open (checked once per
-// load), not as a true background push - there is no server here to deliver
-// notifications when the browser/tab is closed.
-function checkReminders() {
-  const bannerArea = document.getElementById('reminder-banner-area');
-  if (!getNotifyEnabled()) { bannerArea.innerHTML = ''; return; }
-
-  const upcoming = computeUpcomingAll(REMINDER_WINDOW_DAYS);
-  const todayStr = new Date().toISOString().slice(0, 10);
-  if (upcoming.length && notifyPermission === 'granted' && getNotifyLastDate() !== todayStr) {
-    try {
-      new Notification('다가오는 업무 알림', {
-        body: upcoming.slice(0, 3).map(u => `${u.month}월 ${u.day}일경 · [${u.drafter}] ${u.title}`).join('\n'),
-      });
-    } catch (e) { /* Notification unsupported in this context (e.g. file://) */ }
-    setNotifyLastDate(todayStr);
-  }
-
-  if (!upcoming.length) { bannerArea.innerHTML = ''; return; }
-  const top = upcoming.slice(0, 3);
-  bannerArea.innerHTML = `
-    <div class="reminder-banner">
-      <div class="title">🔔 다가오는 반복 업무 ${upcoming.length}건</div>
-      ${top.map(u => `<div class="item">${u.month}월 ${u.day}일경 · <b>${escapeHtml(u.drafter)}</b> · ${escapeHtml(u.title)}</div>`).join('')}
-      <button type="button" class="more-link" id="reminder-goto-schedule">일정 탭에서 자세히 보기 →</button>
-    </div>`;
-  const gotoBtn = document.getElementById('reminder-goto-schedule');
-  if (gotoBtn) gotoBtn.addEventListener('click', () => switchPage('schedule'));
-}
-
 /* ---------- Schedule tab rendering ---------- */
 let calYear, calMonth, calSelectedMD;
 (function initCal() {
@@ -941,7 +877,6 @@ function renderScheduleCalendar() {
 function renderScheduleView() {
   const container = document.getElementById('schedule-content');
   const items = getSchedule();
-  const notifyOn = getNotifyEnabled();
   const upcoming = computeUpcomingAll(REMINDER_WINDOW_DAYS);
 
   let html = `
@@ -951,19 +886,9 @@ function renderScheduleView() {
           <div class="schedule-name">전체 일정</div>
           <div class="schedule-sub">스케줄 등록 ${items.length.toLocaleString()}건</div>
         </div>
-        <button class="btn btn-sm ${notifyOn ? 'btn-primary' : 'btn-ghost'}" id="notify-toggle-btn">${notifyOn ? '🔔 알림 켜짐' : '🔕 알림 받기'}</button>
       </div>
-    </div>`;
+    </div>
 
-  if (notifyOn && notifyPermission !== 'granted' && typeof Notification !== 'undefined') {
-    html += `
-      <div class="card">
-        <div class="import-hint" style="margin-top:0;">브라우저 알림으로 받으려면 알림 권한을 허용해주세요. 이 앱을 열어둔 상태에서만 알림이 울립니다.</div>
-        <button class="btn btn-ghost btn-sm" id="request-notify-btn" style="margin-top:8px;">알림 권한 요청</button>
-      </div>`;
-  }
-
-  html += `
     <div class="card">
       <div class="stat-section-title">다가오는 업무 (${REMINDER_WINDOW_DAYS}일 이내)</div>
       ${upcoming.length ? upcoming.map(u => `
@@ -980,13 +905,6 @@ function renderScheduleView() {
 }
 
 document.getElementById('schedule-content').addEventListener('click', e => {
-  if (e.target.id === 'notify-toggle-btn') {
-    setNotifyEnabled(!getNotifyEnabled());
-    renderScheduleView();
-    checkReminders();
-    return;
-  }
-  if (e.target.id === 'request-notify-btn') { requestNotifyPermission(); return; }
   if (e.target.id === 'sc-cal-prev') {
     calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; }
     renderScheduleView();
@@ -1007,7 +925,6 @@ document.getElementById('schedule-content').addEventListener('click', e => {
   if (removeBtn) {
     removeScheduleItem(removeBtn.dataset.removeKey);
     renderScheduleView();
-    checkReminders();
     return;
   }
 });
@@ -1022,7 +939,6 @@ document.getElementById('schedule-content').addEventListener('click', e => {
   renderUploadInfo();
   populateFilterOptions();
   applyFilters();
-  checkReminders();
 })();
 </script>
 </body>
