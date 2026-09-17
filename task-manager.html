@@ -240,10 +240,10 @@
         <button class="chip" data-regtype="발송">생산/발송</button>
       </div>
       <div class="filter-row">
-        <select id="doctype-select" class="select-input"><option value="">문서종류</option></select>
-        <select id="year-select" class="select-input"><option value="">연도</option></select>
+        <select id="doctype-select" class="select-input"><option value="">문서종류 전체</option></select>
+        <select id="year-select" class="select-input"><option value="">연도 전체</option></select>
         <select id="month-select" class="select-input">
-          <option value="">월</option>
+          <option value="">월 전체</option>
           <option value="1">1월</option><option value="2">2월</option><option value="3">3월</option>
           <option value="4">4월</option><option value="5">5월</option><option value="6">6월</option>
           <option value="7">7월</option><option value="8">8월</option><option value="9">9월</option>
@@ -544,12 +544,12 @@ const sortToggleBtn = document.getElementById('sort-toggle-btn');
 
 function populateFilterOptions() {
   const docTypes = [...new Set(allDocs.map(d => d.docType).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
-  docTypeSelect.innerHTML = '<option value="">문서종류</option>' +
+  docTypeSelect.innerHTML = '<option value="">문서종류 전체</option>' +
     docTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
 
   const years = [...new Set(allDocs.map(d => (d.regDate || '').slice(0, 4)).filter(y => /^\d{4}$/.test(y)))]
     .sort((a, b) => b.localeCompare(a));
-  yearSelect.innerHTML = '<option value="">연도</option>' +
+  yearSelect.innerHTML = '<option value="">연도 전체</option>' +
     years.map(y => `<option value="${y}">${y}년</option>`).join('');
 
   const drafters = [...new Set(allDocs.map(d => d.drafter).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
