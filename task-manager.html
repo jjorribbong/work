@@ -164,8 +164,9 @@
   .sc-cal-cell.empty { background: none; cursor: default; }
   .sc-cal-cell.today { border: 1.5px solid var(--blue); font-weight: 700; }
   .sc-cal-cell.selected { background: var(--blue); color: #fff; }
-  .sc-cal-cell .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--orange); margin-top: 2px; }
-  .sc-cal-cell.selected .dot { background: #fff; }
+  .sc-cal-cell .dots { display: flex; gap: 2px; margin-top: 2px; }
+  .sc-cal-cell .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--orange); }
+  .sc-cal-cell.selected .dot { background: #fff !important; }
 
   details.import-box summary {
     font-size: 13px; color: var(--blue); font-weight: 700; cursor: pointer; padding: 6px 0;
@@ -234,10 +235,17 @@
           </select>
         </div>
       </div>
-      <button class="btn btn-primary" id="search-btn" style="margin-bottom:10px;">🔍 검색</button>
+      <div style="display:flex; gap:8px; margin-bottom:10px;">
+        <button class="btn btn-primary" id="search-btn" style="flex:2;">🔍 검색</button>
+        <button class="btn btn-ghost" id="reset-filters-btn" style="flex:1;">초기화</button>
+      </div>
       <div class="list-toolbar">
         <span class="count-label" id="count-label"></span>
         <button class="sort-btn" id="sort-toggle-btn">최신순 ▾</button>
+      </div>
+      <div style="display:flex; gap:8px; margin-bottom:10px;">
+        <button class="btn btn-ghost btn-sm" id="bulk-toggle-btn" style="flex:1; display:none;">☑ 검색결과 전체 등록</button>
+        <button class="btn btn-ghost btn-sm" id="csv-export-btn" style="flex:1;">📄 CSV 내보내기</button>
       </div>
       <div id="doc-list"></div>
       <button class="btn btn-ghost" id="load-more-btn" style="margin-top:12px; display:none;">더 보기</button>
@@ -262,6 +270,11 @@
             </select>
           </div>
         </div>
+        <div style="display:flex; gap:8px; margin-top:12px;">
+          <button class="btn btn-ghost btn-sm" id="sched-backup-btn" style="flex:1;">💾 백업</button>
+          <button class="btn btn-ghost btn-sm" id="sched-restore-btn" style="flex:1;">📂 복원</button>
+        </div>
+        <input type="file" id="sched-restore-input" accept="application/json,.json" style="display:none">
       </div>
       <div id="schedule-content"></div>
     </div>
@@ -305,6 +318,10 @@
       <div class="card">
         <div class="stat-section-title">연도별</div>
         <div id="stat-year"></div>
+      </div>
+      <div class="card">
+        <div class="stat-section-title">담당자별 (상위 15명)</div>
+        <div id="stat-drafter"></div>
       </div>
     </div>
   </main>
@@ -588,6 +605,85 @@ listContainer.addEventListener('change', e => {
   const ok = toggleScheduleItem(doc);
   if (ok === false) { cb.checked = !cb.checked; return; }
   showToast(cb.checked ? '스케줄에 등록되었습니다.' : '스케줄에서 제거되었습니다.', 1500);
+  updateBulkToggleBtn();
+});
+
+document.getElementById('reset-filters-btn').addEventListener('click', () => {
+  titleSearchInput.value = '';
+  drafterSearchInput.value = '';
+  docTypeSelect.value = '';
+  yearSelect.value = '';
+  monthSelect.value = '';
+  currentRegTypeChip = 'all';
+  document.querySelectorAll('#regtype-chip-row .chip').forEach(c => c.classList.remove('active'));
+  document.querySelector('#regtype-chip-row .chip[data-regtype="all"]').classList.add('active');
+  applyFilters();
+});
+
+function escapeCsvField(value) {
+  const str = String(value == null ? '' : value);
+  if (/[",\n]/.test(str)) return '"' + str.replace(/"/g, '""') + '"';
+  return str;
+}
+document.getElementById('csv-export-btn').addEventListener('click', () => {
+  if (!filteredDocs.length) { showToast('내보낼 검색 결과가 없습니다.'); return; }
+  const header = ['등록구분', '등록일시', '제목', '문서종류', '결재권자직위', '담당자', '수신/발신'];
+  const rows = filteredDocs.map(d => [shortRegType(d.regType), d.regDate, d.title, d.docType, d.approverPosition, d.drafter, d.recipient]);
+  const csvLines = [header, ...rows].map(row => row.map(escapeCsvField).join(','));
+  const csvContent = '﻿' + csvLines.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const pad = n => String(n).padStart(2, '0');
+  const d0 = new Date();
+  a.href = url;
+  a.download = `검색결과_${d0.getFullYear()}${pad(d0.getMonth() + 1)}${pad(d0.getDate())}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast(`${filteredDocs.length.toLocaleString()}건 내보냈습니다.`, 3000);
+});
+
+// True only when every currently filtered result (not just the loaded page)
+// is already in the schedule - decides whether the bulk button registers or
+// unregisters the whole search result set in one action.
+function isFilteredFullyScheduled() {
+  if (!filteredDocs.length) return false;
+  const keys = new Set(getSchedule().map(s => s.key));
+  return filteredDocs.every(d => keys.has(scheduleKey(d)));
+}
+function updateBulkToggleBtn() {
+  const btn = document.getElementById('bulk-toggle-btn');
+  if (!filteredDocs.length) { btn.style.display = 'none'; return; }
+  btn.style.display = 'block';
+  btn.textContent = isFilteredFullyScheduled() ? `☐ 검색결과 전체 해제 (${filteredDocs.length.toLocaleString()}건)` : `☑ 검색결과 전체 등록 (${filteredDocs.length.toLocaleString()}건)`;
+}
+document.getElementById('bulk-toggle-btn').addEventListener('click', () => {
+  if (!filteredDocs.length) return;
+  if (isFilteredFullyScheduled()) {
+    if (!confirm(`검색결과 ${filteredDocs.length.toLocaleString()}건을 모두 스케줄에서 해제할까요?`)) return;
+    const keys = new Set(filteredDocs.map(scheduleKey));
+    saveSchedule(getSchedule().filter(s => !keys.has(s.key)));
+    showToast('전체 해제되었습니다.');
+  } else {
+    if (!confirm(`검색결과 ${filteredDocs.length.toLocaleString()}건을 모두 스케줄에 등록할까요?`)) return;
+    const list = getSchedule();
+    const existingKeys = new Set(list.map(s => s.key));
+    let added = 0;
+    filteredDocs.forEach(d => {
+      const parsed = parseEntry(d);
+      if (!parsed) return;
+      const key = scheduleKey(d);
+      if (existingKeys.has(key)) return;
+      list.push({ key, drafter: d.drafter, title: d.title, docType: d.docType, regDate: d.regDate, year: parsed.year, month: parsed.month, day: parsed.day });
+      existingKeys.add(key);
+      added++;
+    });
+    saveSchedule(list);
+    showToast(`${added.toLocaleString()}건 등록되었습니다.`);
+  }
+  renderList();
 });
 
 function applyFilters() {
@@ -650,6 +746,7 @@ function renderList() {
   countLabel.textContent = allDocs.length
     ? `전체 ${allDocs.length.toLocaleString()}건 중 ${filteredDocs.length.toLocaleString()}건`
     : '';
+  updateBulkToggleBtn();
   if (!filteredDocs.length) {
     listContainer.innerHTML = `<div class="empty-note">${allDocs.length ? '검색 결과가 없습니다.' : '업로드된 문서가 없습니다. "업로드" 탭에서 등록대장 엑셀 파일을 올려주세요.'}</div>`;
     loadMoreBtn.style.display = 'none';
@@ -691,6 +788,12 @@ function renderStats() {
   document.getElementById('stat-year').innerHTML =
     Object.entries(byYear).sort((a, b) => b[0].localeCompare(a[0])).map(([k, v]) => statBarHtml(k + '년', v, total)).join('')
     || '<div class="empty-note">데이터가 없습니다.</div>';
+
+  const byDrafter = {};
+  allDocs.forEach(d => { if (d.drafter) byDrafter[d.drafter] = (byDrafter[d.drafter] || 0) + 1; });
+  document.getElementById('stat-drafter').innerHTML =
+    Object.entries(byDrafter).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([k, v]) => statBarHtml(k, v, total)).join('')
+    || '<div class="empty-note">데이터가 없습니다.</div>';
 }
 
 /* ---------- Annual schedule / recurring-pattern detection ---------- */
@@ -729,6 +832,62 @@ function toggleScheduleItem(d) {
 function removeScheduleItem(key) {
   saveSchedule(getSchedule().filter(s => s.key !== key));
 }
+
+// The schedule lives only in this browser's localStorage - clearing site
+// data or switching devices loses it outright, with no way to rebuild it
+// short of re-checking every item by hand. Backup/restore as JSON is the
+// safety net for that.
+function exportScheduleBackup() {
+  const items = getSchedule();
+  if (!items.length) { showToast('내보낼 스케줄이 없습니다.'); return; }
+  const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), items }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const pad = n => String(n).padStart(2, '0');
+  const d = new Date();
+  a.href = url;
+  a.download = `업무일정_백업_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast(`${items.length.toLocaleString()}건 백업했습니다.`);
+}
+
+// Merges into the current schedule rather than replacing it, so restoring
+// an older backup can never wipe out items registered since that backup.
+async function importScheduleBackup(file) {
+  let items;
+  try {
+    const data = JSON.parse(await file.text());
+    items = Array.isArray(data) ? data : (Array.isArray(data.items) ? data.items : null);
+  } catch (e) {
+    items = null;
+  }
+  const valid = (items || []).filter(it => it && it.key && it.drafter && it.title && it.year && it.month && it.day);
+  if (!valid.length) { showToast('올바른 백업 파일이 아닙니다.', 4000); return; }
+
+  const list = getSchedule();
+  const existingKeys = new Set(list.map(s => s.key));
+  let added = 0;
+  valid.forEach(it => {
+    if (existingKeys.has(it.key)) return;
+    list.push({ key: it.key, drafter: it.drafter, title: it.title, docType: it.docType || '', regDate: it.regDate || '', year: it.year, month: it.month, day: it.day });
+    existingKeys.add(it.key);
+    added++;
+  });
+  saveSchedule(list);
+  renderScheduleView();
+  showToast(`${added.toLocaleString()}건 복원되었습니다.${valid.length - added ? ` (중복 ${(valid.length - added).toLocaleString()}건 제외)` : ''}`, 4000);
+}
+
+document.getElementById('sched-backup-btn').addEventListener('click', exportScheduleBackup);
+document.getElementById('sched-restore-btn').addEventListener('click', () => document.getElementById('sched-restore-input').click());
+document.getElementById('sched-restore-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (file) importScheduleBackup(file);
+});
 
 function normalizeTitleForMatch(title) {
   return (title || '')
@@ -840,7 +999,7 @@ function renderCalDayItems(byMD) {
     <div class="pattern-item">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
         <div>
-          <div class="pattern-title">${escapeHtml(it.drafter)} · ${escapeHtml(it.title)}</div>
+          <div class="pattern-title"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${colorForDrafter(it.drafter)};"></span> ${escapeHtml(it.drafter)} · ${escapeHtml(it.title)}</div>
           <div class="pattern-meta">${it.year}년 등록${it.docType ? ' · ' + escapeHtml(it.docType) : ''}</div>
         </div>
         <button type="button" class="del-btn" data-remove-key="${escapeHtml(it.key)}" title="스케줄에서 제거">✕</button>
@@ -848,9 +1007,18 @@ function renderCalDayItems(byMD) {
     </div>`).join('');
 }
 
+const DRAFTER_COLOR_PALETTE = ['#ea580c', '#2563eb', '#16a34a', '#9333ea', '#db2777', '#0891b2', '#ca8a04', '#dc2626'];
+function colorForDrafter(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return DRAFTER_COLOR_PALETTE[hash % DRAFTER_COLOR_PALETTE.length];
+}
+
 // The calendar's displayed year only decides weekday alignment - a dot
 // matches by (month, day) alone, since a schedule item recurs every year
-// regardless of which year it was originally registered from.
+// regardless of which year it was originally registered from. Each dot is
+// colored by drafter so a "담당자 전체" view still shows at a glance whose
+// work falls on which day.
 function renderScheduleCalendar(items) {
   const byMD = scheduleByMonthDay(items);
   const dowNames = ['일', '월', '화', '수', '목', '금', '토'];
@@ -863,12 +1031,15 @@ function renderScheduleCalendar(items) {
   for (let i = 0; i < firstDow; i++) grid += `<div class="sc-cal-cell empty"></div>`;
   for (let d = 1; d <= daysInMonth; d++) {
     const key = (calMonth + 1) + '-' + d;
-    const has = byMD[key] && byMD[key].length;
+    const dayItems = byMD[key] || [];
+    const distinctDrafters = [...new Set(dayItems.map(it => it.drafter))];
+    const dots = distinctDrafters.slice(0, 4)
+      .map(name => `<span class="dot" style="background:${colorForDrafter(name)}"></span>`).join('');
     const isSelected = calSelectedMD && calSelectedMD.month === calMonth + 1 && calSelectedMD.day === d;
     const cls = ['sc-cal-cell'];
     if (isToday(d)) cls.push('today');
     if (isSelected) cls.push('selected');
-    grid += `<div class="${cls.join(' ')}" data-month="${calMonth + 1}" data-day="${d}">${d}${has ? '<span class="dot"></span>' : ''}</div>`;
+    grid += `<div class="${cls.join(' ')}" data-month="${calMonth + 1}" data-day="${d}">${d}${dots ? `<span class="dots">${dots}</span>` : ''}</div>`;
   }
 
   return `
@@ -926,7 +1097,7 @@ function renderScheduleFullList(items) {
         <div class="pattern-item">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
             <div>
-              <div class="pattern-title">${escapeHtml(it.drafter)} · ${escapeHtml(it.title)}</div>
+              <div class="pattern-title"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${colorForDrafter(it.drafter)};"></span> ${escapeHtml(it.drafter)} · ${escapeHtml(it.title)}</div>
               <div class="pattern-meta">${m}월 ${it.day}일 (${it.year}년 등록${it.docType ? ' · ' + escapeHtml(it.docType) : ''})</div>
             </div>
             <button type="button" class="del-btn" data-remove-key="${escapeHtml(it.key)}" title="스케줄에서 제거">✕</button>
