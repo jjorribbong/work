@@ -183,6 +183,9 @@
   .sched-row-title { font-size: 14px; font-weight: 700; line-height: 1.4; }
   .sched-row-date { font-size: 12px; color: var(--sub); margin-top: 3px; }
 
+  .month-group-title { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; font-weight: 800; margin-bottom: 8px; }
+  .month-group-count { font-size: 12px; color: var(--sub); font-weight: 500; }
+
   details.import-box summary {
     font-size: 13px; color: var(--blue); font-weight: 700; cursor: pointer; padding: 6px 0;
   }
@@ -575,15 +578,27 @@ document.getElementById('regtype-chip-row').addEventListener('click', e => {
   currentRegTypeChip = chip.dataset.regtype;
 });
 
+const SORT_LABELS = { desc: '최신순', asc: '오래된순', month: '월별' };
 sortToggleBtn.addEventListener('click', () => {
-  sortOrder = sortOrder === 'desc' ? 'asc' : 'desc';
-  sortToggleBtn.textContent = (sortOrder === 'desc' ? '최신순' : '오래된순') + ' ▾';
+  sortOrder = sortOrder === 'desc' ? 'asc' : sortOrder === 'asc' ? 'month' : 'desc';
+  sortToggleBtn.textContent = SORT_LABELS[sortOrder] + ' ▾';
   applyFilters();
 });
 
 loadMoreBtn.addEventListener('click', () => {
   visibleCount += PAGE_SIZE;
   renderList();
+});
+
+listContainer.addEventListener('change', e => {
+  const cb = e.target.closest('.sched-checkbox');
+  if (!cb) return;
+  const doc = allDocs.find(d => d.id === Number(cb.dataset.docId));
+  if (!doc) return;
+  const ok = toggleScheduleItem(doc);
+  if (ok === false) { cb.checked = !cb.checked; return; }
+  showToast(cb.checked ? '스케줄에 등록되었습니다.' : '스케줄에서 제거되었습니다.', 1500);
+  checkReminders();
 });
 
 function applyFilters() {
@@ -602,6 +617,15 @@ function applyFilters() {
   });
 
   filteredDocs.sort((a, b) => {
+    if (sortOrder === 'month') {
+      const pa = parseEntry(a), pb = parseEntry(b);
+      if (!pa && !pb) return 0;
+      if (!pa) return 1;
+      if (!pb) return -1;
+      if (pa.month !== pb.month) return pa.month - pb.month;
+      if (pa.day !== pb.day) return pa.day - pb.day;
+      return pb.year - pa.year;
+    }
     const ad = a.regDate || '', bd = b.regDate || '';
     if (ad === bd) return 0;
     return sortOrder === 'desc' ? (ad < bd ? 1 : -1) : (ad < bd ? -1 : 1);
@@ -629,6 +653,25 @@ function renderDocCard(d) {
     </div>`;
 }
 
+function renderMonthGroupedList(docs) {
+  const scheduledKeys = new Set(getSchedule().map(s => s.key));
+  const groups = Array.from({ length: 13 }, () => []);
+  docs.forEach(d => {
+    const p = parseEntry(d);
+    if (p) groups[p.month].push(d);
+  });
+  let html = `<div class="import-hint" style="margin-bottom:10px;">체크박스를 선택하면 해당 업무가 매년 반복되는 일정으로 스케줄에 등록됩니다 (일정 탭에서 확인 가능).</div>`;
+  for (let m = 1; m <= 12; m++) {
+    if (!groups[m].length) continue;
+    html += `
+      <div class="card">
+        <div class="month-group-title"><span>${m}월</span><span class="month-group-count">${groups[m].length.toLocaleString()}건</span></div>
+        ${groups[m].map(d => renderScheduleDocRow(d, scheduledKeys.has(scheduleKey(d)))).join('')}
+      </div>`;
+  }
+  return html;
+}
+
 function renderList() {
   const slice = filteredDocs.slice(0, visibleCount);
   countLabel.textContent = allDocs.length
@@ -639,7 +682,7 @@ function renderList() {
     loadMoreBtn.style.display = 'none';
     return;
   }
-  listContainer.innerHTML = slice.map(renderDocCard).join('');
+  listContainer.innerHTML = sortOrder === 'month' ? renderMonthGroupedList(slice) : slice.map(renderDocCard).join('');
   loadMoreBtn.style.display = visibleCount < filteredDocs.length ? 'block' : 'none';
 }
 
