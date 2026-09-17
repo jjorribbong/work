@@ -233,12 +233,13 @@
       <div class="chip-row" id="regtype-chip-row">
         <button class="chip active" data-regtype="all">전체</button>
         <button class="chip" data-regtype="접수">접수</button>
-        <button class="chip" data-regtype="발송">발송</button>
+        <button class="chip" data-regtype="발송">생산/발송</button>
       </div>
       <div class="filter-row">
         <select id="doctype-select" class="select-input"><option value="">문서종류 전체</option></select>
         <select id="year-select" class="select-input"><option value="">연도 전체</option></select>
       </div>
+      <button class="btn btn-primary" id="search-btn" style="margin-bottom:10px;">🔍 검색</button>
       <div class="list-toolbar">
         <span class="count-label" id="count-label"></span>
         <button class="sort-btn" id="sort-toggle-btn">최신순 ▾</button>
@@ -555,15 +556,10 @@ function populateFilterOptions() {
   document.getElementById('drafter-datalist').innerHTML = drafters.map(n => `<option value="${escapeHtml(n)}">`).join('');
 }
 
-let searchDebounce;
-function debouncedApplyFilters() {
-  clearTimeout(searchDebounce);
-  searchDebounce = setTimeout(applyFilters, 150);
-}
-titleSearchInput.addEventListener('input', debouncedApplyFilters);
-drafterSearchInput.addEventListener('input', debouncedApplyFilters);
-docTypeSelect.addEventListener('change', applyFilters);
-yearSelect.addEventListener('change', applyFilters);
+document.getElementById('search-btn').addEventListener('click', applyFilters);
+function handleSearchEnterKey(e) { if (e.key === 'Enter') applyFilters(); }
+titleSearchInput.addEventListener('keydown', handleSearchEnterKey);
+drafterSearchInput.addEventListener('keydown', handleSearchEnterKey);
 
 document.getElementById('go-schedule-btn').addEventListener('click', () => {
   const name = drafterSearchInput.value.trim();
@@ -577,7 +573,6 @@ document.getElementById('regtype-chip-row').addEventListener('click', e => {
   document.querySelectorAll('#regtype-chip-row .chip').forEach(c => c.classList.remove('active'));
   chip.classList.add('active');
   currentRegTypeChip = chip.dataset.regtype;
-  applyFilters();
 });
 
 sortToggleBtn.addEventListener('click', () => {
