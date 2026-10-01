@@ -3,7 +3,7 @@
 솜씨쟁이 홈페이지 개선에 참고할 만한 도예공방·공예 스튜디오 웹사이트 레퍼런스입니다.
 아래 예약 작업(Routine)이 주기적으로 웹 검색을 수행해 이 목록을 갱신합니다.
 
-마지막 업데이트: 2026-09-01
+마지막 업데이트: 2026-10-01
 
 ## 실제 운영 중인 사이트
 
@@ -21,6 +21,7 @@
 - [Awwwards: Best Minimal Websites](https://www.awwwards.com/websites/minimal/) — 업종을 가리지 않은 미니멀 웹디자인 수상작 모음. 솜씨쟁이처럼 여백과 타이포로 승부하는 사이트의 레이아웃·인터랙션 트렌드를 폭넓게 참고하기 좋음.
 - [Dribbble - Pottery Website 태그](https://dribbble.com/tags/pottery-website) — 도자기/공예 테마 웹 UI 시안 모음. 색감·타이포 트렌드 파악용.
 - [Pinterest - Ceramic website design ideas](https://www.pinterest.com/sahandbabali/ceramic-website-design/) — 세라믹 브랜드 웹사이트 무드보드 모음.
+- [Land-book](https://land-book.com/) — 업종·스타일·타이포그래피·색상 등으로 실제 운영 중인 웹사이트를 필터링해 볼 수 있는 큐레이션 갤러리. "소규모 비즈니스"·"미니멀" 스타일로 필터링해두고 주기적으로 훑어보면 새 레퍼런스를 꾸준히 발견하기 좋음.
 
 ## 참고 메모
 
