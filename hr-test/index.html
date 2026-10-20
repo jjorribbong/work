@@ -532,6 +532,46 @@ function dedupeHeaderLabels(header) {
     return seen[h] > 1 ? `${h}(${seen[h]})` : h;
   });
 }
+// A merged cell with colSpan > 1 (e.g. a "생년월일" cell accidentally built
+// 2 grid-columns wide instead of 1) has its text copied into every grid
+// column it covers, by both the header row and every data row beneath it.
+// That shows up as two same-labeled columns holding byte-identical values
+// in every row - a formatting accident in the source document, not two
+// real columns. A row where that same cell was only merged across 1 of
+// the 2 columns (a per-row slip, not a genuine extra field) leaves one of
+// the pair blank instead of duplicated, so two values only really
+// conflict when both are non-empty and differ - otherwise they're folded
+// into whichever side is non-empty before the duplicate column is
+// dropped. Collapsing them this way avoids surfacing a cosmetic "(2)"
+// duplicate for something that isn't actually two columns, while a
+// genuine label collision (values that actually differ somewhere) is
+// left alone for dedupeHeaderLabels to disambiguate safely.
+function collapseRedundantSpanDuplicates(header, dataRows) {
+  const indicesByLabel = {};
+  (header || []).forEach((h, i) => {
+    if (!h) return;
+    (indicesByLabel[h] = indicesByLabel[h] || []).push(i);
+  });
+  const out = header.slice();
+  Object.values(indicesByLabel).forEach(idxs => {
+    if (idxs.length < 2) return;
+    const first = idxs[0];
+    const rest = idxs.slice(1);
+    const compatible = rest.every(i => dataRows.every(row => {
+      const a = (row[first] || '').trim();
+      const b = (row[i] || '').trim();
+      return !a || !b || a === b;
+    }));
+    if (!compatible) return;
+    rest.forEach(i => {
+      dataRows.forEach(row => {
+        if (!(row[first] || '').trim() && (row[i] || '').trim()) row[first] = row[i];
+      });
+      out[i] = '';
+    });
+  });
+  return out;
+}
 function rowSignature(values) {
   return Object.keys(values).sort().map(k => k + '=' + values[k]).join('|');
 }
@@ -1143,6 +1183,7 @@ async function handleHwpxFileSelected(e) {
     let added = 0, skipped = 0, duplicates = 0;
     const dedupeSet = new Set();
     for (const g of personnelGroups) {
+      g.header = collapseRedundantSpanDuplicates(g.header, g.dataRows);
       g.header = dedupeHeaderLabels(g.header);
       const headerCols = g.header.filter(Boolean);
       const recordRows = g.dataRows.map(row => {
