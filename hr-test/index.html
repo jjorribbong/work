@@ -138,6 +138,8 @@
   .result-card .dept { font-size: 14px; color: var(--sub); margin-top: 2px; }
   .result-card .row { font-size: 14px; margin-top: 6px; color: var(--text); }
   .result-card .row .k { color: var(--sub); margin-right: 6px; }
+  .result-card .group-divider { font-size: 13px; font-weight: 700; color: var(--blue); margin-top: 12px; }
+  .result-card .row.grouped { margin-top: 3px; padding-left: 10px; }
 
   .result-actions {
     display: flex;
@@ -597,7 +599,7 @@ function computeGlobalSchema() {
   return seen;
 }
 
-function importStaffRows(rows, category, headerCols, dedupeSet) {
+function importStaffRows(rows, category, headerCols, dedupeSet, columnGroups) {
   const cols = (headerCols || []).filter(Boolean);
   const roles = resolveRoleKeys(cols);
   const list = loadStaff();
@@ -628,6 +630,7 @@ function importStaffRows(rows, category, headerCols, dedupeSet) {
       idKey: roles.idKey,
       phoneKey: roles.phoneKey,
       deptKey: roles.deptKey,
+      columnGroups: columnGroups || {},
     });
     added++;
   });
@@ -691,17 +694,32 @@ function renderMatchCard(match) {
   const idVal = recordIdVal(match);
   const phoneVal = recordPhoneVal(match);
   const deptVal = recordDeptVal(match);
+  const columnGroups = match.columnGroups || {};
   const otherRows = (match.columns || [])
     .filter(c => c !== match.nameKey && c !== match.deptKey)
-    .map(c => ({ label: c, value: match.values[c] }))
+    .map(c => ({ label: c, value: match.values[c], group: columnGroups[c] || '' }))
     .filter(r => r.value);
+
+  // A column that came from a two-row header (e.g. "학력" merged over
+  // 학사/석사/박사/학위) keeps its original heading in `group` - show it once,
+  // as a "■ 학력" divider, right before the sub-fields that share it.
+  let lastGroup = '';
+  const rowsHtml = otherRows.map(r => {
+    let divider = '';
+    if (r.group !== lastGroup) {
+      divider = r.group ? `<div class="group-divider">■ ${escapeHtml(r.group)}</div>` : '';
+      lastGroup = r.group;
+    }
+    const rowClass = r.group ? 'row grouped' : 'row';
+    return `${divider}<div class="${rowClass}"><span class="k">${escapeHtml(r.label)}</span>${escapeHtml(r.value)}</div>`;
+  }).join('');
 
   return `
     <div class="result-card">
       ${idVal ? `<div class="empid">${escapeHtml(idVal)}</div>` : ''}
       <div class="name">${escapeHtml(name)}${match.category ? `<span class="category-badge">${escapeHtml(match.category)}</span>` : ''}</div>
       ${deptVal ? `<div class="dept">${escapeHtml(deptVal)}</div>` : ''}
-      ${otherRows.map(r => `<div class="row"><span class="k">${escapeHtml(r.label)}</span>${escapeHtml(r.value)}</div>`).join('')}
+      ${rowsHtml}
       ${phoneVal ? `
         <div class="result-actions">
           <a class="btn btn-primary" href="tel:${escapeHtml(phoneVal)}">전화 걸기</a>
@@ -1101,7 +1119,12 @@ function groupTablesByHeader(grids) {
     const header = grid[0];
     const sig = headerSignature(header);
     if (!sig) return;
-    if (!groups.has(sig)) groups.set(sig, { header: header.slice(), dataRows: [] });
+    // topHeader keeps the column's original row-0 text (e.g. "임용현황",
+    // "학력") even once header[i] below is refined to the more specific
+    // sub-label ("본교최초임용일", "학사"...) - so the two-row structure the
+    // source document actually had isn't thrown away, just set aside for
+    // display to group the sub-fields back under their original heading.
+    if (!groups.has(sig)) groups.set(sig, { header: header.slice(), topHeader: header.slice(), dataRows: [] });
     const group = groups.get(sig);
     grid.slice(1).forEach(row => {
       if (!row.some(c => c)) return;
@@ -1239,12 +1262,25 @@ async function handleHwpxFileSelected(e) {
       g.header = collapseRedundantSpanDuplicates(g.header, g.dataRows);
       g.header = dedupeHeaderLabels(g.header);
       const headerCols = g.header.filter(Boolean);
+      // A column whose original (pre-refinement) row-0 text differs from its
+      // final leaf label came from a two-row header (e.g. "학력" merged over
+      // 학사/석사/박사/학위) - keep that mapping so the lookup result can show
+      // the original heading as a section divider above its sub-fields.
+      const columnGroups = {};
+      g.header.forEach((h, i) => {
+        if (!h) return;
+        const top = (g.topHeader && g.topHeader[i]) || '';
+        // The original row-0 text is often letter-spaced for print layout
+        // (e.g. "학                        력") - collapse that before using
+        // it as a section-divider label.
+        if (top && normLabel(top) !== normLabel(h)) columnGroups[h] = top.replace(/\s+/g, '');
+      });
       const recordRows = g.dataRows.map(row => {
         const obj = {};
         g.header.forEach((h, i) => { if (h) obj[h] = row[i] ?? ''; });
         return obj;
       });
-      const result = importStaffRows(recordRows, category, headerCols, dedupeSet);
+      const result = importStaffRows(recordRows, category, headerCols, dedupeSet, columnGroups);
       added += result.added;
       skipped += result.skipped;
       duplicates += result.duplicates;
