@@ -993,6 +993,48 @@ function sectionNumber(name) {
   return m && m[1] ? parseInt(m[1], 10) : 0;
 }
 
+// A department's own roster table (unlike the honorary/visiting-professor
+// tables, which carry an explicit "소속" cell per row) often has no
+// affiliation column at all - the department name is instead printed as a
+// plain heading paragraph just above the table ("경상대학 경영학과"), repeated
+// per page alongside the running title ("교   원   임   용   현   황"). That
+// heading line sits in the document body alongside the table paragraphs
+// rather than inside any cell, so it has to be read from the body's own
+// paragraph flow and carried forward into whichever table follows it.
+function hasAncestorWithin(el, root, tagName) {
+  let cur = el.parentNode;
+  while (cur && cur !== root) {
+    if (localName(cur) === tagName) return true;
+    cur = cur.parentNode;
+  }
+  return false;
+}
+function directParagraphText(p) {
+  const runs = Array.from(p.getElementsByTagName('*')).filter(el => localName(el) === 't');
+  return runs.filter(t => !hasAncestorWithin(t, p, 'tbl')).map(t => t.textContent).join('');
+}
+function looksLikeDeptHeading(text) {
+  if (!text || text.length > 40) return false;
+  if (text.includes('현황')) return false;       // running page title ("...교원 임용 현황")
+  if (text.includes('ㆍ')) return false;          // 목차 dot-leader lines
+  if (text.includes('※')) return false;          // footnotes
+  if (/^-.*-$/.test(text)) return false;          // "- 목   차 -"
+  if (/^\d+\.\s/.test(text)) return false;        // "1. 경상대학ㆍㆍㆍ"
+  if (/\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일/.test(text)) return false; // date stamp
+  return true;
+}
+// Tables whose header has no 소속/부서 alias of its own get one appended -
+// consistently, even when no heading was found for a particular fragment -
+// so every fragment of the same roster keeps an identical header signature
+// and still merges into one group.
+function applyDeptHeading(grid, headingText) {
+  if (!grid.length) return;
+  const roles = resolveRoleKeys(grid[0]);
+  if (roles.deptKey) return;
+  grid[0].push('소속');
+  for (let i = 1; i < grid.length; i++) grid[i].push(headingText || '');
+}
+
 async function parseHwpxTables(file) {
   let zip;
   try {
@@ -1007,15 +1049,26 @@ async function parseHwpxTables(file) {
 
   const parser = new DOMParser();
   const tables = [];
+  let pendingHeading = '';
 
   for (const name of sectionFiles) {
     const xmlText = await zip.files[name].async('text');
     const doc = parser.parseFromString(xmlText, 'application/xml');
     if (doc.getElementsByTagName('parsererror').length) continue;
-    const tbls = Array.from(doc.getElementsByTagName('*')).filter(el => localName(el) === 'tbl');
-    for (const tbl of tbls) {
-      const parsed = parseTableToGrid(tbl);
-      if (parsed.grid.length) tables.push(parsed);
+    const bodyParas = Array.from(doc.documentElement.childNodes)
+      .filter(n => n.nodeType === 1 && localName(n) === 'p');
+    for (const p of bodyParas) {
+      const tbl = Array.from(p.getElementsByTagName('*')).find(el => localName(el) === 'tbl');
+      if (tbl) {
+        const parsed = parseTableToGrid(tbl);
+        if (parsed.grid.length) {
+          applyDeptHeading(parsed.grid, pendingHeading);
+          tables.push(parsed);
+        }
+        continue;
+      }
+      const text = directParagraphText(p).trim();
+      if (text && looksLikeDeptHeading(text)) pendingHeading = text;
     }
   }
   return tables;
