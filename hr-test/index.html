@@ -526,6 +526,14 @@ function looksLikePersonnelHeader(header) {
 function isCoreStatusHeader(header) {
   return (header || []).length >= 2 && normLabel(header[0]) === '구분' && normLabel(header[1]) === '구분';
 }
+// The faculty report's own overall recap - "직종구분별 성별인원현황"
+// (직종구분/직급/성별인원(남·여·계)/비고) - starts with a "직종구분" column,
+// a fingerprint unique to this one table among the faculty report's many
+// other non-personnel tables (the per-college/department breakdowns all
+// start with "대학" instead).
+function isFacultyStatusHeader(header) {
+  return (header || []).length > 0 && normLabel(header[0]) === '직종구분';
+}
 // Some documents format a two-row header inconsistently across fragments
 // (e.g. a sub-column like "교수" spans two grid columns in one department's
 // table but one column in another), which can leave two columns with the
@@ -1323,14 +1331,16 @@ async function handleHwpxFileSelected(e) {
     }
     renderStaffList();
 
-    // Only the overall 정·현원 현황 statistics table is captured as an
-    // image - everything else non-personnel (by-rank breakdowns, the
-    // 직군별 인원현황 recap, per-department 정원/현원/여석 boxes) is left
-    // out entirely. It's usually rendered as two side-by-side <hp:tbl>
-    // elements (e.g. 일반직/기술직 then 관리운영직/별정직), so all matching
+    // Only the overall recap statistics table is captured as an image -
+    // everything else non-personnel (by-rank breakdowns, per-department
+    // 정원/현원/여석 boxes, the faculty report's per-college breakdowns) is
+    // left out entirely. It's usually rendered as several side-by-side or
+    // stacked <hp:tbl> elements (e.g. 일반직/기술직 then 관리운영직/별정직,
+    // or the faculty report's 직종구분별 성별인원현황), so all matching
     // tables are stacked into a single combined image in document order.
     const coreStatusTables = tables.filter(t =>
-      !looksLikePersonnelHeader(t.grid[0] || []) && isCoreStatusHeader(t.grid[0] || []));
+      !looksLikePersonnelHeader(t.grid[0] || []) &&
+      (isCoreStatusHeader(t.grid[0] || []) || isFacultyStatusHeader(t.grid[0] || [])));
 
     let summarySavedCount = 0;
     let summaryQuotaFailed = false;
@@ -1346,7 +1356,12 @@ async function handleHwpxFileSelected(e) {
         });
         const combinedMaxRow = rowOffset - 2;
         const dataUrl = await captureTableAsImage(combinedCells, combinedMaxRow, combinedMaxCol);
-        const images = loadSummaryImages();
+        // Re-uploading a revised file (the normal flow while checking fixes
+        // against a document that keeps getting corrected) used to just
+        // pile another snapshot onto the list every time, even though it's
+        // the same report - replace this category's existing snapshot
+        // instead of accumulating duplicates of it.
+        const images = loadSummaryImages().filter(img => img.category !== category);
         images.push({
           id: nextRecordId(),
           category,
