@@ -135,6 +135,7 @@
 
   .result-card .empid { font-size: 13px; color: var(--sub); margin-bottom: 6px; }
   .result-card .name { font-size: 20px; font-weight: 800; }
+  .result-card .dept { font-size: 14px; color: var(--sub); margin-top: 2px; }
   .result-card .row { font-size: 14px; margin-top: 6px; color: var(--text); }
   .result-card .row .k { color: var(--sub); margin-right: 6px; }
 
@@ -419,6 +420,7 @@ const NAME_ALIASES = ['이름', '성명', '성함', 'name'];
 const ID_ALIASES = ['사번', '교번', '학번', '사원번호', '직원번호', 'id', '번호'];
 const PHONE_ALIASES = ['연락처', '전화번호', '휴대전화', '휴대폰', '핸드폰', 'phone'];
 const BIRTHDATE_ALIASES = ['생년월일', '생일', 'birthdate', 'birth'];
+const DEPT_ALIASES = ['소속', '부서', '소속부서', '학과', 'department', 'dept'];
 // A column like this means the table is a headcount/statistics recap (e.g.
 // "직종별 인원현황" listing several names per row next to a count), not a
 // one-row-per-person roster - even though it may also have a name column.
@@ -494,6 +496,7 @@ function resolveRoleKeys(columns) {
     idKey: findAliasKey(cols, ID_ALIASES),
     phoneKey: findAliasKey(cols, PHONE_ALIASES),
     birthDateKey: findAliasKey(cols, BIRTHDATE_ALIASES),
+    deptKey: findAliasKey(cols, DEPT_ALIASES),
   };
 }
 function isNameAliasColumn(col) {
@@ -539,6 +542,7 @@ function recordName(r) {
 }
 function recordIdVal(r) { return (r.idKey && r.values[r.idKey]) || ''; }
 function recordPhoneVal(r) { return (r.phoneKey && r.values[r.phoneKey]) || ''; }
+function recordDeptVal(r) { return (r.deptKey && r.values[r.deptKey]) || ''; }
 
 function computeGlobalSchema() {
   const list = loadStaff();
@@ -583,6 +587,7 @@ function importStaffRows(rows, category, headerCols, dedupeSet) {
       nameKey: roles.nameKey,
       idKey: roles.idKey,
       phoneKey: roles.phoneKey,
+      deptKey: roles.deptKey,
     });
     added++;
   });
@@ -611,10 +616,12 @@ function findStaffMatches(query) {
     if (idSuffix.length) return idSuffix;
   }
 
-  const nameExact = list.filter(s => recordName(s) === q);
+  // Names with spacing for visual alignment (e.g. honorary professors shown
+  // as "박 허 식") should still match a plain query like "박허식".
+  const nameExact = list.filter(s => normalizeKey(recordName(s)) === qNorm);
   if (nameExact.length) return nameExact;
 
-  return list.filter(s => recordName(s).includes(q));
+  return list.filter(s => normalizeKey(recordName(s)).includes(qNorm));
 }
 
 function summarizeRecord(r) {
@@ -643,8 +650,9 @@ function renderMatchCard(match) {
   const name = recordName(match);
   const idVal = recordIdVal(match);
   const phoneVal = recordPhoneVal(match);
+  const deptVal = recordDeptVal(match);
   const otherRows = (match.columns || [])
-    .filter(c => c !== match.nameKey)
+    .filter(c => c !== match.nameKey && c !== match.deptKey)
     .map(c => ({ label: c, value: match.values[c] }))
     .filter(r => r.value);
 
@@ -652,6 +660,7 @@ function renderMatchCard(match) {
     <div class="result-card">
       ${idVal ? `<div class="empid">${escapeHtml(idVal)}</div>` : ''}
       <div class="name">${escapeHtml(name)}${match.category ? `<span class="category-badge">${escapeHtml(match.category)}</span>` : ''}</div>
+      ${deptVal ? `<div class="dept">${escapeHtml(deptVal)}</div>` : ''}
       ${otherRows.map(r => `<div class="row"><span class="k">${escapeHtml(r.label)}</span>${escapeHtml(r.value)}</div>`).join('')}
       ${phoneVal ? `
         <div class="result-actions">
@@ -765,6 +774,7 @@ document.getElementById('save-form-btn').addEventListener('click', () => {
     nameKey: roles.nameKey || currentNameKey,
     idKey: roles.idKey,
     phoneKey: roles.phoneKey,
+    deptKey: roles.deptKey,
   };
 
   const idx = list.findIndex(s => s.id === id);
@@ -806,12 +816,14 @@ document.getElementById('staff-search').addEventListener('input', renderStaffLis
 function renderStaffList() {
   const list = loadStaff();
   const q = document.getElementById('staff-search').value.trim().toLowerCase();
+  const qNameNorm = normalizeKey(document.getElementById('staff-search').value);
   const filtered = q
     ? list.filter(s => {
         const name = recordName(s).toLowerCase();
         const category = (s.category || '').toLowerCase();
         const anyValue = Object.values(s.values || {}).some(v => (v || '').toLowerCase().includes(q));
-        return name.includes(q) || category.includes(q) || anyValue;
+        const nameNoSpace = normalizeKey(recordName(s)).includes(qNameNorm);
+        return name.includes(q) || nameNoSpace || category.includes(q) || anyValue;
       })
     : list;
 
@@ -822,8 +834,13 @@ function renderStaffList() {
   }
   container.innerHTML = filtered.map(s => {
     const name = recordName(s);
-    const others = (s.columns || []).filter(c => c !== s.nameKey).map(c => s.values[c]).filter(Boolean);
-    const meta = others.slice(0, 3).join(' · ') || '추가 정보 없음';
+    const deptVal = recordDeptVal(s);
+    const others = (s.columns || [])
+      .filter(c => c !== s.nameKey && c !== s.deptKey)
+      .map(c => s.values[c])
+      .filter(Boolean);
+    const preview = [deptVal, ...others].filter(Boolean);
+    const meta = preview.slice(0, 3).join(' · ') || '추가 정보 없음';
     return `
       <div class="staff-item" data-id="${s.id}">
         <div class="top">
