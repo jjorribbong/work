@@ -514,6 +514,21 @@ function looksLikePersonnelHeader(header) {
 function isCoreStatusHeader(header) {
   return (header || []).length >= 2 && normLabel(header[0]) === '구분' && normLabel(header[1]) === '구분';
 }
+// Some documents format a two-row header inconsistently across fragments
+// (e.g. a sub-column like "교수" spans two grid columns in one department's
+// table but one column in another), which can leave two columns with the
+// exact same refined label. Since a record's values are keyed by column
+// label, two columns sharing a label would silently overwrite one another.
+// Making duplicate labels unique guarantees every column's value survives,
+// even when the document's own formatting is inconsistent.
+function dedupeHeaderLabels(header) {
+  const seen = {};
+  return (header || []).map(h => {
+    if (!h) return h;
+    seen[h] = (seen[h] || 0) + 1;
+    return seen[h] > 1 ? `${h}(${seen[h]})` : h;
+  });
+}
 function rowSignature(values) {
   return Object.keys(values).sort().map(k => k + '=' + values[k]).join('|');
 }
@@ -1111,6 +1126,7 @@ async function handleHwpxFileSelected(e) {
     let added = 0, skipped = 0, duplicates = 0;
     const dedupeSet = new Set();
     for (const g of personnelGroups) {
+      g.header = dedupeHeaderLabels(g.header);
       const headerCols = g.header.filter(Boolean);
       const recordRows = g.dataRows.map(row => {
         const obj = {};
