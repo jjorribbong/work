@@ -424,6 +424,21 @@ const ID_ALIASES = ['사번', '교번', '학번', '사원번호', '직원번호'
 const PHONE_ALIASES = ['연락처', '전화번호', '휴대전화', '휴대폰', '핸드폰', 'phone'];
 const BIRTHDATE_ALIASES = ['생년월일', '생일', 'birthdate', 'birth'];
 const DEPT_ALIASES = ['소속', '부서', '소속부서', '학과', 'department', 'dept'];
+// The staff report's rank column already carries a role title and grade
+// (e.g. "팀 장(4급)", "4급"), but not which job category it belongs to
+// (일반직/기술직/관리운영직/별정직/임시직) - that only appears in the heading
+// paragraph above each page's table ("직급 : 일반직 4급 팀장"), the same
+// place a department roster without its own 소속 column gets one from.
+const RANK_CATEGORY_WORDS = ['일반직', '기술직', '관리운영직', '별정직', '임시직'];
+function extractRankCategory(text) {
+  const compact = (text || '').replace(/\s+/g, '');
+  // Contract staff pages are headed e.g. "계약(임시)직원 - 임시직 4종(팀장
+  // 직대)" - never the plain "계약직" word itself, and the parenthetical
+  // "(임시)" would otherwise false-match "임시직" below - so this is
+  // checked first and normalized to one clean label.
+  if (compact.includes('계약')) return '계약직';
+  return RANK_CATEGORY_WORDS.find(w => compact.includes(w)) || '';
+}
 // The leading classification column both staff and faculty rosters use
 // (정규직/계약직, 정년/비정년/비전임...) - shown as a small bullet tag so the
 // two record types read the same way regardless of which table they came
@@ -438,7 +453,7 @@ const COUNT_ALIASES = ['인원', '정원', '현원', '여석', '계', '합계', 
 // break inside them (from a cell that happened to span two paragraphs in
 // the source document) reads as broken rather than as separate entries,
 // unlike a genuinely multi-entry field like 발령현황.
-const SINGLE_LINE_LABELS = ['학사', '석사', '박사', '학위', '임용기간', '근거', '승진'];
+const SINGLE_LINE_LABELS = ['학사', '석사', '박사', '학위', '임용기간', '근거', '승진', '직급'];
 function isSingleLineLabel(label) {
   return SINGLE_LINE_LABELS.some(a => normLabel(a) === normLabel(label));
 }
@@ -1107,6 +1122,28 @@ function applyDeptHeading(grid, headingText) {
   grid[0].push('소속');
   for (let i = 1; i < grid.length; i++) grid[i].push(headingText || '');
 }
+// Unlike 소속 above, the rank column already exists here - it just needs
+// the job-category word from the heading prefixed onto its existing
+// value ("팀 장(4급)" -> "일반직 팀 장(4급)"), not a whole new column. The
+// column's own title can be an inconsistent template leftover too (one
+// report had every regular-staff page titled "임시직 직(위)급" regardless
+// of the person's actual category) - matched loosely by substring rather
+// than an exact alias, and normalized to a plain "직급" once matched.
+function applyRankHeading(grid, headingText) {
+  if (!grid.length) return;
+  const category = extractRankCategory(headingText);
+  if (!category) return;
+  const matchesRank = c => c && (normLabel(c).includes('직위급') || normLabel(c).includes('직급'));
+  let idx = grid[0].findIndex(matchesRank);
+  const fromRow0 = idx !== -1;
+  if (idx === -1 && grid[1]) idx = grid[1].findIndex(matchesRank);
+  if (idx === -1) return;
+  if (fromRow0) grid[0][idx] = '직급';
+  for (let i = 1; i < grid.length; i++) {
+    const cur = (grid[i][idx] || '').trim();
+    if (cur && !cur.includes(category)) grid[i][idx] = `${category} ${cur}`;
+  }
+}
 
 async function parseHwpxTables(file) {
   let zip;
@@ -1136,6 +1173,7 @@ async function parseHwpxTables(file) {
         const parsed = parseTableToGrid(tbl);
         if (parsed.grid.length) {
           applyDeptHeading(parsed.grid, pendingHeading);
+          applyRankHeading(parsed.grid, pendingHeading);
           tables.push(parsed);
         }
         continue;
@@ -1187,8 +1225,15 @@ function groupTablesByHeader(grids) {
     // own) still gets a real per-row value even on this repeated-header
     // "row" - that value is correct as DATA, but would otherwise overwrite
     // the "소속" column name itself with that one row's department text,
-    // breaking the deptKey lookup for the entire group.
+    // breaking the deptKey lookup for the entire group. The same applies
+    // to a "직급" column normalized by applyRankHeading - its own repeated-
+    // header row got the current page's category prefixed onto it too
+    // (applyRankHeading can't tell a reprinted header row from real data
+    // any more than this function's own isRepeatedHeaderRow check can,
+    // before grouping has even happened), so without pinning it, whichever
+    // page's row was processed last would rename the column for everyone.
     const pinnedLabels = new Set(Object.values(resolveRoleKeys(header)).filter(Boolean));
+    if (header.includes('직급')) pinnedLabels.add('직급');
     grid.slice(1).forEach(row => {
       if (!row.some(c => c)) return;
       if (isRepeatedHeaderRow(row, header)) {
