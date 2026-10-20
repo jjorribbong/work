@@ -433,6 +433,15 @@ const GROUP_ALIASES = ['구분'];
 // "직종별 인원현황" listing several names per row next to a count), not a
 // one-row-per-person roster - even though it may also have a name column.
 const COUNT_ALIASES = ['인원', '정원', '현원', '여석', '계', '합계', '소계'];
+// These faculty columns read as one short line each (학교명(전공), 학위,
+// 임용기간, 근거, and 승진 - which often holds a "정년퇴직" note) - a line
+// break inside them (from a cell that happened to span two paragraphs in
+// the source document) reads as broken rather than as separate entries,
+// unlike a genuinely multi-entry field like 발령현황.
+const SINGLE_LINE_LABELS = ['학사', '석사', '박사', '학위', '임용기간', '근거', '승진'];
+function isSingleLineLabel(label) {
+  return SINGLE_LINE_LABELS.some(a => normLabel(a) === normLabel(label));
+}
 
 let idCounter = Date.now();
 function nextRecordId() { return idCounter++; }
@@ -731,7 +740,8 @@ function renderMatchCard(match) {
       lastGroup = r.group;
     }
     const rowClass = r.group ? 'row grouped' : 'row';
-    const valueHtml = escapeHtml(r.value).replace(/\n/g, '<br>');
+    const value = isSingleLineLabel(r.label) ? r.value.replace(/\n/g, ' ') : r.value;
+    const valueHtml = escapeHtml(value).replace(/\n/g, '<br>');
     return `${divider}<div class="${rowClass}"><span class="k">${escapeHtml(r.label)}</span>${valueHtml}</div>`;
   }).join('');
 
