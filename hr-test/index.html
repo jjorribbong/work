@@ -136,6 +136,7 @@
   .result-card .empid { font-size: 13px; color: var(--sub); margin-bottom: 6px; }
   .result-card .name { font-size: 20px; font-weight: 800; }
   .result-card .dept { font-size: 14px; color: var(--sub); margin-top: 2px; }
+  .result-card .group-tag { font-size: 13px; color: var(--blue); margin-top: 4px; font-weight: 600; }
   .result-card .row { font-size: 14px; margin-top: 6px; color: var(--text); }
   .result-card .row .k { color: var(--sub); margin-right: 6px; }
   .result-card .group-divider { font-size: 13px; font-weight: 700; color: var(--blue); margin-top: 12px; }
@@ -423,6 +424,11 @@ const ID_ALIASES = ['사번', '교번', '학번', '사원번호', '직원번호'
 const PHONE_ALIASES = ['연락처', '전화번호', '휴대전화', '휴대폰', '핸드폰', 'phone'];
 const BIRTHDATE_ALIASES = ['생년월일', '생일', 'birthdate', 'birth'];
 const DEPT_ALIASES = ['소속', '부서', '소속부서', '학과', 'department', 'dept'];
+// The leading classification column both staff and faculty rosters use
+// (정규직/계약직, 정년/비정년/비전임...) - shown as a small bullet tag so the
+// two record types read the same way regardless of which table they came
+// from.
+const GROUP_ALIASES = ['구분'];
 // A column like this means the table is a headcount/statistics recap (e.g.
 // "직종별 인원현황" listing several names per row next to a count), not a
 // one-row-per-person roster - even though it may also have a name column.
@@ -499,6 +505,7 @@ function resolveRoleKeys(columns) {
     phoneKey: findAliasKey(cols, PHONE_ALIASES),
     birthDateKey: findAliasKey(cols, BIRTHDATE_ALIASES),
     deptKey: findAliasKey(cols, DEPT_ALIASES),
+    groupKey: findAliasKey(cols, GROUP_ALIASES),
   };
 }
 function isNameAliasColumn(col) {
@@ -585,6 +592,7 @@ function recordName(r) {
 function recordIdVal(r) { return (r.idKey && r.values[r.idKey]) || ''; }
 function recordPhoneVal(r) { return (r.phoneKey && r.values[r.phoneKey]) || ''; }
 function recordDeptVal(r) { return (r.deptKey && r.values[r.deptKey]) || ''; }
+function recordGroupVal(r) { return (r.groupKey && r.values[r.groupKey]) || ''; }
 
 function computeGlobalSchema() {
   const list = loadStaff();
@@ -630,6 +638,7 @@ function importStaffRows(rows, category, headerCols, dedupeSet, columnGroups) {
       idKey: roles.idKey,
       phoneKey: roles.phoneKey,
       deptKey: roles.deptKey,
+      groupKey: roles.groupKey,
       columnGroups: columnGroups || {},
     });
     added++;
@@ -694,9 +703,10 @@ function renderMatchCard(match) {
   const idVal = recordIdVal(match);
   const phoneVal = recordPhoneVal(match);
   const deptVal = recordDeptVal(match);
+  const groupVal = recordGroupVal(match);
   const columnGroups = match.columnGroups || {};
   const otherRows = (match.columns || [])
-    .filter(c => c !== match.nameKey && c !== match.deptKey)
+    .filter(c => c !== match.nameKey && c !== match.deptKey && c !== match.groupKey)
     .map(c => ({ label: c, value: match.values[c], group: columnGroups[c] || '' }))
     .filter(r => r.value);
 
@@ -719,6 +729,7 @@ function renderMatchCard(match) {
       ${idVal ? `<div class="empid">${escapeHtml(idVal)}</div>` : ''}
       <div class="name">${escapeHtml(name)}${match.category ? `<span class="category-badge">${escapeHtml(match.category)}</span>` : ''}</div>
       ${deptVal ? `<div class="dept">${escapeHtml(deptVal)}</div>` : ''}
+      ${groupVal ? `<div class="group-tag">● ${escapeHtml(groupVal)}</div>` : ''}
       ${rowsHtml}
       ${phoneVal ? `
         <div class="result-actions">
@@ -833,6 +844,7 @@ document.getElementById('save-form-btn').addEventListener('click', () => {
     idKey: roles.idKey,
     phoneKey: roles.phoneKey,
     deptKey: roles.deptKey,
+    groupKey: roles.groupKey,
   };
 
   const idx = list.findIndex(s => s.id === id);
@@ -893,11 +905,12 @@ function renderStaffList() {
   container.innerHTML = filtered.map(s => {
     const name = recordName(s);
     const deptVal = recordDeptVal(s);
+    const groupVal = recordGroupVal(s);
     const others = (s.columns || [])
-      .filter(c => c !== s.nameKey && c !== s.deptKey)
+      .filter(c => c !== s.nameKey && c !== s.deptKey && c !== s.groupKey)
       .map(c => s.values[c])
       .filter(Boolean);
-    const preview = [deptVal, ...others].filter(Boolean);
+    const preview = [deptVal, groupVal, ...others].filter(Boolean);
     const meta = preview.slice(0, 3).join(' · ') || '추가 정보 없음';
     return `
       <div class="staff-item" data-id="${s.id}">
