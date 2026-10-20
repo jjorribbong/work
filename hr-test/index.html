@@ -677,7 +677,9 @@ function findStaffMatches(query) {
 }
 
 function summarizeRecord(r) {
-  const others = (r.columns || []).filter(c => c !== r.nameKey).map(c => r.values[c]).filter(Boolean);
+  const others = (r.columns || []).filter(c => c !== r.nameKey)
+    .map(c => (r.values[c] || '').replace(/\n/g, ' '))
+    .filter(Boolean);
   return others.slice(0, 2).join(' · ');
 }
 
@@ -721,7 +723,8 @@ function renderMatchCard(match) {
       lastGroup = r.group;
     }
     const rowClass = r.group ? 'row grouped' : 'row';
-    return `${divider}<div class="${rowClass}"><span class="k">${escapeHtml(r.label)}</span>${escapeHtml(r.value)}</div>`;
+    const valueHtml = escapeHtml(r.value).replace(/\n/g, '<br>');
+    return `${divider}<div class="${rowClass}"><span class="k">${escapeHtml(r.label)}</span>${valueHtml}</div>`;
   }).join('');
 
   return `
@@ -908,7 +911,7 @@ function renderStaffList() {
     const groupVal = recordGroupVal(s);
     const others = (s.columns || [])
       .filter(c => c !== s.nameKey && c !== s.deptKey && c !== s.groupKey)
-      .map(c => s.values[c])
+      .map(c => (s.values[c] || '').replace(/\n/g, ' '))
       .filter(Boolean);
     const preview = [deptVal, groupVal, ...others].filter(Boolean);
     const meta = preview.slice(0, 3).join(' · ') || '추가 정보 없음';
@@ -967,10 +970,14 @@ function extractCellText(tc) {
     const runs = Array.from(tc.getElementsByTagName('*')).filter(el => localName(el) === 't');
     return runs.map(t => t.textContent).join('').trim();
   }
+  // A cell can hold several lines (e.g. a 발령현황 history cell with one
+  // appointment per line) as separate <hp:p> paragraphs. Keeping them as
+  // "\n" instead of flattening to a single space lets the lookup result
+  // show each entry on its own line instead of one unreadable run-on.
   return paragraphs.map(p => {
     const pRuns = Array.from(p.getElementsByTagName('*')).filter(el => localName(el) === 't');
     return pRuns.map(t => t.textContent).join('');
-  }).join(' ').trim();
+  }).join('\n').trim();
 }
 
 function parseTableToGrid(tbl) {
@@ -1057,11 +1064,18 @@ function looksLikeDeptHeading(text) {
 // Tables whose header has no 소속/부서 alias of its own get one appended -
 // consistently, even when no heading was found for a particular fragment -
 // so every fragment of the same roster keeps an identical header signature
-// and still merges into one group.
+// and still merges into one group. A table with a two-row header (e.g. the
+// honorary-professor roster) only carries its own real "소속" cell in the
+// SECOND row (row 0 is just the merged group labels - 학력/임용내용/...) -
+// that refinement hasn't happened yet at this point, so grid[1] (the raw
+// sub-header row, before it's promoted into the group's header) has to be
+// checked too, or a genuine 소속 column would be mistaken for missing and
+// get a second, bogus one appended alongside it.
 function applyDeptHeading(grid, headingText) {
   if (!grid.length) return;
   const roles = resolveRoleKeys(grid[0]);
-  if (roles.deptKey) return;
+  const roles1 = grid[1] ? resolveRoleKeys(grid[1]) : {};
+  if (roles.deptKey || roles1.deptKey) return;
   grid[0].push('소속');
   for (let i = 1; i < grid.length; i++) grid[i].push(headingText || '');
 }
