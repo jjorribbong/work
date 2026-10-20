@@ -1126,6 +1126,14 @@ function groupTablesByHeader(grids) {
     // display to group the sub-fields back under their original heading.
     if (!groups.has(sig)) groups.set(sig, { header: header.slice(), topHeader: header.slice(), dataRows: [] });
     const group = groups.get(sig);
+    // Columns already pinned to a known role (성명/소속/생년월일/...) must
+    // never be renamed by a repeated-header row's text below. A synthetic
+    // "소속" column (appended for a table with no affiliation column of its
+    // own) still gets a real per-row value even on this repeated-header
+    // "row" - that value is correct as DATA, but would otherwise overwrite
+    // the "소속" column name itself with that one row's department text,
+    // breaking the deptKey lookup for the entire group.
+    const pinnedLabels = new Set(Object.values(resolveRoleKeys(header)).filter(Boolean));
     grid.slice(1).forEach(row => {
       if (!row.some(c => c)) return;
       if (isRepeatedHeaderRow(row, header)) {
@@ -1137,6 +1145,7 @@ function groupTablesByHeader(grids) {
         // the group-header text that colSpan otherwise repeated identically
         // across those columns (which would collide when used as keys).
         row.forEach((val, i) => {
+          if (pinnedLabels.has(header[i])) return;
           if (val && val !== group.header[i]) group.header[i] = val;
         });
         return;
