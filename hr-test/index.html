@@ -982,20 +982,30 @@ function getChildByLocalName(el, name) {
   return Array.from(el.childNodes).find(n => n.nodeType === 1 && localName(n) === name);
 }
 
+// A document can insert "·" as a private-use-area codepoint tied to
+// whatever symbol font was active when it was typed (seen here as
+// U+F09E in "항공·국방대학"), instead of the standard middle-dot
+// character - that codepoint has no glyph in a normal web font, so it
+// renders as a broken/missing box. Map the ones seen in practice back to
+// their intended character.
+const PUA_CHAR_FIXES = { '': '·' };
+function fixPuaChars(s) {
+  return s.replace(/[]/g, ch => PUA_CHAR_FIXES[ch] || ch);
+}
 function extractCellText(tc) {
   const paragraphs = Array.from(tc.getElementsByTagName('*')).filter(el => localName(el) === 'p');
   if (!paragraphs.length) {
     const runs = Array.from(tc.getElementsByTagName('*')).filter(el => localName(el) === 't');
-    return runs.map(t => t.textContent).join('').trim();
+    return fixPuaChars(runs.map(t => t.textContent).join('').trim());
   }
   // A cell can hold several lines (e.g. a 발령현황 history cell with one
   // appointment per line) as separate <hp:p> paragraphs. Keeping them as
   // "\n" instead of flattening to a single space lets the lookup result
   // show each entry on its own line instead of one unreadable run-on.
-  return paragraphs.map(p => {
+  return fixPuaChars(paragraphs.map(p => {
     const pRuns = Array.from(p.getElementsByTagName('*')).filter(el => localName(el) === 't');
     return pRuns.map(t => t.textContent).join('');
-  }).join('\n').trim();
+  }).join('\n').trim());
 }
 
 function parseTableToGrid(tbl) {
@@ -1067,7 +1077,7 @@ function hasAncestorWithin(el, root, tagName) {
 }
 function directParagraphText(p) {
   const runs = Array.from(p.getElementsByTagName('*')).filter(el => localName(el) === 't');
-  return runs.filter(t => !hasAncestorWithin(t, p, 'tbl')).map(t => t.textContent).join('');
+  return fixPuaChars(runs.filter(t => !hasAncestorWithin(t, p, 'tbl')).map(t => t.textContent).join(''));
 }
 function looksLikeDeptHeading(text) {
   if (!text || text.length > 40) return false;
