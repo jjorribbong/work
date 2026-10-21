@@ -133,30 +133,39 @@ def content_node(soup):
     return best, total
 
 
+def _clean(c):
+    return re.sub(r'\s*[(\[<].*$', '', c or '').strip()
+
+
+def _plausible(c):
+    return 2 <= len(c) <= 60 and not any(g in c for g in GENERIC_TITLES) and \
+        not re.match(r'^(제\s*정|개\s*정|전부\s*개정|시행|공포|\d)', c)
+
+
 def guess_title(soup, text, hint=''):
-    cands = []
-    for el in soup.find_all(attrs={'class': re.compile(r'(law|rule|reg).?(name|title|nm|tit)|tit', re.I)}):
-        cands.append(el.get_text(' ', strip=True))
-    for el in soup.find_all(attrs={'id': re.compile(r'(law|rule|reg).?(name|title|nm)', re.I)}):
-        cands.append(el.get_text(' ', strip=True))
-    for h in soup.find_all(['h1', 'h2', 'h3']):
-        cands.append(h.get_text(' ', strip=True))
-    if hint:
-        cands.append(hint)
-    head = text.split('\n')
-    first_art = next((i for i, l in enumerate(head) if ART_LINE_RE.match(l)), len(head))
-    cands.extend(reversed(head[:first_art]))
+    """규정명 후보를 믿을 만한 순서대로 살핀다.
+    1) 규정명 전용 요소(class/id에 lawName 등) 2) 목록 링크 글자 3) 본문 제1조 앞 줄
+    4) 머리글(h1~h3, class=tit) 5) <title>"""
+    strong = [el.get_text(' ', strip=True) for el in soup.find_all(
+        attrs={'class': re.compile(r'(law|rule|reg|kyu).?(name|title|nm|tit)', re.I)})]
+    strong += [el.get_text(' ', strip=True) for el in soup.find_all(
+        attrs={'id': re.compile(r'(law|rule|reg|kyu).?(name|title|nm|tit)', re.I)})]
+    for c in strong + [hint]:
+        c = _clean(c)
+        if _plausible(c):
+            return c
+    t = title_from_text(text)
+    if t:
+        return t
+    weak = [h.get_text(' ', strip=True) for h in soup.find_all(['h1', 'h2', 'h3'])]
+    weak += [el.get_text(' ', strip=True) for el in soup.find_all(attrs={'class': re.compile(r'tit', re.I)})]
     if soup.title:
-        cands.append(re.split(r'\s*[-|:]\s*', soup.title.get_text(strip=True))[0])
-    for c in cands:
-        c = re.sub(r'\s*[(\[<].*$', '', c or '').strip()
-        if 2 <= len(c) <= 60 and TITLE_SUFFIX_RE.search(c) and not any(g in c for g in GENERIC_TITLES):
+        weak.append(re.split(r'\s*[-|:]\s*', soup.title.get_text(strip=True))[0])
+    for c in weak:
+        c = _clean(c)
+        if _plausible(c) and TITLE_SUFFIX_RE.search(c):
             return c
-    for c in cands:
-        c = (c or '').strip()
-        if 2 <= len(c) <= 60 and not any(g in c for g in GENERIC_TITLES):
-            return c
-    return ''
+    return title_from_text(text, loose=True)
 
 
 def extract_rule(client, html, url, hint_title='', depth=0):
@@ -178,10 +187,20 @@ def extract_rule(client, html, url, hint_title='', depth=0):
         return None
     text = html_to_text(node)
     title = guess_title(soup, text, hint_title)
-    # 본문 맨 앞에 규정명이 없으면 붙여 둔다(앱의 파서가 첫 줄을 제목 후보로 쓴다).
-    if title and not text.lstrip().startswith(title):
-        text = title + '\n' + text
-    return {'title': title, 'text': text}
+    return {'title': title, 'text_title': title_from_text(text), 'text': text}
+
+
+def title_from_text(text, loose=False):
+    """본문에서 제1조 앞에 있는 규정명 줄을 찾는다. loose면 이름 꼴이 아니어도 첫 후보를 쓴다."""
+    head = text.split('\n')
+    first_art = next((i for i, l in enumerate(head) if ART_LINE_RE.match(l)), len(head))
+    cands = [_clean(l) for l in head[:first_art]]
+    for c in reversed(cands):
+        if _plausible(c) and TITLE_SUFFIX_RE.search(c):
+            return c
+    if loose:
+        return next((c for c in cands if _plausible(c)), '')
+    return ''
 
 
 def discover(client, max_pages):
@@ -258,14 +277,16 @@ def crawl(args):
 
     if args.scan:
         seqs = list(parse_range(args.scan))
-    elif found:
-        seqs = sorted(found)
+        last_known = 0
     else:
-        seqs = None  # 끝을 모르므로 연속 실패까지 스캔
+        # 목록 화면에는 일부 규정만 보이는 경우가 많으므로, 찾은 번호와 관계없이
+        # 1번부터 차례로 시도하고 마지막으로 확인된 번호 뒤로 빈 번호가 --max-miss 회
+        # 이어지면 멈춘다.
+        seqs = None
+        last_known = max([first_seq] + list(found))
 
-    log('[3/3] 규정 전문 수집')
-    rules, misses, seq = [], 0, 0
-    titles = set()
+    log('[3/3] 규정 전문 수집' + ('' if args.scan else f' (SEQ 1번부터, {last_known}번 이후 빈 번호 {args.max_miss}회 연속이면 종료)'))
+    pages, misses, seq, tried = [], 0, 0, 0
     it = iter(seqs) if seqs is not None else None
     while True:
         if it is not None:
@@ -274,36 +295,67 @@ def crawl(args):
                 break
         else:
             seq += 1
-            # 규정이 확인된 번호(first_seq)까지는 빈 번호가 길게 이어져도 계속 진행
-            if misses >= args.max_miss and seq > first_seq:
+            if misses >= args.max_miss and seq > last_known:
                 break
+        tried += 1
+        if tried % 100 == 0:
+            log(f'  … SEQ {seq}까지 확인, 규정 페이지 {len(pages)}개')
         url = urljoin(client.base + '/', tpl.format(seq=seq))
         r = client.get(url)
         got = extract_rule(client, r.text, r.url, found.get(seq, {}).get('title', '')) if r is not None and r.ok else None
-        if not got or not got['title']:
+        if not got or not (got['title'] or got['text_title']):
             misses += 1
             continue
         misses = 0
-        key = re.sub(r'\s+', '', got['title'])
-        if key in titles:  # 같은 규정의 다른 연혁본 등은 처음 것만
-            continue
-        titles.add(key)
-        rules.append({
-            'id': f'seq{seq}',
-            'seq': seq,
-            'title': got['title'],
-            'category': found.get(seq, {}).get('category', ''),
-            'url': url,
-            'text': got['text'],
-        })
-        log(f'  [{len(rules):>4}] SEQ {seq}: {got["title"]}')
-        if args.limit and len(rules) >= args.limit:
+        last_known = max(last_known, seq)
+        got.update(seq=seq, url=url, category=found.get(seq, {}).get('category', ''))
+        pages.append(got)
+        log(f'  [{len(pages):>4}] SEQ {seq}: {got["title"] or got["text_title"]}')
+        if args.limit and len(pages) >= args.limit:
             break
+    return finalize(pages)
+
+
+def finalize(pages):
+    """페이지 목록 → 규정 목록. 제목 결정과 중복 정리."""
+    # 화면 머리글 같은 공통 문구를 규정명으로 잘못 잡으면 여러 페이지가 같은 제목이 된다.
+    # 서로 다른 본문 3개 이상이 같은 제목이면 그 제목은 버리고 본문에서 찾은 규정명을 쓴다.
+    texts_by_title = {}
+    for p in pages:
+        texts_by_title.setdefault(re.sub(r'\s+', '', p['title']), set()).add(p['text'])
+    for p in pages:
+        if not p['title'] or (len(texts_by_title[re.sub(r'\s+', '', p['title'])]) >= 3 and p['text_title']):
+            p['title'] = p['text_title'] or p['title']
+
+    seen_text = set()
+    by_title = {}
+    for p in sorted(pages, key=lambda p: p.get('seq', 0)):
+        if p['text'] in seen_text:
+            continue
+        seen_text.add(p['text'])
+        # 같은 규정의 여러 연혁본이면 번호가 큰(최근) 것을 남긴다.
+        by_title[re.sub(r'\s+', '', p['title'])] = p
+
+    rules = []
+    for i, p in enumerate(by_title.values(), 1):
+        text = p['text']
+        # 본문 맨 앞에 규정명이 없으면 붙여 둔다(앱의 파서가 첫 줄을 제목 후보로 쓴다).
+        if not text.lstrip().startswith(p['title']):
+            text = p['title'] + '\n' + text
+        rules.append({
+            'id': f"seq{p['seq']}" if p.get('seq') else f'f{i}',
+            'seq': p.get('seq'),
+            'title': p['title'],
+            'category': p.get('category', ''),
+            'url': p.get('url', ''),
+            'text': text,
+        })
+    log(f'  → 규정 페이지 {len(pages)}개 중 중복 제외 {len(rules)}건')
     return rules
 
 
 def from_dir(path):
-    rules = []
+    pages = []
     for root, _, files in os.walk(path):
         for fn in sorted(files):
             fp = os.path.join(root, fn)
@@ -320,16 +372,15 @@ def from_dir(path):
             else:
                 content = raw.decode('utf-8', 'replace')
             if ext == 'txt':
-                title = next((l.strip() for l in content.splitlines() if l.strip()), fn)
-                got = {'title': re.sub(r'\s*[(\[<].*$', '', title), 'text': content} if ART_LINE_RE.search(content) else None
+                got = {'title': '', 'text_title': title_from_text(content), 'text': content} if ART_LINE_RE.search(content) else None
             else:
                 got = extract_rule(None, content, fp, os.path.splitext(fn)[0])
-            if not got or not got['title']:
+            if not got or not (got['title'] or got['text_title']):
                 log(f'  - 건너뜀(조문 없음): {fp}')
                 continue
-            rules.append({'id': f'f{len(rules) + 1}', 'title': got['title'], 'category': '', 'url': '', 'text': got['text']})
-            log(f'  [{len(rules):>4}] {got["title"]}')
-    return rules
+            pages.append(got)
+            log(f'  [{len(pages):>4}] {got["title"] or got["text_title"]}')
+    return finalize(pages)
 
 
 def main():
@@ -368,6 +419,9 @@ def main():
     with open(args.out, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=1)
     log(f'완료: 규정 {len(rules)}건 → {os.path.abspath(args.out)}')
+    if len(rules) < 30 and not args.from_dir and not args.limit:
+        log('※ 수집된 규정이 예상보다 적습니다. 브라우저로 규정 하나를 열어 주소창의 SEQ 번호를 확인한 뒤\n'
+            '  --scan 1-5000 처럼 범위를 넓히거나, 그 주소 형식을 --viewer 로 지정해 다시 실행해 보세요.')
 
 
 if __name__ == '__main__':
