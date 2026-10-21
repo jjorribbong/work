@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1e40af">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CJU 규정집">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>청주대학교 규정집</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --blue: #1e40af;
+    --blue-l: #2563eb;
+    --blue-bg: #eff6ff;
+    --green: #16a34a;
+    --green-bg: #ecfdf3;
+    --red: #dc2626;
+    --red-bg: #fef2f2;
+    --amber: #b45309;
+    --amber-bg: #fffbeb;
+    --gray: #9ca3af;
+    --bg: #f3f4f6;
+    --card: #ffffff;
+    --text: #111827;
+    --sub: #6b7280;
+    --border: #e5e7eb;
+  }
+
+  html, body {
+    min-height: 100%;
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    color: var(--text);
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  #app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+
+  header {
+    background: var(--blue);
+    color: #fff;
+    padding: calc(14px + env(safe-area-inset-top, 0px)) 18px 14px;
+    position: sticky; top: 0; z-index: 20;
+  }
+  header h1 { font-size: 19px; font-weight: 700; }
+  header .sub { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+
+  .sample-banner {
+    background: #fef3c7; color: #92400e; font-size: 12px; font-weight: 700;
+    padding: 8px 16px; text-align: center; display: none;
+  }
+  .sample-banner.show { display: block; }
+
+  main { flex: 1; padding: 14px 14px 110px; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .card { background: var(--card); border-radius: 14px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+  .card + .card, .card + .list, .list + .card { margin-top: 12px; }
+  .card h2 { font-size: 15px; margin-bottom: 10px; }
+  .muted { color: var(--sub); font-size: 13px; line-height: 1.6; }
+  .small { font-size: 12px; }
+
+  .btn {
+    display: block; width: 100%; border: none; border-radius: 12px; padding: 14px;
+    font-size: 15px; font-weight: 700; cursor: pointer; text-align: center; text-decoration: none;
+  }
+  .btn + .btn { margin-top: 8px; }
+  .btn-primary { background: var(--blue-l); color: #fff; }
+  .btn-ghost { background: #fff; color: var(--blue-l); border: 1.5px solid var(--blue-l); }
+  .btn-danger-ghost { background: #fff; color: var(--red); border: 1.5px solid var(--red); }
+  .btn-sm { padding: 8px 12px; font-size: 13px; border-radius: 9px; display: inline-block; width: auto; }
+  .btn[disabled] { opacity: 0.5; cursor: default; }
+
+  input[type=text], input[type=search], select, textarea {
+    width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+    font-size: 16px; background: #fff; color: var(--text); font-family: inherit;
+  }
+  textarea { min-height: 200px; line-height: 1.6; font-size: 14px; }
+  label.field { display: block; font-size: 12px; color: var(--sub); font-weight: 700; margin: 10px 0 6px; }
+
+  .search-row { display: flex; gap: 8px; }
+  .search-row input { flex: 1; font-weight: 600; }
+
+  .seg { display: flex; background: #e5e7eb; border-radius: 10px; padding: 3px; gap: 3px; margin-top: 10px; }
+  .seg button {
+    flex: 1; border: none; background: none; padding: 8px 4px; font-size: 13px; border-radius: 8px;
+    color: var(--sub); font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .seg button.on { background: #fff; color: var(--blue); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+
+  .opts { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; font-size: 13px; color: var(--sub); }
+  .opts label { display: flex; align-items: center; gap: 5px; }
+  .opts select { width: auto; flex: 1; padding: 7px 10px; font-size: 13px; }
+
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .chip {
+    border: 1px solid var(--border); background: #fff; border-radius: 999px; padding: 6px 11px;
+    font-size: 12px; color: var(--text); cursor: pointer; font-family: inherit;
+  }
+  .chip.on { background: var(--blue-l); color: #fff; border-color: var(--blue-l); }
+  .chip .x { margin-left: 4px; color: var(--gray); }
+
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    white-space: nowrap; vertical-align: middle;
+  }
+  .b-blue { background: var(--blue-bg); color: var(--blue-l); }
+  .b-green { background: var(--green-bg); color: var(--green); }
+  .b-red { background: var(--red-bg); color: var(--red); }
+  .b-amber { background: var(--amber-bg); color: var(--amber); }
+  .b-gray { background: #f3f4f6; color: var(--sub); }
+
+  .result-count { font-size: 12px; color: var(--sub); margin: 14px 4px 8px; }
+
+  .list { background: var(--card); border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+  .item { padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .item:last-child { border-bottom: none; }
+  .item:active { background: #f9fafb; }
+  .item .t { font-size: 15px; font-weight: 700; line-height: 1.4; }
+  .item .m { font-size: 12px; color: var(--sub); margin-top: 3px; }
+  .hit { margin-top: 8px; padding: 8px 10px; background: #f9fafb; border-radius: 8px; font-size: 13px; line-height: 1.55; }
+  .hit b { color: var(--blue); }
+  .more { font-size: 12px; color: var(--blue-l); margin-top: 6px; font-weight: 700; }
+  mark { background: #fde68a; color: inherit; padding: 0 1px; border-radius: 2px; }
+
+  details.group { background: var(--card); border-radius: 14px; margin-top: 10px; overflow: hidden; }
+  details.group > summary {
+    padding: 14px 16px; font-weight: 700; font-size: 14px; cursor: pointer; list-style: none;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  details.group > summary { gap: 8px; }
+  .sum-badges { display: flex; gap: 4px; flex-shrink: 0; margin-left: auto; }
+  details.group > summary::after { content: '▾'; color: var(--gray); margin-left: 6px; }
+  details.group[open] > summary::after { content: '▴'; }
+  details.group > .list { border-radius: 0; box-shadow: none; border-top: 1px solid var(--border); }
+
+  .empty { text-align: center; padding: 34px 18px; }
+  .empty .icon { font-size: 42px; margin-bottom: 10px; }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat { background: #f9fafb; border-radius: 10px; padding: 10px; text-align: center; cursor: pointer; }
+  .stat .n { font-size: 20px; font-weight: 800; }
+  .stat .l { font-size: 11px; color: var(--sub); margin-top: 2px; }
+  .stat.on { outline: 2px solid var(--blue-l); }
+
+  .issue { padding: 13px 16px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .issue:last-child { border-bottom: none; }
+  .issue .where { font-size: 12px; color: var(--sub); margin-top: 4px; }
+  .issue .msg { font-size: 14px; font-weight: 700; margin-top: 5px; line-height: 1.45; }
+  .issue .det { font-size: 12px; color: var(--sub); margin-top: 4px; line-height: 1.5; }
+  .quote { margin-top: 6px; font-size: 12px; background: #f9fafb; border-left: 3px solid var(--border); padding: 6px 8px; line-height: 1.5; }
+
+  .rel-sec h3 { font-size: 13px; color: var(--sub); margin: 16px 4px 8px; }
+  .edge { font-size: 12px; color: var(--sub); margin-top: 4px; line-height: 1.5; }
+  .tree { font-size: 14px; line-height: 1.8; }
+  .tree ul { list-style: none; padding-left: 16px; border-left: 1px dashed var(--border); margin-left: 6px; }
+  .tree > ul { border: none; padding-left: 0; margin-left: 0; }
+  .tree a { color: var(--blue-l); text-decoration: none; cursor: pointer; }
+  .tree .self { font-weight: 800; color: var(--text); }
+
+  .pair { padding: 13px 16px; border-bottom: 1px solid var(--border); }
+  .pair:last-child { border-bottom: none; }
+  .pair .hd { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .pair .side { font-size: 13px; margin-top: 8px; line-height: 1.6; }
+  .pair .side .lab { font-weight: 700; color: var(--blue); cursor: pointer; }
+  .diff del { background: #fee2e2; color: #991b1b; text-decoration: line-through; }
+  .diff ins { background: #dcfce7; color: #166534; text-decoration: none; }
+
+  input[type=range] { width: 100%; }
+
+  footer {
+    position: fixed; left: 0; right: 0; bottom: 0; max-width: 480px; margin: 0 auto;
+    background: var(--card); border-top: 1px solid var(--border);
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+    display: flex; gap: 2px; z-index: 20;
+  }
+  .tab-btn {
+    flex: 1; text-align: center; padding: 7px 0 4px; font-size: 11px; color: var(--sub);
+    background: none; border: none; cursor: pointer; font-family: inherit;
+  }
+  .tab-btn .icon { font-size: 19px; display: block; }
+  .tab-btn.active { color: var(--blue-l); font-weight: 700; }
+
+  /* 규정 보기 화면 */
+  .overlay {
+    position: fixed; inset: 0; background: var(--bg); z-index: 40; overflow-y: auto;
+    display: none; -webkit-overflow-scrolling: touch;
+  }
+  .overlay.show { display: block; }
+  .overlay .inner { max-width: 480px; margin: 0 auto; padding-bottom: 60px; }
+  .vbar {
+    position: sticky; top: 0; z-index: 2; background: var(--blue); color: #fff;
+    display: flex; align-items: center; gap: 8px;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 10px 10px;
+  }
+  .vbar .ttl { flex: 1; font-size: 16px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .icon-btn { background: none; border: none; color: inherit; font-size: 20px; padding: 6px 8px; cursor: pointer; }
+  .vhead { padding: 16px; background: #fff; }
+  .vhead .t { font-size: 20px; font-weight: 800; line-height: 1.35; }
+  .vhead .m { font-size: 12px; color: var(--sub); margin-top: 6px; line-height: 1.6; }
+  .vhead .chips { margin-top: 10px; }
+  .toc { background: #fff; margin-top: 8px; }
+  .toc summary { padding: 12px 16px; font-weight: 700; font-size: 14px; cursor: pointer; }
+  .toc .toc-list { padding: 0 16px 12px; font-size: 13px; line-height: 2; }
+  .toc a { color: var(--blue-l); text-decoration: none; display: block; }
+  .art { background: #fff; margin-top: 8px; padding: 16px; scroll-margin-top: 70px; }
+  .art.flash { animation: flash 1.6s ease-out; }
+  @keyframes flash { 0% { background: #fef3c7; } 100% { background: #fff; } }
+  .art .chap { font-size: 12px; color: var(--sub); font-weight: 700; margin-bottom: 6px; }
+  .art h3 { font-size: 15px; line-height: 1.45; }
+  .art .tags { margin-top: 6px; display: flex; gap: 4px; flex-wrap: wrap; }
+  .art .body { font-size: 15px; line-height: 1.75; margin-top: 8px; white-space: pre-wrap; }
+  .art .acts { margin-top: 10px; display: flex; gap: 6px; }
+  .art .acts .btn { margin-top: 0; padding: 6px 10px; font-size: 12px; border-width: 1px; }
+  .ref { color: var(--blue-l); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .ref.bad { color: var(--red); text-decoration-style: wavy; }
+  .ref.ext { color: var(--sub); text-decoration-style: dotted; cursor: default; }
+  .addenda { background: #fff; margin-top: 8px; padding: 16px; }
+  .addenda summary { font-weight: 700; cursor: pointer; }
+  .addenda pre { white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.7; margin-top: 10px; }
+
+  /* 하단 시트 */
+  .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 60; display: none; }
+  .sheet-bg.show { display: block; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; max-width: 480px; margin: 0 auto; z-index: 61;
+    background: var(--bg); border-radius: 16px 16px 0 0; max-height: 85vh; overflow-y: auto;
+    padding: 0 0 calc(16px + env(safe-area-inset-bottom, 0px)); display: none;
+  }
+  .sheet.show { display: block; }
+  .sheet .sh-head {
+    position: sticky; top: 0; background: var(--bg); padding: 14px 16px 10px; display: flex;
+    align-items: center; justify-content: space-between; z-index: 1;
+  }
+  .sheet .sh-head b { font-size: 15px; }
+  .sheet .sh-body { padding: 0 14px; }
+
+  .toast {
+    position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%); background: rgba(17,24,39,0.92);
+    color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 13px; z-index: 100; display: none;
+    max-width: 90%; text-align: center;
+  }
+  .toast.show { display: block; }
+
+  .spinner {
+    width: 22px; height: 22px; border: 3px solid #dbeafe; border-top-color: var(--blue-l); border-radius: 50%;
+    animation: spin 0.8s linear infinite; margin: 20px auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .guide ol { padding-left: 18px; }
+  .guide li { margin-top: 6px; }
+  .guide code { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; font-size: 12px; word-break: break-all; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>청주대학교 규정집</h1>
+    <div class="sub" id="headerSub">규정 검색 · 위임조항 · 동일내용 검증</div>
+  </header>
+  <div class="sample-banner" id="sampleBanner">예시 데이터입니다 — 실제 청주대학교 규정이 아닙니다</div>
+
+  <main>
+    <!-- 검색 -->
+    <section class="page active" id="page-search">
+      <div class="card">
+        <div class="search-row">
+          <input type="search" id="q" placeholder="규정명 또는 내용 (예: 학사경고, 장학금)" autocomplete="off" enterkeyhint="search">
+        </div>
+        <div class="seg" id="scopeSeg">
+          <button data-v="all" class="on">전체</button>
+          <button data-v="title">규정명</button>
+          <button data-v="body">본문</button>
+        </div>
+        <div class="opts">
+          <label><input type="checkbox" id="ignoreSpace" checked> 띄어쓰기 무시</label>
+          <select id="catFilter"><option value="">전체 분류</option></select>
+        </div>
+        <div class="chips" id="recentChips"></div>
+      </div>
+      <div id="searchResults"></div>
+    </section>
+
+    <!-- 목록 -->
+    <section class="page" id="page-list">
+      <div class="card">
+        <input type="search" id="listFilter" placeholder="목록에서 규정명 찾기" autocomplete="off">
+      </div>
+      <div id="listBody"></div>
+    </section>
+
+    <!-- 위임 관계 -->
+    <section class="page" id="page-rel">
+      <div class="card">
+        <h2>규정 간 위임 관계</h2>
+        <input type="text" id="relPick" list="ruleNames" placeholder="규정 선택 (이름 입력)" autocomplete="off">
+        <p class="muted small" style="margin-top:8px">「규정명」 인용과 "~에 따라", "~으로 정한다", "준용한다" 문언을 분석해 상위·하위 규정을 찾습니다.</p>
+      </div>
+      <div id="relBody"></div>
+    </section>
+
+    <!-- 검증 -->
+    <section class="page" id="page-verify">
+      <div class="seg" id="verifySeg" style="margin-top:0">
+        <button data-v="check" class="on">정합성 점검</button>
+        <button data-v="dup">동일·유사 조항</button>
+        <button data-v="cmp">두 규정 비교</button>
+      </div>
+      <div id="verify-check" style="margin-top:12px"></div>
+      <div id="verify-dup" class="hidden" style="margin-top:12px">
+        <div class="card">
+          <h2>규정 간 동일·유사 조항 찾기</h2>
+          <p class="muted small">서로 다른 규정에 같은(또는 거의 같은) 내용이 있는지 조·항 단위로 찾고, 기간·학점·인원 등 숫자가 다른 곳을 표시합니다.</p>
+          <label class="field">유사도 기준: <span id="thLabel">70</span>% 이상</label>
+          <input type="range" id="th" min="50" max="100" step="5" value="70">
+          <div class="opts">
+            <label><input type="checkbox" id="dupSame"> 같은 규정 안의 중복도 포함</label>
+            <label><input type="checkbox" id="dupNumOnly"> 숫자가 다른 것만</label>
+          </div>
+          <button class="btn btn-primary" id="dupRun" style="margin-top:12px">분석 실행</button>
+        </div>
+        <div id="dupBody"></div>
+      </div>
+      <div id="verify-cmp" class="hidden" style="margin-top:12px">
+        <div class="card">
+          <h2>두 규정 비교</h2>
+          <label class="field">규정 A</label>
+          <input type="text" id="cmpA" list="ruleNames" placeholder="규정명 입력" autocomplete="off">
+          <label class="field">규정 B</label>
+          <input type="text" id="cmpB" list="ruleNames" placeholder="규정명 입력" autocomplete="off">
+          <button class="btn btn-primary" id="cmpRun" style="margin-top:12px">비교</button>
+        </div>
+        <div id="cmpBody"></div>
+      </div>
+    </section>
+
+    <!-- 데이터 -->
+    <section class="page" id="page-data">
+      <div class="card" id="dataStatus"></div>
+      <div class="card">
+        <h2>규정 데이터 가져오기</h2>
+        <button class="btn btn-primary" id="btnFetchServer">최신 규정 데이터 받기</button>
+        <button class="btn btn-ghost" id="btnPickFile">파일에서 가져오기 (JSON·HWPX·DOCX·TXT)</button>
+        <button class="btn btn-ghost" id="btnPaste">규정 본문 붙여넣기</button>
+        <input type="file" id="fileInput" multiple accept=".json,.hwpx,.docx,.txt,.htm,.html" class="hidden">
+        <p class="muted small" style="margin-top:10px">HWP 파일은 한글에서 <b>다른 이름으로 저장 → HWPX</b>로 바꾼 뒤 가져오세요. 같은 이름의 규정은 새 내용으로 교체됩니다.</p>
+      </div>
+      <div class="card">
+        <h2>내보내기·초기화</h2>
+        <button class="btn btn-ghost" id="btnExport">현재 데이터 JSON으로 저장</button>
+        <button class="btn btn-ghost" id="btnSample">예시 데이터로 체험하기</button>
+        <button class="btn btn-danger-ghost" id="btnClear">저장된 데이터 모두 삭제</button>
+      </div>
+      <div class="card guide">
+        <h2>규정관리시스템 자동 수집 안내</h2>
+        <div class="muted small">
+          청주대 규정관리시스템(rule.cju.ac.kr)은 다른 사이트에서 직접 불러올 수 없어(보안 정책), 수집 프로그램으로 규정 전문을 모아 <code>data/rules.json</code>으로 올려두면 이 앱이 그 파일을 읽습니다.
+          <ol>
+            <li>PC에서 <code>python rules/tools/cju_rules_crawler.py</code> 실행 → <code>rules/data/rules.json</code> 생성</li>
+            <li>생성된 파일을 저장소에 올리면(커밋) 모든 사용자가 <b>최신 규정 데이터 받기</b>로 갱신</li>
+            <li>또는 생성된 JSON을 이 화면의 <b>파일에서 가져오기</b>로 직접 불러오기</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <button class="tab-btn active" data-tab="search"><span class="icon">🔍</span>검색</button>
+    <button class="tab-btn" data-tab="list"><span class="icon">📚</span>규정목록</button>
+    <button class="tab-btn" data-tab="rel"><span class="icon">🔗</span>위임관계</button>
+    <button class="tab-btn" data-tab="verify"><span class="icon">✅</span>검증</button>
+    <button class="tab-btn" data-tab="data"><span class="icon">⚙️</span>데이터</button>
+  </footer>
+</div>
+
+<datalist id="ruleNames"></datalist>
+
+<!-- 규정 보기 -->
+<div class="overlay" id="viewer">
+  <div class="inner">
+    <div class="vbar">
+      <button class="icon-btn" id="vBack" aria-label="뒤로">←</button>
+      <div class="ttl" id="vTitle"></div>
+      <button class="icon-btn" id="vStar" aria-label="즐겨찾기">☆</button>
+    </div>
+    <div id="vBody"></div>
+  </div>
+</div>
+
+<!-- 하단 시트 -->
+<div class="sheet-bg" id="sheetBg"></div>
+<div class="sheet" id="sheet">
+  <div class="sh-head"><b id="sheetTitle"></b><button class="icon-btn" id="sheetClose" style="color:var(--sub)">✕</button></div>
+  <div class="sh-body" id="sheetBody"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="engine.js"></script>
+<script>
+const E = window.RuleEngine;
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+/* ---------- 상태 ---------- */
+let dataset = null;   // {source, fetchedAt, sample, rules}
+let index = null;     // RuleEngine.buildIndex 결과
+let checked = null;   // RuleEngine.validate 결과 (지연 계산)
+
+function getChecked() {
+  if (!checked && index) checked = E.validate(index);
+  return checked;
+}
+
+/* ---------- 유틸 ---------- */
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// 검색어 강조: 원문 조각을 이스케이프하면서 일치 구간을 <mark>로 감싼다.
+function hl(text, matchers) {
+  text = String(text || '');
+  if (!matchers || !matchers.length) return esc(text);
+  const ranges = [];
+  for (const re of matchers) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(text))) {
+      if (!m[0].length) { re.lastIndex++; continue; }
+      ranges.push([m.index, m.index + m[0].length]);
+    }
+  }
+  if (!ranges.length) return esc(text);
+  ranges.sort((a, b) => a[0] - b[0]);
+  let out = '', pos = 0;
+  for (const [s, e] of ranges) {
+    if (s < pos) continue;
+    out += esc(text.slice(pos, s)) + '<mark>' + esc(text.slice(s, e)) + '</mark>';
+    pos = e;
+  }
+  return out + esc(text.slice(pos));
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('cjurules.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('cjurules.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
+};
+
+/* ---------- IndexedDB (규정 데이터는 수 MB라 localStorage 대신 사용) ---------- */
+const idb = {
+  open() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('cju-rules', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  },
+  async get(k) {
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const r = db.transaction('kv').objectStore('kv').get(k);
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  },
+  async set(k, v) {
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const tx = db.transaction('kv', 'readwrite');
+      tx.objectStore('kv').put(v, k);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+  },
+  async del(k) {
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const tx = db.transaction('kv', 'readwrite');
+      tx.objectStore('kv').delete(k);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+  },
+};
+
+/* ---------- 데이터 적용 ---------- */
+async function setDataset(ds, persist) {
+  dataset = ds;
+  index = ds && ds.rules && ds.rules.length ? E.buildIndex(ds.rules) : null;
+  checked = null;
+  if (persist) {
+    try { ds ? await idb.set('dataset', ds) : await idb.del('dataset'); }
+    catch (e) { toast('기기에 저장하지 못했습니다. 이번 사용 중에만 유지됩니다.'); }
+  }
+  refreshAll();
+}
+
+function refreshAll() {
+  $('#sampleBanner').classList.toggle('show', !!(dataset && dataset.sample));
+  $('#headerSub').textContent = index
+    ? `규정 ${index.rules.length}건 · 조문 ${index.articles.length}개` + (dataset.fetchedAt ? ` · ${dataset.fetchedAt.slice(0, 10)} 기준` : '')
+    : '규정 검색 · 위임조항 · 동일내용 검증';
+  const cats = index ? [...new Set(index.rules.map(r => r.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko')) : [];
+  $('#catFilter').innerHTML = '<option value="">전체 분류</option>' + cats.map(c => `<option>${esc(c)}</option>`).join('');
+  $('#catFilter').classList.toggle('hidden', !cats.length);
+  $('#ruleNames').innerHTML = index ? index.rules.map(r => `<option value="${esc(r.title)}">`).join('') : '';
+  renderSearch();
+  renderList();
+  renderRel();
+  renderCheck();
+  $('#dupBody').innerHTML = '';
+  $('#cmpBody').innerHTML = '';
+  renderDataStatus();
+}
+
+function emptyState(target) {
+  target.innerHTML = `
+    <div class="card empty">
+      <div class="icon">📂</div>
+      <p class="muted">아직 규정 데이터가 없습니다.<br>데이터 탭에서 규정을 받아오거나 파일을 가져와 주세요.</p>
+      <button class="btn btn-primary" style="margin-top:14px" onclick="switchPage('data')">데이터 가져오기</button>
+      <button class="btn btn-ghost" onclick="loadSample()">예시 데이터로 체험하기</button>
+    </div>`;
+}
+
+/* ---------- 탭 ---------- */
+function switchPage(name) {
+  $$('.page').forEach(p => p.classList.remove('active'));
+  $('#page-' + name).classList.add('active');
+  $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  window.scrollTo(0, 0);
+}
+$$('.tab-btn').forEach(b => b.addEventListener('click', () => switchPage(b.dataset.tab)));
+
+function segment(el, onChange) {
+  el.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    el.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    onChange(b.dataset.v);
+  });
+}
+
+/* ---------- 검색 ---------- */
+let scope = 'all';
+let searchTimer;
+segment($('#scopeSeg'), v => { scope = v; renderSearch(); });
+$('#q').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(renderSearch, 180); });
+$('#q').addEventListener('keydown', e => { if (e.key === 'Enter') { addRecent($('#q').value); renderSearch(); e.target.blur(); } });
+$('#ignoreSpace').addEventListener('change', renderSearch);
+$('#catFilter').addEventListener('change', renderSearch);
+
+function addRecent(q) {
+  q = q.trim();
+  if (!q) return;
+  const list = store.get('recent', []).filter(x => x !== q);
+  list.unshift(q);
+  store.set('recent', list.slice(0, 10));
+  renderRecent();
+}
+
+function renderRecent() {
+  const list = store.get('recent', []);
+  $('#recentChips').innerHTML = list.map((q, i) =>
+    `<button class="chip" data-i="${i}">${esc(q)}<span class="x" data-del="${i}">✕</span></button>`).join('');
+}
+$('#recentChips').addEventListener('click', e => {
+  const list = store.get('recent', []);
+  const del = e.target.dataset.del;
+  if (del != null) { list.splice(+del, 1); store.set('recent', list); renderRecent(); return; }
+  const b = e.target.closest('.chip');
+  if (!b) return;
+  $('#q').value = list[+b.dataset.i];
+  renderSearch();
+});
+
+const expanded = new Set();
+function renderSearch() {
+  const box = $('#searchResults');
+  if (!index) { emptyState(box); return; }
+  const q = $('#q').value.trim();
+  if (!q) {
+    const bm = store.get('bookmarks', []).map(id => index.byId.get(id)).filter(Boolean);
+    box.innerHTML = `
+      <div class="card empty">
+        <div class="icon">🔍</div>
+        <p class="muted">규정명이나 본문의 낱말로 검색하세요.<br>여러 낱말은 모두 포함된 조문을 찾고,<br>"따옴표"로 묶으면 구절로 찾습니다.</p>
+      </div>` + (bm.length ? `<div class="result-count">⭐ 즐겨찾기</div><div class="list">${bm.map(ruleItem).join('')}</div>` : '');
+    return;
+  }
+  const matchers = E.makeMatchers(q, $('#ignoreSpace').checked);
+  const res = E.search(index, q, { scope, ignoreSpace: $('#ignoreSpace').checked, category: $('#catFilter').value });
+  const artCount = res.reduce((s, r) => s + r.hits.length, 0);
+  if (!res.length) {
+    box.innerHTML = `<div class="card empty"><div class="icon">🤔</div><p class="muted">"${esc(q)}"에 맞는 규정이 없습니다.<br>띄어쓰기 무시를 켜거나 다른 낱말로 찾아보세요.</p></div>`;
+    return;
+  }
+  box.innerHTML = `<div class="result-count">규정 ${res.length}건 · 조문 ${artCount}개</div><div class="list">` +
+    res.slice(0, 200).map(r => {
+      const open = expanded.has(r.rule.id);
+      const hits = open ? r.hits : r.hits.slice(0, 3);
+      return `<div class="item" data-rule="${esc(r.rule.id)}">
+        <div class="t">${hl(r.rule.title, matchers)} ${r.titleHit ? '<span class="badge b-blue">규정명</span>' : ''}</div>
+        <div class="m">${esc(r.rule.category || '')}${r.hits.length ? ` · 일치 조문 ${r.hits.length}개` : ''}</div>
+        ${hits.map(h => `<div class="hit" data-art="${esc(h.article.key)}"><b>${esc(h.article.no)}${h.article.title ? '(' + hl(h.article.title, matchers) + ')' : ''}</b> ${hl(h.snippet, matchers)}</div>`).join('')}
+        ${r.hits.length > 3 && !open ? `<div class="more" data-expand="${esc(r.rule.id)}">조문 ${r.hits.length - 3}개 더 보기</div>` : ''}
+      </div>`;
+    }).join('') + '</div>';
+}
+
+$('#searchResults').addEventListener('click', e => {
+  const ex = e.target.closest('[data-expand]');
+  if (ex) { expanded.add(ex.dataset.expand); renderSearch(); return; }
+  const item = e.target.closest('[data-rule]');
+  if (!item) return;
+  const hit = e.target.closest('[data-art]');
+  addRecent($('#q').value);
+  openRule(item.dataset.rule, hit ? hit.dataset.art : null, $('#q').value.trim());
+});
+
+function ruleItem(r) {
+  return `<div class="item" data-rule="${esc(r.id)}">
+    <div class="t">${esc(r.title)}</div>
+    <div class="m">${[r.category, `${r.articles.length}개 조`, r.revised ? `개정 ${r.revised}` : (r.enacted ? `제정 ${r.enacted}` : '')].filter(Boolean).map(esc).join(' · ')}</div>
+  </div>`;
+}
+
+/* ---------- 목록 ---------- */
+$('#listFilter').addEventListener('input', renderList);
+function renderList() {
+  const box = $('#listBody');
+  if (!index) { emptyState(box); return; }
+  const f = $('#listFilter').value.trim();
+  const re = f ? E.looseRegex(f, 'i') : null;
+  const rules = index.rules.filter(r => !re || re.test(r.title));
+  const bm = store.get('bookmarks', []).map(id => index.byId.get(id)).filter(Boolean);
+  const groups = new Map();
+  rules.forEach(r => {
+    const c = r.category || '분류 없음';
+    if (!groups.has(c)) groups.set(c, []);
+    groups.get(c).push(r);
+  });
+  const keys = [...groups.keys()].sort((a, b) => a.localeCompare(b, 'ko', { numeric: true }));
+  let html = '';
+  if (bm.length && !f) html += `<details class="group" open><summary>⭐ 즐겨찾기 <span class="badge b-gray">${bm.length}</span></summary><div class="list">${bm.map(ruleItem).join('')}</div></details>`;
+  html += keys.map(k => {
+    const list = groups.get(k).sort((a, b) => (a.code || '').localeCompare(b.code || '', 'ko', { numeric: true }) || a.title.localeCompare(b.title, 'ko'));
+    return `<details class="group" ${f || keys.length === 1 ? 'open' : ''}><summary>${esc(k)} <span class="badge b-gray">${list.length}</span></summary><div class="list">${list.map(ruleItem).join('')}</div></details>`;
+  }).join('');
+  box.innerHTML = html || `<div class="card empty"><p class="muted">"${esc(f)}"에 맞는 규정이 없습니다.</p></div>`;
+}
+$('#listBody').addEventListener('click', e => {
+  const item = e.target.closest('[data-rule]');
+  if (item) openRule(item.dataset.rule);
+});
+
+/* ---------- 위임 관계 ---------- */
+const TYPE_LABEL = { delegate: '위임', basis: '근거', apply: '준용', ref: '참조' };
+const TYPE_BADGE = { delegate: 'b-blue', basis: 'b-green', apply: 'b-amber', ref: 'b-gray' };
+let relType = 'all';
+
+$('#relPick').addEventListener('change', renderRel);
+$('#relPick').addEventListener('input', () => { if (E.findRuleByName(index || { byTitle: new Map() }, $('#relPick').value) || !$('#relPick').value) renderRel(); });
+
+function edgeLine(e, viewpoint) {
+  const from = `${e.from.rule.title} ${e.from.article.no}`;
+  const to = e.to.rule ? `${e.to.rule.title}${e.to.artKey ? ' ' + E.artLabel(e.to.artKey) : ''}` : e.to.name;
+  return `<div class="edge" data-open="${esc(e.from.rule.id)}" data-art="${esc(e.from.article.key)}">
+    <span class="badge ${TYPE_BADGE[e.type]}">${TYPE_LABEL[e.type]}</span> ${esc(from)} → ${esc(to)}</div>`;
+}
+
+function relTree(rule, analysis) {
+  // 하위 규정을 따라 내려가며 위임 체계도를 만든다 (순환 방지).
+  const seen = new Set();
+  const childrenOf = r => E.relations(analysis, r).children.map(c => c.rule);
+  const node = (r, depth) => {
+    if (seen.has(r.id) || depth > 5) return `<li><a data-open="${esc(r.id)}">${esc(r.title)}</a>${seen.has(r.id) ? ' <span class="badge b-gray">반복</span>' : ''}</li>`;
+    seen.add(r.id);
+    const kids = childrenOf(r);
+    return `<li>${r === rule ? `<span class="self">${esc(r.title)}</span>` : `<a data-open="${esc(r.id)}">${esc(r.title)}</a>`}${kids.length ? `<ul>${kids.map(k => node(k, depth + 1)).join('')}</ul>` : ''}</li>`;
+  };
+  const parents = E.relations(analysis, rule).parents.map(p => p.rule);
+  const inner = `<ul>${node(rule, 0)}</ul>`;
+  if (!parents.length) return inner;
+  return `<ul>${parents.map(p => `<li><a data-open="${esc(p.id)}">${esc(p.title)}</a>${inner}</li>`).join('')}</ul>`;
+}
+
+function renderRel() {
+  const box = $('#relBody');
+  if (!index) { emptyState(box); return; }
+  const an = getChecked().analysis;
+  const rule = E.findRuleByName(index, $('#relPick').value);
+  if (!rule) {
+    // 전체 요약
+    const st = getChecked().stats;
+    const internalEdges = an.edges.filter(e => e.to.rule);
+    const shown = internalEdges.filter(e => relType === 'all' || e.type === relType);
+    const hubs = index.rules.map(r => ({ r, n: E.relations(an, r).children.length })).filter(x => x.n).sort((a, b) => b.n - a.n).slice(0, 10);
+    box.innerHTML = `
+      <div class="card">
+        <div class="stat-grid">
+          <div class="stat ${relType === 'delegate' ? 'on' : ''}" data-type="delegate"><div class="n">${st.delegate}</div><div class="l">위임 (~으로 정한다)</div></div>
+          <div class="stat ${relType === 'basis' ? 'on' : ''}" data-type="basis"><div class="n">${st.basis}</div><div class="l">근거 (~에 따라)</div></div>
+          <div class="stat ${relType === 'apply' ? 'on' : ''}" data-type="apply"><div class="n">${st.apply}</div><div class="l">준용</div></div>
+        </div>
+        <p class="muted small" style="margin-top:10px">대상 미지정 위임("별도로 정한다" 등) ${st.unnamed}건 · 외부 법령 인용 ${st.external}건</p>
+      </div>
+      ${hubs.length ? `<div class="result-count">하위 규정이 많은 규정</div><div class="list">${hubs.map(x => `<div class="item" data-pick="${esc(x.r.title)}"><div class="t">${esc(x.r.title)}</div><div class="m">하위 규정 ${x.n}건</div></div>`).join('')}</div>` : ''}
+      <div class="result-count">${relType === 'all' ? '전체' : TYPE_LABEL[relType]} 관계 ${shown.length}건 ${relType !== 'all' ? '<a class="ref" data-type="all">전체 보기</a>' : ''}</div>
+      <div class="list">${shown.slice(0, 300).map(e => `<div class="item">${edgeLine(e)}<div class="quote">${esc(e.phrase)}</div></div>`).join('') || '<div class="item muted">관계가 없습니다.</div>'}</div>`;
+    return;
+  }
+  const rel = E.relations(an, rule);
+  const sec = (title, list, empty) => `<div class="rel-sec"><h3>${title} (${list.length})</h3><div class="list">${
+    list.length ? list.map(x => `<div class="item" data-open="${esc(x.rule.id)}"><div class="t">${esc(x.rule.title)}</div>${x.edges.map(e => edgeLine(e)).join('')}</div>`).join('')
+      : `<div class="item muted small">${empty}</div>`}</div></div>`;
+  box.innerHTML = `
+    <div class="card tree"><h2>위임 체계도</h2>${relTree(rule, an)}</div>
+    ${sec('⬆ 상위 규정 (근거·위임한 규정)', rel.parents, '근거로 인용한 상위 규정이 없습니다.')}
+    ${sec('⬇ 하위 규정 (위임받은 규정)', rel.children, '이 규정에서 위임받은 하위 규정이 없습니다.')}
+    ${sec('↔ 준용·참조', rel.others, '준용·참조 관계가 없습니다.')}
+    <div class="rel-sec"><h3>대상 미지정 위임 (${rel.unnamed.length})</h3><div class="list">${
+      rel.unnamed.length ? rel.unnamed.map(u => `<div class="item" data-open="${esc(rule.id)}" data-art="${esc(u.article.key)}"><div class="m"><span class="badge ${u.kind === 'head' ? 'b-gray' : 'b-amber'}">${u.kind === 'head' ? '기관장 위임' : '세칙 등 위임'}</span> ${esc(u.article.no)}${u.article.title ? '(' + esc(u.article.title) + ')' : ''}</div><div class="quote">${esc(u.phrase)}</div></div>`).join('')
+        : '<div class="item muted small">없습니다.</div>'}</div></div>
+    <div class="rel-sec"><h3>외부 법령·미등록 규정 인용 (${rel.external.length})</h3><div class="list">${
+      rel.external.length ? rel.external.map(e => `<div class="item" data-open="${esc(rule.id)}" data-art="${esc(e.from.article.key)}"><div class="m"><span class="badge ${e.external ? 'b-gray' : 'b-red'}">${e.external ? '외부 법령' : '미등록'}</span> ${esc(e.from.article.no)} → 「${esc(e.to.name)}」${e.to.artKey ? ' ' + E.artLabel(e.to.artKey) : ''}</div></div>`).join('')
+        : '<div class="item muted small">없습니다.</div>'}</div></div>
+    <button class="btn btn-ghost" style="margin-top:14px" data-open="${esc(rule.id)}">규정 전문 보기</button>`;
+}
+
+$('#relBody').addEventListener('click', e => {
+  const t = e.target.closest('[data-type]');
+  if (t) { relType = relType === t.dataset.type ? 'all' : t.dataset.type; renderRel(); return; }
+  const p = e.target.closest('[data-pick]');
+  if (p) { $('#relPick').value = p.dataset.pick; renderRel(); window.scrollTo(0, 0); return; }
+  const o = e.target.closest('[data-open]');
+  if (o) openRule(o.dataset.open, o.dataset.art || null);
+});
+
+function showRelations(rule) {
+  closeViewer(true);
+  $('#relPick').value = rule.title;
+  renderRel();
+  switchPage('rel');
+}
+
+/* ---------- 검증: 정합성 ---------- */
+let checkLevel = 'all';
+const LEVEL = { error: ['오류', 'b-red'], warn: ['주의', 'b-amber'], info: ['참고', 'b-blue'] };
+const ISSUE_TYPE = {
+  'missing-rule': '없는 규정 인용', 'missing-article': '없는 조항 인용', 'internal-missing': '내부 조항 오류',
+  'basis-mismatch': '근거 불일치', 'delegate-no-backref': '위임 근거 미표기', 'unresolved-delegation': '하위규정 미확인',
+};
+
+function renderCheck() {
+  const box = $('#verify-check');
+  if (!index) { emptyState(box); return; }
+  const { issues, stats } = getChecked();
+  const shown = issues.filter(i => checkLevel === 'all' || i.level === checkLevel);
+  box.innerHTML = `
+    <div class="card">
+      <h2>위임·참조 정합성 점검</h2>
+      <div class="stat-grid">
+        <div class="stat ${checkLevel === 'error' ? 'on' : ''}" data-level="error"><div class="n" style="color:var(--red)">${stats.error}</div><div class="l">오류</div></div>
+        <div class="stat ${checkLevel === 'warn' ? 'on' : ''}" data-level="warn"><div class="n" style="color:var(--amber)">${stats.warn}</div><div class="l">주의</div></div>
+        <div class="stat ${checkLevel === 'info' ? 'on' : ''}" data-level="info"><div class="n" style="color:var(--blue-l)">${stats.info}</div><div class="l">참고</div></div>
+      </div>
+      <p class="muted small" style="margin-top:10px">
+        <b>오류</b> 없는 규정·조항을 인용 · <b>주의</b> "~에 따라"로 근거를 든 상위 조항에 위임 문언이 없음 ·
+        <b>참고</b> 위임했으나 하위 규정에 근거 표기가 없거나 하위 규정을 확인할 수 없음
+      </p>
+    </div>
+    <div class="result-count">${shown.length}건 ${checkLevel !== 'all' ? '<a class="ref" data-level="all">전체 보기</a>' : ''}</div>
+    <div class="list">${shown.slice(0, 500).map((it, i) => `
+      <div class="issue" data-open="${esc(it.rule.id)}" data-art="${esc(it.article.key)}">
+        <span class="badge ${LEVEL[it.level][1]}">${LEVEL[it.level][0]}</span> <span class="badge b-gray">${ISSUE_TYPE[it.type] || it.type}</span>
+        <div class="msg">${esc(it.message)}</div>
+        <div class="where">${esc(it.rule.title)} ${esc(it.article.no)}${it.article.title ? '(' + esc(it.article.title) + ')' : ''}</div>
+        <div class="det">${esc(it.detail)}</div>
+        ${it.edge ? `<div class="quote">${esc(it.edge.phrase)}</div>` : ''}
+      </div>`).join('') || '<div class="issue muted">발견된 문제가 없습니다. 👍</div>'}</div>`;
+}
+
+$('#verify-check').addEventListener('click', e => {
+  const l = e.target.closest('[data-level]');
+  if (l) { checkLevel = checkLevel === l.dataset.level ? 'all' : l.dataset.level; renderCheck(); return; }
+  const o = e.target.closest('[data-open]');
+  if (o) openRule(o.dataset.open, o.dataset.art);
+});
+
+segment($('#verifySeg'), v => {
+  ['check', 'dup', 'cmp'].forEach(k => $('#verify-' + k).classList.toggle('hidden', k !== v));
+});
+
+/* ---------- 검증: 동일·유사 ---------- */
+function diffHtml(a, b) {
+  const ops = E.diff(a, b);
+  const left = ops.filter(o => o.op !== '+').map(o => o.op === '-' ? `<del>${esc(o.text)}</del>` : esc(o.text)).join('');
+  const right = ops.filter(o => o.op !== '-').map(o => o.op === '+' ? `<ins>${esc(o.text)}</ins>` : esc(o.text)).join('');
+  return [left, right];
+}
+
+function pairHtml(p) {
+  const nc = E.numberConflicts(p.textA, p.textB);
+  const numDiff = nc.onlyA.length || nc.onlyB.length;
+  const [l, r] = p.identical ? [esc(p.textA), esc(p.textB)] : diffHtml(p.textA, p.textB);
+  return `<div class="pair">
+    <div class="hd">
+      ${p.identical ? '<span class="badge b-red">동일</span>' : `<span class="badge b-amber">유사 ${Math.round(p.score * 100)}%</span>`}
+      ${numDiff ? `<span class="badge b-red">숫자 다름: ${esc(nc.onlyA.join(', ') || '-')} ↔ ${esc(nc.onlyB.join(', ') || '-')}</span>` : ''}
+    </div>
+    <div class="side diff"><span class="lab" data-open="${esc(p.ruleA.id)}" data-art="${esc(p.a.key)}">「${esc(p.ruleA.title)}」 ${esc(p.a.no)}${p.a.title ? '(' + esc(p.a.title) + ')' : ''}</span><br>${l}</div>
+    <div class="side diff"><span class="lab" data-open="${esc(p.ruleB.id)}" data-art="${esc(p.b.key)}">「${esc(p.ruleB.title)}」 ${esc(p.b.no)}${p.b.title ? '(' + esc(p.b.title) + ')' : ''}</span><br>${r}</div>
+  </div>`;
+}
+
+function hasNumDiff(p) {
+  const nc = E.numberConflicts(p.textA, p.textB);
+  return nc.onlyA.length || nc.onlyB.length;
+}
+
+$('#th').addEventListener('input', () => { $('#thLabel').textContent = $('#th').value; });
+$('#dupRun').addEventListener('click', () => {
+  if (!index) { emptyState($('#dupBody')); return; }
+  $('#dupBody').innerHTML = '<div class="spinner"></div>';
+  setTimeout(() => {
+    const t0 = performance.now();
+    let pairs = E.findSimilarPairs(index, { threshold: $('#th').value / 100, sameRule: $('#dupSame').checked });
+    if ($('#dupNumOnly').checked) pairs = pairs.filter(hasNumDiff);
+    const groups = E.groupPairs(pairs);
+    const ms = Math.round(performance.now() - t0);
+    $('#dupBody').innerHTML = `<div class="result-count">규정 쌍 ${groups.length}개 · 조항 쌍 ${pairs.length}개 (${ms}ms)</div>` +
+      (groups.length ? groups.slice(0, 150).map(g => `
+        <details class="group" ${groups.length <= 3 ? 'open' : ''}>
+          <summary><span>${esc(g.r1.title)} ↔ ${esc(g.r2.title)}</span> <span class="sum-badges">${g.identical ? `<span class="badge b-red">동일 ${g.identical}</span>` : ''}${g.pairs.some(hasNumDiff) ? '<span class="badge b-amber">숫자 다름</span>' : ''}<span class="badge b-gray">${g.pairs.length}</span></span></summary>
+          <div class="list">${g.pairs.map(pairHtml).join('')}</div>
+        </details>`).join('') : '<div class="card empty"><p class="muted">기준 이상 겹치는 조항이 없습니다.</p></div>');
+  }, 30);
+});
+$('#dupBody').addEventListener('click', e => {
+  const o = e.target.closest('[data-open]');
+  if (o) openRule(o.dataset.open, o.dataset.art);
+});
+
+/* ---------- 검증: 두 규정 비교 ---------- */
+$('#cmpRun').addEventListener('click', () => {
+  const box = $('#cmpBody');
+  if (!index) { emptyState(box); return; }
+  const a = E.findRuleByName(index, $('#cmpA').value), b = E.findRuleByName(index, $('#cmpB').value);
+  if (!a || !b) { toast('목록에 있는 규정명을 골라 주세요.'); return; }
+  if (a === b) { toast('서로 다른 두 규정을 골라 주세요.'); return; }
+  const pairs = E.findSimilarPairs(index, { threshold: 0.4, ruleA: a.id, ruleB: b.id })
+    .map(p => p.ruleA === a ? p : Object.assign({}, p, { a: p.b, b: p.a, ruleA: p.ruleB, ruleB: p.ruleA, textA: p.textB, textB: p.textA }));
+  const matchedA = new Set(pairs.map(p => p.a.key)), matchedB = new Set(pairs.map(p => p.b.key));
+  const relEdges = getChecked().analysis.edges.filter(e => (e.from.rule === a && e.to.rule === b) || (e.from.rule === b && e.to.rule === a));
+  box.innerHTML = `
+    <div class="card">
+      <div class="stat-grid">
+        <div class="stat"><div class="n">${pairs.filter(p => p.identical).length}</div><div class="l">동일 조항</div></div>
+        <div class="stat"><div class="n">${pairs.filter(p => !p.identical).length}</div><div class="l">유사 조항</div></div>
+        <div class="stat"><div class="n">${pairs.filter(hasNumDiff).length}</div><div class="l">숫자 다름</div></div>
+      </div>
+      <p class="muted small" style="margin-top:10px">A의 ${a.articles.length}개 조 중 ${matchedA.size}개, B의 ${b.articles.length}개 조 중 ${matchedB.size}개가 상대 규정과 겹칩니다.</p>
+      ${relEdges.length ? `<div style="margin-top:8px">${relEdges.map(e => edgeLine(e)).join('')}</div>` : '<p class="muted small">두 규정 사이의 인용·위임 문언은 없습니다.</p>'}
+    </div>
+    <div class="list" style="margin-top:12px">${pairs.map(pairHtml).join('') || '<div class="pair muted">겹치는 조항이 없습니다.</div>'}</div>`;
+});
+$('#cmpBody').addEventListener('click', e => {
+  const o = e.target.closest('[data-open]');
+  if (o) openRule(o.dataset.open, o.dataset.art || null);
+});
+
+/* ---------- 규정 보기 ---------- */
+let viewing = null;
+let overlayDepth = 0;
+
+function articleSpans(rule, art) {
+  const an = getChecked().analysis;
+  const spans = [];
+  for (const e of an.edges) {
+    if (e.from.article !== art) continue;
+    spans.push({ s: e.pos[0], e: e.pos[1], cls: e.to.rule ? (e.to.artKey && !e.to.article ? 'ref bad' : 'ref') : (e.external ? 'ref ext' : 'ref bad'),
+      rule: e.to.rule ? e.to.rule.id : '', art: e.to.article ? e.to.article.key : '',
+      tip: e.to.rule ? (e.to.artKey && !e.to.article ? '해당 조항 없음' : '') : (e.external ? '외부 법령' : '등록되지 않은 규정') });
+  }
+  for (const it of an.internal) {
+    if (it.article !== art) continue;
+    spans.push({ s: it.pos[0], e: it.pos[1], cls: it.target ? 'ref' : 'ref bad', rule: rule.id, art: it.target ? it.target.key : '', tip: it.target ? '' : '해당 조항 없음' });
+  }
+  spans.sort((a, b) => a.s - b.s);
+  return spans.filter((sp, i) => i === 0 || sp.s >= spans[i - 1].e);
+}
+
+function renderArticleBody(rule, art, matchers) {
+  const text = art.text;
+  let out = '', pos = 0;
+  for (const sp of articleSpans(rule, art)) {
+    out += hl(text.slice(pos, sp.s), matchers);
+    out += `<span class="${sp.cls}" ${sp.rule ? `data-open="${esc(sp.rule)}"` : ''} ${sp.art ? `data-art="${esc(sp.art)}"` : ''} ${sp.tip ? `title="${esc(sp.tip)}"` : ''}>${hl(text.slice(sp.s, sp.e), matchers)}</span>`;
+    pos = sp.e;
+  }
+  return out + hl(text.slice(pos), matchers);
+}
+
+function articleTags(rule, art) {
+  const ck = getChecked();
+  const tags = [];
+  const seen = new Set();
+  for (const e of ck.analysis.edges) {
+    if (e.from.article === art && e.to.rule && (e.type === 'delegate' || e.type === 'basis' || e.type === 'apply')) {
+      const k = e.type + e.to.rule.id;
+      if (seen.has(k)) continue; seen.add(k);
+      tags.push(`<span class="badge ${TYPE_BADGE[e.type]}">${TYPE_LABEL[e.type]} ${e.type === 'delegate' ? '→' : '·'} ${esc(e.to.rule.title)}</span>`);
+    }
+    if (e.to.article === art && e.type === 'basis') {
+      const k = 'in' + e.from.rule.id;
+      if (seen.has(k)) continue; seen.add(k);
+      tags.push(`<span class="badge b-green">하위 · ${esc(e.from.rule.title)}</span>`);
+    }
+  }
+  for (const u of ck.analysis.unnamed) if (u.article === art) { tags.push(`<span class="badge ${u.kind === 'head' ? 'b-gray' : 'b-amber'}">대상 미지정 위임</span>`); break; }
+  const iss = ck.issues.filter(i => i.article === art && i.level !== 'info');
+  if (iss.length) tags.push(`<span class="badge b-red">⚠ ${iss.map(i => esc(ISSUE_TYPE[i.type])).join(', ')}</span>`);
+  return tags.join('');
+}
+
+function openRule(id, artKey, q) {
+  const rule = index && index.byId.get(id);
+  if (!rule) return;
+  const isSame = viewing === rule && $('#viewer').classList.contains('show');
+  viewing = rule;
+  const matchers = q ? E.makeMatchers(q, $('#ignoreSpace').checked) : null;
+  if (!isSame || matchers) {
+    const rel = E.relations(getChecked().analysis, rule);
+    const issues = getChecked().issues.filter(i => i.rule === rule && i.level !== 'info').length;
+    let lastChap = '';
+    $('#vTitle').textContent = rule.title;
+    $('#vBody').innerHTML = `
+      <div class="vhead">
+        <div class="t">${esc(rule.title)}</div>
+        <div class="m">${[rule.category, rule.code, rule.enacted && `제정 ${rule.enacted}`, rule.revised && `개정 ${rule.revised}`].filter(Boolean).map(esc).join(' · ')}</div>
+        <div class="chips">
+          <button class="chip" data-act="rel">⬆ 상위 ${rel.parents.length} · ⬇ 하위 ${rel.children.length}</button>
+          ${issues ? `<button class="chip" data-act="issues" style="color:var(--red)">⚠ 점검 ${issues}건</button>` : ''}
+          ${rule.url ? `<a class="chip" href="${esc(rule.url)}" target="_blank" rel="noopener" style="text-decoration:none">원문 보기 ↗</a>` : ''}
+        </div>
+        ${rule.preamble ? `<div class="muted small" style="margin-top:10px;white-space:pre-wrap">${esc(rule.preamble)}</div>` : ''}
+      </div>
+      ${rule.articles.length > 3 ? `<details class="toc"><summary>목차 (${rule.articles.length}개 조)</summary><div class="toc-list">${
+        rule.articles.map(a => `<a data-goto="${esc(a.key)}">${esc(a.no)}${a.title ? '(' + esc(a.title) + ')' : ''}</a>`).join('')}</div></details>` : ''}
+      ${rule.articles.map(a => {
+        const chap = a.chapter && a.chapter !== lastChap ? (lastChap = a.chapter) : '';
+        return `<div class="art" id="art-${esc(a.key)}">
+          ${chap ? `<div class="chap">${esc(chap)}</div>` : ''}
+          <h3>${hl(a.no, matchers)}${a.title ? '(' + hl(a.title, matchers) + ')' : ''}</h3>
+          <div class="tags">${articleTags(rule, a)}</div>
+          <div class="body">${renderArticleBody(rule, a, matchers)}</div>
+          <div class="acts">
+            <button class="btn btn-ghost btn-sm" data-sim="${esc(a.key)}">유사 조항 찾기</button>
+            <button class="btn btn-ghost btn-sm" data-copy="${esc(a.key)}">복사</button>
+          </div>
+        </div>`;
+      }).join('')}
+      ${rule.addenda ? `<details class="addenda"><summary>부칙</summary><pre>${hl(rule.addenda, matchers)}</pre></details>` : ''}
+      ${!rule.articles.length ? '<div class="card" style="margin:12px"><p class="muted">조문을 인식하지 못했습니다. 원문 형식을 확인해 주세요.</p></div>' : ''}`;
+  }
+  $('#vStar').textContent = store.get('bookmarks', []).includes(rule.id) ? '★' : '☆';
+  if (!$('#viewer').classList.contains('show')) {
+    $('#viewer').classList.add('show');
+    document.body.style.overflow = 'hidden';
+    history.pushState({ overlay: 'viewer' }, '');
+    overlayDepth++;
+  }
+  requestAnimationFrame(() => {
+    if (artKey) gotoArticle(artKey);
+    else if (!isSame) $('#viewer').scrollTop = 0;
+  });
+}
+
+function gotoArticle(key) {
+  const el = document.getElementById('art-' + key);
+  if (!el) return;
+  el.scrollIntoView({ block: 'start' });
+  el.classList.remove('flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
+}
+
+function closeViewer(skipHistory) {
+  if (!$('#viewer').classList.contains('show')) return;
+  $('#viewer').classList.remove('show');
+  document.body.style.overflow = '';
+  if (!skipHistory) { suppressPop = true; history.back(); overlayDepth = Math.max(0, overlayDepth - 1); }
+  else if (overlayDepth) { overlayDepth--; history.replaceState(null, ''); }
+}
+
+$('#vBack').addEventListener('click', () => closeViewer());
+$('#vStar').addEventListener('click', () => {
+  const bm = store.get('bookmarks', []);
+  const i = bm.indexOf(viewing.id);
+  if (i >= 0) bm.splice(i, 1); else bm.unshift(viewing.id);
+  store.set('bookmarks', bm);
+  $('#vStar').textContent = i >= 0 ? '☆' : '★';
+  toast(i >= 0 ? '즐겨찾기에서 뺐습니다.' : '즐겨찾기에 추가했습니다.');
+  renderList();
+  if (!$('#q').value.trim()) renderSearch();
+});
+
+$('#vBody').addEventListener('click', e => {
+  const g = e.target.closest('[data-goto]');
+  if (g) { gotoArticle(g.dataset.goto); return; }
+  const act = e.target.closest('[data-act]');
+  if (act && act.dataset.act === 'rel') { showRelations(viewing); return; }
+  if (act && act.dataset.act === 'issues') { showIssues(viewing); return; }
+  const sim = e.target.closest('[data-sim]');
+  if (sim) { showSimilar(viewing, E.findArticle(viewing, sim.dataset.sim)); return; }
+  const cp = e.target.closest('[data-copy]');
+  if (cp) {
+    const a = E.findArticle(viewing, cp.dataset.copy);
+    const txt = `「${viewing.title}」 ${a.no}${a.title ? '(' + a.title + ')' : ''} ${a.text}`;
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => toast('조문을 복사했습니다.'), () => toast('복사하지 못했습니다.'));
+    return;
+  }
+  const o = e.target.closest('[data-open]');
+  if (o) openRule(o.dataset.open, o.dataset.art || null);
+});
+
+window.addEventListener('popstate', () => {
+  if (suppressPop) { suppressPop = false; return; }
+  if ($('#sheet').classList.contains('show')) { hideSheet(true); return; }
+  if ($('#viewer').classList.contains('show')) {
+    $('#viewer').classList.remove('show');
+    document.body.style.overflow = '';
+    overlayDepth = Math.max(0, overlayDepth - 1);
+  }
+});
+
+/* ---------- 하단 시트 ---------- */
+function showSheet(title, html) {
+  $('#sheetTitle').textContent = title;
+  $('#sheetBody').innerHTML = html;
+  $('#sheet').scrollTop = 0;
+  if (!$('#sheet').classList.contains('show')) history.pushState({ overlay: 'sheet' }, '');
+  $('#sheet').classList.add('show');
+  $('#sheetBg').classList.add('show');
+}
+let suppressPop = false; // 코드에서 history.back()을 부를 때 생기는 popstate는 무시
+function hideSheet(fromPop) {
+  if (!$('#sheet').classList.contains('show')) return;
+  $('#sheet').classList.remove('show');
+  $('#sheetBg').classList.remove('show');
+  if (!fromPop) { suppressPop = true; history.back(); }
+}
+$('#sheetBg').addEventListener('click', () => hideSheet());
+$('#sheetClose').addEventListener('click', () => hideSheet());
+$('#sheetBody').addEventListener('click', e => {
+  const o = e.target.closest('[data-open]');
+  if (!o) return;
+  hideSheet();
+  setTimeout(() => openRule(o.dataset.open, o.dataset.art || null), 50);
+});
+
+function showSimilar(rule, art) {
+  const res = E.similarTo(index, art).filter(p => p.ruleB !== rule || p.b !== art);
+  showSheet(`${art.no} 유사 조항`, res.length
+    ? `<p class="muted small" style="margin-bottom:8px">다른 규정에서 같은 내용을 다루는 조항입니다. 삭제(빨강)·추가(초록)는 이 조항과 다른 부분입니다.</p><div class="list">${res.map(pairHtml).join('')}</div>`
+    : '<div class="card empty"><p class="muted">비슷한 조항을 찾지 못했습니다.</p></div>');
+}
+
+function showIssues(rule) {
+  const list = getChecked().issues.filter(i => i.rule === rule);
+  showSheet(`「${rule.title}」 점검 결과`, `<div class="list">${list.map(it => `
+    <div class="issue" data-open="${esc(rule.id)}" data-art="${esc(it.article.key)}">
+      <span class="badge ${LEVEL[it.level][1]}">${LEVEL[it.level][0]}</span> <span class="badge b-gray">${ISSUE_TYPE[it.type] || it.type}</span>
+      <div class="msg">${esc(it.message)}</div>
+      <div class="where">${esc(it.article.no)}${it.article.title ? '(' + esc(it.article.title) + ')' : ''}</div>
+      <div class="det">${esc(it.detail)}</div>
+    </div>`).join('')}</div>`);
+}
+
+/* ---------- 데이터 ---------- */
+function renderDataStatus() {
+  const box = $('#dataStatus');
+  if (!index) {
+    box.innerHTML = '<h2>현재 데이터</h2><p class="muted">저장된 규정 데이터가 없습니다.</p>';
+    return;
+  }
+  const cats = new Set(index.rules.map(r => r.category).filter(Boolean)).size;
+  box.innerHTML = `<h2>현재 데이터</h2>
+    <div class="stat-grid">
+      <div class="stat"><div class="n">${index.rules.length}</div><div class="l">규정</div></div>
+      <div class="stat"><div class="n">${index.articles.length}</div><div class="l">조문</div></div>
+      <div class="stat"><div class="n">${cats}</div><div class="l">분류</div></div>
+    </div>
+    <p class="muted small" style="margin-top:10px">출처: ${esc(dataset.source || '직접 가져옴')}${dataset.fetchedAt ? `<br>수집일: ${esc(dataset.fetchedAt.replace('T', ' ').slice(0, 16))}` : ''}</p>`;
+}
+
+async function fetchServerData(silent) {
+  try {
+    const r = await fetch('data/rules.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error(r.status);
+    const ds = await r.json();
+    if (!ds.rules || !ds.rules.length) throw new Error('empty');
+    await setDataset(ds, true);
+    if (!silent) toast(`규정 ${ds.rules.length}건을 받았습니다.`);
+    return true;
+  } catch (e) {
+    if (!silent) toast('아직 서버에 올라온 규정 데이터(data/rules.json)가 없습니다.');
+    return false;
+  }
+}
+$('#btnFetchServer').addEventListener('click', () => fetchServerData(false));
+
+async function loadSample() {
+  if (dataset && !dataset.sample && !confirm('현재 데이터를 예시 데이터로 바꿀까요?')) return;
+  const r = await fetch('data/sample.json');
+  await setDataset(await r.json(), true);
+  toast('예시 데이터를 불러왔습니다.');
+  switchPage('search');
+}
+$('#btnSample').addEventListener('click', loadSample);
+
+$('#btnClear').addEventListener('click', async () => {
+  if (!confirm('기기에 저장된 규정 데이터를 모두 지울까요?')) return;
+  await setDataset(null, true);
+  toast('삭제했습니다.');
+});
+
+$('#btnExport').addEventListener('click', () => {
+  if (!dataset) { toast('내보낼 데이터가 없습니다.'); return; }
+  const blob = new Blob([JSON.stringify(dataset, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `cju-rules-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+// HWPX/DOCX: XML 안의 문단(p) 단위로 텍스트를 모은다.
+function xmlParagraphText(xml) {
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  const lines = [];
+  let curP = null, buf = '';
+  const ts = doc.getElementsByTagName('*');
+  for (const el of ts) {
+    if (el.localName !== 't') continue;
+    let p = el.parentNode;
+    while (p && p.localName !== 'p') p = p.parentNode;
+    if (p !== curP) { if (curP) lines.push(buf); curP = p; buf = ''; }
+    buf += el.textContent;
+  }
+  if (curP) lines.push(buf);
+  return lines.join('\n');
+}
+
+async function fileToText(file) {
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.hwpx')) {
+    const zip = await JSZip.loadAsync(file);
+    const secs = Object.keys(zip.files).filter(n => /^Contents\/section\d+\.xml$/i.test(n))
+      .sort((a, b) => +a.match(/\d+/)[0] - +b.match(/\d+/)[0]);
+    const parts = [];
+    for (const s of secs) parts.push(xmlParagraphText(await zip.file(s).async('string')));
+    return parts.join('\n');
+  }
+  if (name.endsWith('.docx')) {
+    const zip = await JSZip.loadAsync(file);
+    return xmlParagraphText(await zip.file('word/document.xml').async('string'));
+  }
+  if (name.endsWith('.html') || name.endsWith('.htm')) {
+    const doc = new DOMParser().parseFromString(await file.text(), 'text/html');
+    doc.querySelectorAll('script,style').forEach(n => n.remove());
+    doc.querySelectorAll('br,p,div,li,tr,h1,h2,h3,h4').forEach(n => n.insertAdjacentText('afterend', '\n'));
+    return doc.body.textContent;
+  }
+  return file.text();
+}
+
+function mergeRules(newRules) {
+  const base = dataset && !dataset.sample ? dataset.rules.slice() : [];
+  for (const r of newRules) {
+    const i = base.findIndex(x => E.normTitle(x.title) === E.normTitle(r.title));
+    if (i >= 0) base[i] = r; else base.push(r);
+  }
+  return {
+    source: dataset && !dataset.sample ? dataset.source || '직접 가져옴' : '직접 가져옴',
+    fetchedAt: dataset && !dataset.sample ? dataset.fetchedAt || '' : '',
+    rules: base,
+  };
+}
+
+$('#btnPickFile').addEventListener('click', () => $('#fileInput').click());
+$('#fileInput').addEventListener('change', async e => {
+  const files = Array.from(e.target.files);
+  e.target.value = '';
+  if (!files.length) return;
+  const added = [];
+  const failed = [];
+  for (const f of files) {
+    try {
+      if (f.name.toLowerCase().endsWith('.json')) {
+        const js = JSON.parse(await f.text());
+        if (js.rules && Array.isArray(js.rules)) {
+          if (files.length === 1 && dataset && !dataset.sample && !confirm(`현재 데이터를 "${f.name}"(규정 ${js.rules.length}건)로 바꿀까요?\n취소하면 기존 데이터에 합칩니다.`)) {
+            added.push(...js.rules);
+          } else {
+            await setDataset(js, true);
+            toast(`규정 ${js.rules.length}건을 불러왔습니다.`);
+            continue;
+          }
+        } else if (Array.isArray(js)) added.push(...js);
+        else added.push(js);
+      } else {
+        const text = await fileToText(f);
+        const rule = E.parseRuleText(text, {});
+        if (!rule.articles.length) throw new Error('조문 없음');
+        added.push({ id: 'u-' + Date.now() + '-' + added.length, title: rule.title, text });
+      }
+    } catch (err) {
+      failed.push(f.name);
+    }
+  }
+  if (added.length) {
+    await setDataset(mergeRules(added), true);
+    toast(`규정 ${added.length}건을 추가했습니다.` + (failed.length ? ` (실패 ${failed.length}건)` : ''));
+  } else if (failed.length) {
+    toast(`가져오지 못했습니다: ${failed.join(', ')}`);
+  }
+});
+
+$('#btnPaste').addEventListener('click', () => {
+  showSheet('규정 본문 붙여넣기', `
+    <div class="card">
+      <label class="field" style="margin-top:0">규정명 (비우면 본문 첫 줄 사용)</label>
+      <input type="text" id="pasteTitle" placeholder="예: 학사운영규정">
+      <label class="field">본문 (제1조부터 부칙까지)</label>
+      <textarea id="pasteText" placeholder="제1조(목적) 이 규정은 …"></textarea>
+      <button class="btn btn-primary" id="pasteSave" style="margin-top:12px">추가</button>
+    </div>`);
+  $('#pasteSave').addEventListener('click', async () => {
+    const text = $('#pasteText').value;
+    const rule = E.parseRuleText(text, $('#pasteTitle').value.trim() ? { title: $('#pasteTitle').value.trim() } : {});
+    if (!rule.articles.length) { toast('"제1조(목적)" 형식의 조문을 찾지 못했습니다.'); return; }
+    await setDataset(mergeRules([{ id: 'u-' + Date.now(), title: rule.title, text }]), true);
+    hideSheet();
+    toast(`「${rule.title}」 (${rule.articles.length}개 조)를 추가했습니다.`);
+  });
+});
+
+/* ---------- 시작 ---------- */
+(async function init() {
+  renderRecent();
+  let ds = null;
+  try { ds = await idb.get('dataset'); } catch (e) { /* IndexedDB 사용 불가 */ }
+  if (ds && ds.rules && ds.rules.length) {
+    await setDataset(ds, false);
+    // 서버(수집 프로그램)에서 받은 데이터라면 더 새로운 수집본이 있는지 확인
+    if (!ds.sample && ds.fetchedAt && ds.source !== '직접 가져옴') {
+      fetch('data/rules.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(async nd => {
+        if (nd && nd.rules && nd.rules.length && (nd.fetchedAt || '') > ds.fetchedAt) {
+          await setDataset(nd, true);
+          toast(`새 규정 데이터로 갱신했습니다 (${nd.fetchedAt.slice(0, 10)} 기준).`);
+        }
+      }).catch(() => {});
+    }
+  } else if (!(await fetchServerData(true))) refreshAll();
+  const p = new URLSearchParams(location.search);
+  if (p.get('q')) { $('#q').value = p.get('q'); renderSearch(); }
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
