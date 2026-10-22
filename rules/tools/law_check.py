@@ -13,9 +13,9 @@
     python law_check.py --oc 내OC --rules rules.json --out laws.json
     python law_check.py --oc 내OC --debug 고등교육법          # API 응답 확인용
 
-OC(인증키)는 국가법령정보 공동활용(https://open.law.go.kr) 회원가입 후 OPEN API 사용
-신청을 하면 받는다(가입 이메일의 @ 앞부분). 신청 시 이 프로그램을 실행할 PC의
-공인 IP를 등록해야 한다.
+OC(인증키)는 국가법령정보 공동활용(https://open.law.go.kr)에서 OPEN API를 신청할 때
+직접 정하는 값이다. 신청 화면에서 '서버장비의 IP주소'에 이 프로그램을 실행할 PC의 공인 IP를
+등록하고, 공동활용 법령종류는 '대한민국 현행법령'과 '현행 행정규칙'의 목록 JSON·본문 JSON을 고른다.
 """
 import argparse
 import datetime as dt
