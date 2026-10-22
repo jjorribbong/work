@@ -10,7 +10,18 @@
 
   // 규정명 비교용: 공백·괄호·따옴표를 없앤다. "학칙 시행세칙" == "학칙시행세칙"
   function normTitle(s) {
-    return String(s || '').replace(/[\s「」『』"'“”‘’<>〈〉《》]/g, '');
+    return String(s || '').replace(/[\s「」『』"'“”‘’<>〈〉《》·ㆍ・,]/g, '');
+  }
+
+  // 인용할 때 흔히 빼고 쓰는 앞말: 「청주대학교 학칙」 → 「학칙」, 「학교법인 청석학원 정관」 → 「정관」
+  const NAME_PREFIX_RE = /^(?:청주대학교|학교법인|청석학원|본대학교|본교|본)+/;
+
+  function nameKeys(s) {
+    const n = normTitle(s);
+    const keys = [n];
+    const stripped = n.replace(NAME_PREFIX_RE, '');
+    if (stripped && stripped !== n) keys.push(stripped);
+    return keys;
   }
 
   function escapeRegex(s) {
@@ -34,7 +45,8 @@
 
   /* ---------- 본문 파싱 ---------- */
 
-  const ART_RE = /^\s*제\s*(\d+)\s*조(?:\s*의\s*(\d+))?\s*(?:\(([^()\n]{1,60})\)|【([^】\n]{1,60})】)?\s*(.*)$/;
+  // "제5조의2", 원문에 따라 "제58조 2"·"제5조2(…)"로 쓴 가지조문도 인정
+  const ART_RE = /^\s*제\s*(\d+)\s*조(?:\s*의\s*(\d+)|\s*(\d+)(?=\s*(?:[(【]|$)))?\s*(?:\(([^()\n]{1,60})\)|【([^】\n]{1,60})】)?\s*(.*)$/;
   const CHAP_RE = /^\s*제\s*\d+\s*(?:편|장|절|관)(?:\s|$)/;
   const ADDENDA_RE = /^\s*(?:부\s*칙|附\s*則)(?=[\s<(（]|$)/;
   const DATE_RE = /(\d{4})\s*[.\-년]\s*(\d{1,2})\s*[.\-월]\s*(\d{1,2})/;
@@ -78,13 +90,16 @@
       const m = line.match(ART_RE);
       if (m) {
         const n = +m[1];
-        const sub = m[2] ? +m[2] : 0;
-        const title = (m[3] || m[4] || '').trim();
+        const sub = m[2] || m[3] ? +(m[2] || m[3]) : 0;
+        const title = (m[4] || m[5] || '').trim();
         // 줄 첫머리의 "제5조에 따라…" 같은 인용을 조문 머리로 오인하지 않도록,
         // 제목 괄호가 있거나 번호가 순서대로 이어질 때만 새 조로 인정한다.
         const inOrder = (n === last + 1 && !sub) || (n === last && sub === lastSub + 1) || (n === last && sub > lastSub);
-        if ((title && (n > last || (n === last && sub > lastSub))) || inOrder) {
-          cur = { key: artKey(n, sub), no: artLabel(artKey(n, sub)), title, chapter, text: (m[5] || '').trim() };
+        // "제27조(승진의 제한)에 해당하지…"처럼 조사로 이어지면 다른 조를 인용한 문장이다.
+        const isCitation = /^(?:에|의|및|와|과|을|를|은|는|이|가|로|으로|부터|까지|내지|또는|중|·|,)/.test(m[6] || '');
+        const ahead = n > last || (n === last && sub > lastSub);
+        if (inOrder || (title && ahead && !isCitation && n - last <= 30)) {
+          cur = { key: artKey(n, sub), no: artLabel(artKey(n, sub)), title, chapter, text: (m[6] || '').trim() };
           articles.push(cur);
           last = n; lastSub = sub;
           continue;
@@ -112,7 +127,7 @@
       if (m) enacted = fmtDate(m.slice(0));
     }
     if (!revised) {
-      const re = new RegExp('개\\s*정\\s*[:：]?\\s*' + DATE_RE.source, 'g');
+      const re = new RegExp('(?:개\\s*정|변\\s*경)\\s*[:：]?\\s*' + DATE_RE.source, 'g');
       let m, best = '';
       while ((m = re.exec(histText))) { const d = fmtDate(m); if (d > best) best = d; }
       revised = best;
@@ -120,7 +135,8 @@
 
     return Object.assign({}, meta, {
       title,
-      preamble: meta.preamble != null ? meta.preamble : preLines.filter(l => l !== title).join('\n'),
+      preamble: meta.preamble != null ? meta.preamble
+        : preLines.filter(l => l !== title && !/^(제개정\s*내역\s*보기|내용\s*보기)$/.test(l)).join('\n'),
       articles,
       addenda: meta.addenda != null ? meta.addenda : addenda.join('\n').trim(),
       enacted,
@@ -167,8 +183,14 @@
     const byId = new Map(rules.map(r => [r.id, r]));
     const byTitle = new Map();
     rules.forEach(r => { if (!byTitle.has(normTitle(r.title))) byTitle.set(normTitle(r.title), r); });
+    // 앞말을 뺀 이름도 다른 규정과 겹치지 않으면 별칭으로 등록
+    const alias = new Map();
+    rules.forEach(r => nameKeys(r.title).slice(1).forEach(k => {
+      if (!byTitle.has(k)) alias.set(k, alias.has(k) && alias.get(k) !== r ? null : r);
+    }));
+    alias.forEach((r, k) => { if (r) byTitle.set(k, r); });
     // 긴 규정명부터 매칭해야 "학칙 시행세칙" 안의 "학칙"을 따로 잡지 않는다.
-    const titlesByLen = rules.map(r => ({ rule: r, norm: normTitle(r.title) }))
+    const titlesByLen = [...byTitle.entries()].map(([norm, rule]) => ({ rule, norm }))
       .filter(t => t.norm.length >= 2)
       .sort((a, b) => b.norm.length - a.norm.length);
     const articles = [];
@@ -177,7 +199,11 @@
   }
 
   function findRuleByName(index, name) {
-    return index.byTitle.get(normTitle(name)) || null;
+    for (const k of nameKeys(name)) {
+      const r = index.byTitle.get(k);
+      if (r) return r;
+    }
+    return null;
   }
 
   function findArticle(rule, key) {
@@ -246,8 +272,12 @@
 
   /* ---------- 위임·참조 분석 ---------- */
 
-  const EXTERNAL_LAW_RE = /(법|법률|시행령|시행규칙|헌법|조례|고시|훈령|예규)$/;
-  const REF_ART_RE = /^\s*(?:의\s*)?제\s*(\d+)\s*조(?:\s*의\s*(\d+))?(?:\s*제\s*(\d+)\s*항)?(?:\s*제\s*(\d+)\s*호)?/;
+  const EXTERNAL_LAW_RE = /(법|법률|령|시행규칙|헌법|조례|고시|훈령|예규)$/;
+  // 학내 규정이 아닌 국가 법령·지침으로 자주 인용되는 것 (이름 끝만으로는 구분이 안 됨)
+  const EXTERNAL_NAME_RE = /^(?:공무원|교육공무원|교육부|국가|대학교원자격기준|대학설립|사학기관|평가인정학습과정|사업주직업능력개발|유치원및초등|교원양성과정이수|대학등록금에관한|대학재정지원사업|재직중인대학교원|중소기업회계|유전자재조합실험)/;
+  // 「 」 안이 규정 이름 꼴일 때만 규정 인용으로 본다(교과목명·서식명 등 제외)
+  const RULE_NAME_RE = /(규정|학칙|세칙|규칙|지침|정관|요령|기준|내규|준칙|강령|회칙|규약|요강|수칙|헌장|약관|규범|법|법률|령|조례|고시|훈령|예규)$/;
+  const REF_ART_RE = /^\s*(?:의\s*)?제\s*(\d+)\s*조(?:\s*의\s*(\d+))?(?:\s*의?\s*제\s*(\d+)\s*항)?(?:\s*제\s*[\dㆍ·,\s]+호)?/;
   const INTERNAL_ART_RE = /제\s*(\d+)\s*조(?:\s*의\s*(\d+))?(?:\s*제\s*(\d+)\s*항)?(?:\s*제\s*(\d+)\s*호)?/g;
 
   // 참조 뒤 문맥으로 관계 유형을 판정한다.
@@ -281,12 +311,16 @@
         const masked = new Array(text.length).fill(false);
         const mark = (s, e) => { for (let i = s; i < e; i++) masked[i] = true; };
 
-        const pushEdge = (name, start, end, target) => {
+        const pushEdge = (name, start, end, target, innerKey) => {
           mark(start, end);
           const tail = text.slice(end);
           const am = tail.match(REF_ART_RE);
-          let akey = '', aEnd = end;
+          let akey = innerKey || '', aEnd = end;
           if (am) { akey = artKey(+am[1], am[2] ? +am[2] : 0); aEnd = end + am[0].length; mark(end, aEnd); }
+          // "…법 제33조 및 제39조"처럼 이어지는 조 번호도 같은 대상을 가리킨다.
+          let cm;
+          const CHAIN_RE = /^(?:\s*(?:및|또는|내지|부터|와|과|,|·|ㆍ|~|∼)\s*제\s*\d+\s*조(?:\s*의\s*\d+)?(?:\s*제\s*\d+\s*[항호])*)+/;
+          if ((cm = text.slice(aEnd).match(CHAIN_RE))) { mark(aEnd, aEnd + cm[0].length); aEnd += cm[0].length; }
           const after = text.slice(aEnd, aEnd + 80);
           const sentS = Math.max(text.lastIndexOf('.', start) + 1, text.lastIndexOf('\n', start) + 1, 0);
           let sentE = text.indexOf('.', aEnd); if (sentE < 0) sentE = text.length;
@@ -295,7 +329,7 @@
             to: { name, rule: target, artKey: akey, article: target && akey ? findArticle(target, akey) : null },
             type: classify(after),
             phrase: text.slice(sentS, Math.min(sentE + 1, sentS + 200)).trim(),
-            external: !target && EXTERNAL_LAW_RE.test(normTitle(name)),
+            external: !target && (EXTERNAL_LAW_RE.test(normTitle(name)) || EXTERNAL_NAME_RE.test(normTitle(name))),
             pos: [start, aEnd],
           });
         };
@@ -304,10 +338,13 @@
         const br = /[「『]([^」』\n]{1,60})[」』]/g;
         let m;
         while ((m = br.exec(text))) {
-          const name = m[1].trim();
+          // 「청주대학교 학칙 제93조」처럼 괄호 안에 조 번호까지 쓴 경우
+          const name = m[1].trim().replace(/\s*제\s*\d+\s*조(?:\s*의\s*\d+)?.*$/, '');
           const target = findRuleByName(index, name);
           if (target && target.id === rule.id) { mark(m.index, m.index + m[0].length); continue; }
-          pushEdge(name, m.index, m.index + m[0].length, target);
+          if (!target && !RULE_NAME_RE.test(normTitle(name))) continue;
+          const inner = m[1].match(/제\s*(\d+)\s*조(?:\s*의\s*(\d+))?/);
+          pushEdge(name, m.index, m.index + m[0].length, target, inner ? artKey(+inner[1], inner[2] ? +inner[2] : 0) : '');
         }
 
         // 2) 괄호 없이 쓴 규정명 (DB에 있는 규정명과 일치하는 경우만)
@@ -335,8 +372,15 @@
         INTERNAL_ART_RE.lastIndex = 0;
         while (art.key !== 'body' && (m = INTERNAL_ART_RE.exec(text))) {
           if (masked[m.index]) continue;
-          const before = text.slice(Math.max(0, m.index - 6), m.index).replace(/\s+/g, '');
-          if (/(?:법|령|규칙|규정|학칙|세칙|지침|」|』)$/.test(before) && !/이규정$|이학칙$|이세칙$|이지침$/.test(before)) continue; // 외부 법령 조문
+          const before = text.slice(Math.max(0, m.index - 12), m.index).replace(/\s+/g, '');
+          const self = /(?:이|본|같은)(?:규정|학칙|정관|세칙|지침|요령|내규|기준|회칙)$/.test(before);
+          // 다른 규정·법령 이름(괄호 없이 쓴 것 포함)이나 "(이하 '영'이라 한다)" 뒤의 조문, "내지" 범위는 건너뛴다.
+          if (!self && (/(?:법|령|영|규칙|규정|학칙|정관|세칙|지침|요령|내규|기준|분장|회칙|」|』|\)|내지|부터|및|또는|,|·|ㆍ)$/.test(before))) {
+            // 앞의 조 번호와 이어진 경우 그 조도 같은 대상으로 처리
+            const cm = text.slice(m.index).match(/^제\s*\d+\s*조(?:\s*의\s*\d+)?(?:(?:\s*(?:및|또는|내지|부터|와|과|,|·|ㆍ)\s*)제\s*\d+\s*조(?:\s*의\s*\d+)?)*/);
+            mark(m.index, m.index + (cm ? cm[0].length : m[0].length));
+            continue;
+          }
           const key = artKey(+m[1], m[2] ? +m[2] : 0);
           internal.push({ rule, article: art, artKey: key, target: findArticle(rule, key), phrase: m[0], pos: [m.index, m.index + m[0].length] });
         }
@@ -375,7 +419,7 @@
    */
   function validate(index, analysis) {
     analysis = analysis || analyze(index);
-    const issues = [];
+    let issues = [];
     const add = (level, type, rule, article, message, detail, extra) =>
       issues.push(Object.assign({ level, type, rule, article, message, detail }, extra || {}));
 
@@ -440,6 +484,14 @@
         { guess });
     }
 
+    // 한 조에서 같은 대상을 여러 번 인용해 생긴 같은 지적은 하나로
+    const seenIssue = new Set();
+    issues = issues.filter(i => {
+      const k = `${i.rule.id}|${i.article.key}|${i.type}|${i.message}`;
+      if (seenIssue.has(k)) return false;
+      seenIssue.add(k);
+      return true;
+    });
     const order = { error: 0, warn: 1, info: 2 };
     issues.sort((a, b) => order[a.level] - order[b.level] || a.rule.title.localeCompare(b.rule.title, 'ko'));
     const stats = {
