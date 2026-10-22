@@ -38,6 +38,20 @@ git add rules/data/rules.json && git commit -m "규정 데이터 갱신" && git 
 학교 서버에 부담을 주지 않도록 요청 사이에 0.5초(`--delay`) 쉽니다. 학교 밖·해외 IP는 막혀 있을 수 있으니
 교내망 PC에서 실행하는 것을 권장합니다.
 
+## 한 번에 업데이트하기 (업데이트 프로그램)
+
+규정 수집 → 법령 확인 → GitHub 업로드를 버튼 하나로 실행합니다. 등록된 학교 PC에서 실행하세요.
+
+1. `rules/tools/`의 `update_gui.py`, `규정업데이트.bat`, `cju_rules_crawler.py`, `law_check.py`를 한 폴더에 둡니다.
+2. `규정업데이트.bat`을 더블클릭하고, 처음 한 번 법령 API 인증키(OC)와 GitHub 토큰을 넣습니다.
+   - GitHub 토큰: GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens →
+     Generate new token → Repository access에서 이 저장소만 선택 → Permissions의 Contents를 Read and write로
+3. **업데이트 시작**을 누르면 끝까지 자동으로 진행되고, 바뀐 규정 목록을 보여줍니다.
+
+- 바뀐 파일만 올리고, 수집된 규정 수가 기존보다 크게 적으면(80% 미만) 수집 실패로 보고 올리지 않습니다.
+- "실행 전 최신 프로그램 받기"를 켜 두면 저장소에 올라온 최신 수집·확인 프로그램으로 실행합니다.
+- 설정은 이 PC의 `%APPDATA%\cju-rules\config.json`에만 저장됩니다.
+
 ## 국가 법령 인용 확인
 
 규정이 인용한 법률·시행령·시행규칙·고시·훈령·예규는 국가법령정보센터(law.go.kr) Open API로 확인합니다.
@@ -71,4 +85,5 @@ python rules/tools/law_check.py --oc 인증키 --debug 고등교육법   # API �
 - `data/rules.json`: 수집기 출력 (수집 후 추가)
 - `tools/cju_rules_crawler.py`: 규정 수집기
 - `tools/law_check.py`: 국가 법령 인용 확인(국가법령정보센터 Open API)
+- `tools/update_gui.py`, `tools/규정업데이트.bat`: 수집·확인·업로드를 한 번에 하는 업데이트 프로그램
 - `data/laws.json`: 법령 확인 결과 (확인 후 추가)
