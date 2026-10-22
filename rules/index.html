@@ -769,7 +769,7 @@ let checkLevel = 'all';
 const LEVEL = { error: ['오류', 'b-red'], warn: ['주의', 'b-amber'], info: ['참고', 'b-blue'] };
 const ISSUE_TYPE = {
   'missing-rule': '없는 규정 인용', 'missing-article': '없는 조항 인용', 'internal-missing': '내부 조항 오류',
-  'basis-mismatch': '근거 불일치', 'delegate-no-backref': '위임 근거 미표기', 'unresolved-delegation': '하위규정 미확인',
+  'basis-mismatch': '위임 근거 불일치', 'basis-weak': '근거 조항 확인', 'delegate-no-backref': '위임 근거 미표기', 'unresolved-delegation': '하위규정 미확인',
 };
 
 function renderCheck() {
@@ -786,8 +786,9 @@ function renderCheck() {
         <div class="stat ${checkLevel === 'info' ? 'on' : ''}" data-level="info"><div class="n" style="color:var(--blue-l)">${stats.info}</div><div class="l">참고</div></div>
       </div>
       <p class="muted small" style="margin-top:10px">
-        <b>오류</b> 없는 규정·조항을 인용 · <b>주의</b> "~에 따라"로 근거를 든 상위 조항에 위임 문언이 없음 ·
-        <b>참고</b> 위임했으나 하위 규정에 근거 표기가 없거나 하위 규정을 확인할 수 없음
+        <b>오류</b> 없는 규정·조항을 인용 · <b>주의</b> "~의 위임에 따라"라고 든 상위 조항에 위임 문언이 없음 ·
+        <b>참고</b> 목적 조항의 근거 조항에 위임 문언이 없거나, 위임한 하위 규정을 확인할 수 없음 등<br>
+        요건·절차를 끌어 쓰는 단순 인용("~에 의하여 표창을 받을 때")은 점검하지 않습니다.
       </p>
     </div>
     <div class="result-count">${shown.length}건 ${checkLevel !== 'all' ? '<a class="ref" data-level="all">전체 보기</a>' : ''}</div>

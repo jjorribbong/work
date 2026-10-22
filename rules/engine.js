@@ -190,7 +190,7 @@
     }));
     alias.forEach((r, k) => { if (r) byTitle.set(k, r); });
     // 긴 규정명부터 매칭해야 "학칙 시행세칙" 안의 "학칙"을 따로 잡지 않는다.
-    const titlesByLen = [...byTitle.entries()].map(([norm, rule]) => ({ rule, norm }))
+    const titlesByLen = [...byTitle.entries()].map(([norm, rule]) => ({ rule, norm, alias: norm !== normTitle(rule.title) }))
       .filter(t => t.norm.length >= 2)
       .sort((a, b) => b.norm.length - a.norm.length);
     const articles = [];
@@ -322,12 +322,19 @@
           const CHAIN_RE = /^(?:\s*(?:및|또는|내지|부터|와|과|,|·|ㆍ|~|∼)\s*제\s*\d+\s*조(?:\s*의\s*\d+)?(?:\s*제\s*\d+\s*[항호])*)+/;
           if ((cm = text.slice(aEnd).match(CHAIN_RE))) { mark(aEnd, aEnd + cm[0].length); aEnd += cm[0].length; }
           const after = text.slice(aEnd, aEnd + 80);
+          // "~에 따라/의하여"는 대부분 요건·절차를 끌어 쓰는 단순 인용이다(예: "직원인사규정 제35조에
+          // 의하여 표창을 받을 때"). 위임 문언이 있거나 제1조(목적)에서 근거로 든 경우만 '근거'로 본다.
+          let type = classify(after);
+          const explicit = /위\s*임/.test(text.slice(Math.max(0, start - 15), aEnd + 30));
+          const purpose = /목적/.test(art.title) || art.key === '1';
+          if (type === 'basis' && !explicit && !purpose) type = 'ref';
           const sentS = Math.max(text.lastIndexOf('.', start) + 1, text.lastIndexOf('\n', start) + 1, 0);
           let sentE = text.indexOf('.', aEnd); if (sentE < 0) sentE = text.length;
           edges.push({
             from: { rule, article: art },
             to: { name, rule: target, artKey: akey, article: target && akey ? findArticle(target, akey) : null },
-            type: classify(after),
+            type,
+            explicit,
             phrase: text.slice(sentS, Math.min(sentE + 1, sentS + 200)).trim(),
             external: !target && (EXTERNAL_LAW_RE.test(normTitle(name)) || EXTERNAL_NAME_RE.test(normTitle(name))),
             pos: [start, aEnd],
@@ -354,8 +361,7 @@
           if (!/\s/.test(text[i])) { compact.push(text[i]); posMap.push(i); }
         }
         const cstr = compact.join('');
-        for (const { rule: target, norm } of index.titlesByLen) {
-          if (target.id === rule.id) continue;
+        for (const { rule: target, norm, alias } of index.titlesByLen) {
           let from = 0, idx;
           while ((idx = cstr.indexOf(norm, from)) >= 0) {
             from = idx + norm.length;
@@ -364,6 +370,12 @@
             // "학칙"이 "학칙시행세칙"의 일부로 쓰인 경우 등 단어 중간 매칭 배제
             const next = text.slice(e, e + 1);
             if (next && /[가-힣]/.test(next) && !/^[은는이가을를의에과와로으도만]/.test(next)) continue;
+            // 자기 규정 이름(예: 대학원학칙 안의 "대학원 학칙")은 가려 두어 짧은 이름("학칙")으로 다시 잡히지 않게 한다.
+            if (target.id === rule.id) { mark(s, e); continue; }
+            // "학칙", "정관"처럼 앞말을 뺀 짧은 별칭은 일반 낱말로도 쓰이므로("학칙을 위반한") 조 번호가 따라올 때만 인용으로 본다.
+            if (alias && norm.length <= 3 && !/^\s*(?:의\s*)?제\s*\d+\s*조/.test(text.slice(e, e + 12))) continue;
+            // "본 학칙", "이 규정", "동 규정"은 다른 규정이 아니라 자기 자신(또는 앞서 든 규정)을 가리킨다.
+            if (/(?:^|[\s(,“"'])(?:본|이|동)\s*$/.test(text.slice(Math.max(0, s - 4), s))) { mark(s, e); continue; }
             pushEdge(target.title, s, e, target);
           }
         }
@@ -449,10 +461,19 @@
         continue;
       }
       if (e.type === 'basis' && e.to.article && !articleDelegates(e.to.article, fr)) {
-        add('warn', 'basis-mismatch', fr, fa,
-          `근거 조항 「${e.to.rule.title}」 ${e.to.article.no}에 위임 문언이 없음`,
-          `근거로 든 조항(${e.to.article.no}${e.to.article.title ? '(' + e.to.article.title + ')' : ''})이 이 규정 또는 하위 규정에 위임하는 내용을 담고 있지 않습니다.`,
-          { edge: e });
+        const at = `${e.to.article.no}${e.to.article.title ? '(' + e.to.article.title + ')' : ''}`;
+        if (e.explicit) {
+          // "제N조의 위임에 따라"라고 했는데 그 조에 위임 문언이 없는 경우
+          add('warn', 'basis-mismatch', fr, fa,
+            `위임 근거로 든 「${e.to.rule.title}」 ${e.to.article.no}에 위임 문언이 없음`,
+            `"위임"을 근거로 들었으나 ${at}에는 이 규정이나 하위 규정에 정하도록 맡기는 내용이 없습니다. 조 번호가 바뀌었는지 확인이 필요합니다.`,
+            { edge: e });
+        } else {
+          add('info', 'basis-weak', fr, fa,
+            `근거 조항 「${e.to.rule.title}」 ${e.to.article.no}에 명시적 위임 문언 없음`,
+            `목적 조항에서 근거로 든 ${at}에 "~으로 정한다" 같은 위임 문언은 없습니다. 기구 설치 조항 등 근거 규정으로는 적절할 수 있습니다.`,
+            { edge: e });
+        }
       }
       if (e.type === 'delegate') {
         // 상위 규정이 위임한 하위 규정이 실제로 그 조항을 근거로 두는지
