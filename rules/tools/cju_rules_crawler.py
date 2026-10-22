@@ -137,35 +137,67 @@ def _clean(c):
     return re.sub(r'\s*[(\[<].*$', '', c or '').strip()
 
 
+NOT_TITLE_RE = re.compile(r'^(제\s*정|개\s*정|전부\s*개정|일부\s*개정|시행|공포|\d|제\s*\d+\s*(편|장|절|관)(\s|$))'
+                          r'|별표|서식|부\s*칙|목\s*차|연\s*혁|신구|대비표|^전\s*문|인쇄|닫기|조문|본문|검색|^Home|^홈')
+
+
 def _plausible(c):
-    return 2 <= len(c) <= 60 and not any(g in c for g in GENERIC_TITLES) and \
-        not re.match(r'^(제\s*정|개\s*정|전부\s*개정|시행|공포|\d)', c)
+    return 2 <= len(c) <= 60 and not any(g in c for g in GENERIC_TITLES) and not NOT_TITLE_RE.search(c)
 
 
-def guess_title(soup, text, hint=''):
-    """규정명 후보를 믿을 만한 순서대로 살핀다.
-    1) 규정명 전용 요소(class/id에 lawName 등) 2) 목록 링크 글자 3) 본문 제1조 앞 줄
-    4) 머리글(h1~h3, class=tit) 5) <title>"""
-    strong = [el.get_text(' ', strip=True) for el in soup.find_all(
-        attrs={'class': re.compile(r'(law|rule|reg|kyu).?(name|title|nm|tit)', re.I)})]
-    strong += [el.get_text(' ', strip=True) for el in soup.find_all(
-        attrs={'id': re.compile(r'(law|rule|reg|kyu).?(name|title|nm|tit)', re.I)})]
-    for c in strong + [hint]:
-        c = _clean(c)
-        if _plausible(c):
-            return c
-    t = title_from_text(text)
-    if t:
-        return t
-    weak = [h.get_text(' ', strip=True) for h in soup.find_all(['h1', 'h2', 'h3'])]
-    weak += [el.get_text(' ', strip=True) for el in soup.find_all(attrs={'class': re.compile(r'tit', re.I)})]
+TITLE_LABELS = ('제목', '규정명', '법규명')
+
+
+def _label_values(soup):
+    """'제목 | 학교법인청석학원정관 [개정]'처럼 표의 이름 칸 옆 값을 찾는다."""
+    out = []
+    for cell in soup.find_all(['th', 'td', 'dt', 'span', 'strong', 'label']):
+        if re.sub(r'\s+', '', cell.get_text()) in TITLE_LABELS:
+            nxt = cell.find_next_sibling(['td', 'dd', 'span', 'div'])
+            if nxt:
+                out.append(nxt.get_text(' ', strip=True))
+    return out
+
+
+SCRIPT_TITLE_RE = re.compile(r"(?:law_?nm|law_?name|lawTitle|rule_?nm|title)\s*[=:]\s*['\"]([^'\"\n]{2,60})['\"]", re.I)
+
+
+def _lines_before_article(text):
+    head = (text or '').split('\n')
+    first_art = next((i for i, l in enumerate(head) if ART_LINE_RE.match(l)), 0)
+    return list(reversed(head[:first_art]))  # 제1조에 가까운 줄부터
+
+
+def title_candidates(soup, text, hint='', page_text=''):
+    """규정명 후보를 믿을 만한 순서대로 [(구분, 후보)] 로 돌려준다."""
+    c = [('표 제목칸', v) for v in _label_values(soup)]
+    for el in soup.find_all(attrs={'class': re.compile(r'(law|rule|reg|kyu).?(name|title|nm|tit)', re.I)}):
+        c.append(('규정명 요소', el.get_text(' ', strip=True)))
+    for el in soup.find_all(attrs={'id': re.compile(r'(law|rule|reg|kyu).?(name|title|nm|tit)', re.I)}):
+        c.append(('규정명 요소', el.get_text(' ', strip=True)))
+    if hint:
+        c.append(('목록 링크', hint))
+    c += [('본문 앞줄', l) for l in _lines_before_article(text)]
+    c += [('페이지 앞줄', l) for l in _lines_before_article(page_text)]
+    c += [('머리글', h.get_text(' ', strip=True)) for h in soup.find_all(['h1', 'h2', 'h3', 'h4', 'strong', 'b'])]
+    for sc in soup.find_all('script'):
+        c += [('스크립트', m.group(1)) for m in SCRIPT_TITLE_RE.finditer(sc.get_text())]
     if soup.title:
-        weak.append(re.split(r'\s*[-|:]\s*', soup.title.get_text(strip=True))[0])
-    for c in weak:
-        c = _clean(c)
-        if _plausible(c) and TITLE_SUFFIX_RE.search(c):
-            return c
-    return title_from_text(text, loose=True)
+        c.append(('<title>', re.split(r'\s*[-|:]\s*', soup.title.get_text(strip=True))[0]))
+    return [(k, _clean(v)) for k, v in c if _clean(v)]
+
+
+def guess_title(soup, text, hint='', page_text=''):
+    cands = title_candidates(soup, text, hint, page_text)
+    # 1순위: 규정 이름 꼴(…규정/학칙/정관 등)로 끝나는 후보
+    for _, v in cands:
+        if _plausible(v) and TITLE_SUFFIX_RE.search(v):
+            return v
+    # 2순위: 표 제목칸·규정명 요소·목록 링크는 이름 꼴이 아니어도 믿는다
+    for k, v in cands:
+        if k in ('표 제목칸', '규정명 요소', '목록 링크') and _plausible(v):
+            return v
+    return ''
 
 
 def extract_rule(client, html, url, hint_title='', depth=0):
@@ -185,8 +217,9 @@ def extract_rule(client, html, url, hint_title='', depth=0):
         return None
     if n == 0:
         return None
+    page_text = html_to_text(BeautifulSoup(html, 'html.parser'))
     text = html_to_text(node)
-    title = guess_title(soup, text, hint_title)
+    title = guess_title(BeautifulSoup(html, 'html.parser'), text, hint_title, page_text)
     return {'title': title, 'text_title': title_from_text(text), 'text': text}
 
 
@@ -317,27 +350,25 @@ def crawl(args):
 
 
 def finalize(pages):
-    """페이지 목록 → 규정 목록. 제목 결정과 중복 정리."""
-    # 화면 머리글 같은 공통 문구를 규정명으로 잘못 잡으면 여러 페이지가 같은 제목이 된다.
-    # 서로 다른 본문 3개 이상이 같은 제목이면 그 제목은 버리고 본문에서 찾은 규정명을 쓴다.
-    texts_by_title = {}
-    for p in pages:
-        texts_by_title.setdefault(re.sub(r'\s+', '', p['title']), set()).add(p['text'])
-    for p in pages:
-        if not p['title'] or (len(texts_by_title[re.sub(r'\s+', '', p['title'])]) >= 3 and p['text_title']):
-            p['title'] = p['text_title'] or p['title']
-
+    """페이지 목록 → 규정 목록. 같은 본문만 중복으로 보고, 이름이 겹치면 SEQ를 붙여 구분한다."""
     seen_text = set()
-    by_title = {}
-    for p in sorted(pages, key=lambda p: p.get('seq', 0)):
+    kept = []
+    for p in sorted(pages, key=lambda p: p.get('seq') or 0):
         if p['text'] in seen_text:
             continue
         seen_text.add(p['text'])
-        # 같은 규정의 여러 연혁본이면 번호가 큰(최근) 것을 남긴다.
-        by_title[re.sub(r'\s+', '', p['title'])] = p
+        p['title'] = p['title'] or p.get('text_title') or (f"규정(SEQ {p['seq']})" if p.get('seq') else '(제목 없음)')
+        kept.append(p)
+    count = {}
+    for p in kept:
+        k = re.sub(r'\s+', '', p['title'])
+        count[k] = count.get(k, 0) + 1
+    for p in kept:
+        if count[re.sub(r'\s+', '', p['title'])] > 1 and p.get('seq'):
+            p['title'] = f"{p['title']} (SEQ {p['seq']})"
 
     rules = []
-    for i, p in enumerate(by_title.values(), 1):
+    for i, p in enumerate(kept, 1):
         text = p['text']
         # 본문 맨 앞에 규정명이 없으면 붙여 둔다(앱의 파서가 첫 줄을 제목 후보로 쓴다).
         if not text.lstrip().startswith(p['title']):
@@ -383,6 +414,27 @@ def from_dir(path):
     return finalize(pages)
 
 
+def debug_page(args):
+    client = Client(args.base, 0, verify=not args.insecure)
+    tpl = args.viewer or VIEWER_TEMPLATES[0]
+    r = client.get(tpl.format(seq=args.debug))
+    if r is None:
+        sys.exit('페이지를 받지 못했습니다.')
+    print(f'주소: {r.url}  상태: {r.status_code}  인코딩: {r.encoding}')
+    soup = BeautifulSoup(r.text, 'html.parser')
+    node, n = content_node(BeautifulSoup(r.text, 'html.parser'))
+    page_text = html_to_text(BeautifulSoup(r.text, 'html.parser'))
+    text = html_to_text(node) if node else ''
+    print(f'조문 머리 수: {n}')
+    print('--- 규정명 후보 (위에서부터 우선) ---')
+    for k, v in title_candidates(soup, text, '', page_text)[:25]:
+        mark = '★' if _plausible(v) and TITLE_SUFFIX_RE.search(v) else ('○' if _plausible(v) else ' ')
+        print(f' {mark} [{k}] {v}')
+    print('→ 선택된 규정명:', guess_title(BeautifulSoup(r.text, 'html.parser'), text, '', page_text) or '(없음)')
+    print('--- 페이지 글자 앞부분 ---')
+    print('\n'.join(page_text.split('\n')[:40]))
+
+
 def main():
     ap = argparse.ArgumentParser(description='청주대학교 규정관리시스템 규정 전문 수집기')
     ap.add_argument('--base', default=DEFAULT_BASE, help='규정관리시스템 주소 (기본: %(default)s)')
@@ -396,8 +448,12 @@ def main():
     ap.add_argument('--limit', type=int, default=0, help='최대 수집 규정 수 (시험용)')
     ap.add_argument('--delay', type=float, default=0.5, help='요청 간 대기(초)')
     ap.add_argument('--insecure', action='store_true', help='서버 인증서 검증 생략 (인증서 오류가 날 때만)')
+    ap.add_argument('--debug', type=int, metavar='SEQ', help='해당 SEQ 페이지의 규정명 후보와 본문 앞부분만 출력 (문제 확인용)')
     ap.add_argument('--from-dir', help='브라우저로 저장한 규정 HTML/TXT 파일 폴더에서 추출')
     args = ap.parse_args()
+
+    if args.debug:
+        return debug_page(args)
 
     if args.from_dir:
         rules = from_dir(args.from_dir)
