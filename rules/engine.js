@@ -144,6 +144,41 @@
     });
   }
 
+  // 부칙을 개정 때마다 붙은 "부칙" 단위로 나눈다. 단위마다 인용 점검에 쓴다.
+  // key: b1, b2 …(부칙이 실린 순서), no: "부칙" 또는 "부칙 <2024. 3. 1.>"
+  function splitAddenda(text) {
+    const units = [];
+    let cur = null;
+    for (const raw of String(text || '').split('\n')) {
+      const line = raw.trim();
+      if (ADDENDA_RE.test(line)) {
+        const d = line.match(DATE_RE);
+        cur = { key: `b${units.length + 1}`, no: '부칙', title: d ? fmtDate(d) : '', chapter: '', text: '', addenda: true };
+        units.push(cur);
+        const rest = line.replace(ADDENDA_RE, '').trim();
+        if (rest && !d) cur.text = rest;
+        continue;
+      }
+      if (!cur) {
+        cur = { key: 'b1', no: '부칙', title: '', chapter: '', text: '', addenda: true };
+        units.push(cur);
+      }
+      if (!line) continue;
+      if (!cur.title && !cur.text) {
+        const d = line.match(new RegExp('^[<(（\\[]?\\s*' + DATE_RE.source));
+        if (d) { cur.title = fmtDate(d); continue; }
+      }
+      cur.text += (cur.text ? '\n' : '') + line;
+    }
+    // 날짜 줄이 없으면 "…년 …월 …일부터 시행" 문구의 날짜로 어느 부칙인지 표시한다.
+    units.forEach(u => {
+      if (u.title) return;
+      const m = u.text.match(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+      if (m) u.title = `${fmtDate(m)} 시행`;
+    });
+    return units.filter(u => u.text);
+  }
+
   // 외부 데이터(JSON)를 앱 내부 형식으로 정리한다.
   function normalizeRule(r, i) {
     let rule = r;
@@ -161,6 +196,7 @@
       articles.push({ key: 'body', no: '본문', title: '', chapter: '', text: String(rule.preamble || r.text).trim() });
     }
     return {
+      addendaUnits: splitAddenda(rule.addenda || ''),
       id: String(rule.id || rule.seq || `r${i}`),
       title: String(rule.title || '(제목 없음)').trim(),
       category: rule.category || '',
@@ -261,7 +297,7 @@
       const titleHit = opts.scope !== 'body' && res.every(re => countMatches(re, rule.title) > 0);
       const hits = [];
       if (opts.scope !== 'title') {
-        for (const a of rule.articles) {
+        for (const a of rule.articles.concat(rule.addendaUnits || [])) {
           const full = `${a.no}(${a.title}) ${a.text}`;
           // 각 검색어가 해당 조 또는 규정명 어딘가에 있으면 일치로 본다.
           if (!res.every(re => countMatches(re, full) > 0 || countMatches(re, rule.title) > 0)) continue;
@@ -316,7 +352,7 @@
     const internal = [];
 
     for (const rule of index.rules) {
-      for (const art of rule.articles) {
+      for (const art of rule.articles.concat(rule.addendaUnits || [])) {
         const text = art.text;
         const masked = new Array(text.length).fill(false);
         const mark = (s, e) => { for (let i = s; i < e; i++) masked[i] = true; };
@@ -413,7 +449,8 @@
 
         // 3) 같은 규정 내부 "제N조" 참조 (조문 형식이 아닌 규정은 제외)
         INTERNAL_ART_RE.lastIndex = 0;
-        while (art.key !== 'body' && (m = INTERNAL_ART_RE.exec(text))) {
+        // 부칙의 "제N조"는 그 개정 당시의 조문을 가리키는 경과 규정이 많아 점검하지 않는다.
+        while (art.key !== 'body' && !art.addenda && (m = INTERNAL_ART_RE.exec(text))) {
           if (masked[m.index]) continue;
           const before = text.slice(Math.max(0, m.index - 12), m.index).replace(/\s+/g, '');
           const self = /(?:이|본|같은)(?:규정|학칙|정관|세칙|지침|요령|내규|기준|회칙)$/.test(before);
@@ -430,7 +467,7 @@
 
         // 4) 대상을 특정하지 않은 위임
         UNNAMED_DELEGATION_RE.lastIndex = 0;
-        while ((m = UNNAMED_DELEGATION_RE.exec(text))) {
+        while (!art.addenda && (m = UNNAMED_DELEGATION_RE.exec(text))) {
           if (masked[m.index]) continue;
           // 바로 앞에 「규정명」으로/에서가 있으면 이미 명시 위임으로 처리됨
           const before = text.slice(Math.max(0, m.index - 30), m.index);
@@ -464,8 +501,15 @@
   function validate(index, analysis) {
     analysis = analysis || analyze(index);
     let issues = [];
-    const add = (level, type, rule, article, message, detail, extra) =>
+    const DOWN = { error: 'warn', warn: 'info', info: 'info' };
+    const add = (level, type, rule, article, message, detail, extra) => {
+      if (article && article.addenda) {
+        // 부칙은 개정 당시 기준의 경과 규정일 수 있어 한 단계 낮춰 알린다.
+        level = DOWN[level];
+        detail = `${detail} 부칙의 인용이라 개정 당시 기준일 수 있습니다.`;
+      }
       issues.push(Object.assign({ level, type, rule, article, message, detail }, extra || {}));
+    };
 
     // 하위 규정에서 받은 근거(역방향) 집계
     const inbound = new Map(); // `${ruleId}|${artKey}` -> [edge]

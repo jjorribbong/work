@@ -227,6 +227,10 @@
   .addenda { background: #fff; margin-top: 8px; padding: 16px; }
   .addenda summary { font-weight: 700; cursor: pointer; }
   .addenda pre { white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.7; margin-top: 10px; }
+  .addenda .unit { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; scroll-margin-top: 70px; }
+  .addenda .unit h4 { font-size: 13px; color: var(--sub); }
+  .addenda .unit .body { font-size: 14px; line-height: 1.7; white-space: pre-wrap; margin-top: 4px; }
+  .addenda .unit.flash { animation: flash 1.6s ease-out; }
 
   /* 하단 시트 */
   .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 60; display: none; }
@@ -931,6 +935,10 @@ function articleSpans(rule, art) {
         tip: a && a.missing ? '현행 법령에 없는 조' : a && a.deleted ? '삭제된 조' : '국가법령정보센터 확인' });
       continue;
     }
+    if (e.law && !e.law.found && !/(규정|지침|기준|요령)$/.test(E.normTitle(e.to.name))) {
+      spans.push({ s: e.pos[0], e: e.pos[1], cls: 'ref bad', rule: '', art: '', tip: '국가법령정보센터에서 찾을 수 없음' });
+      continue;
+    }
     spans.push({ s: e.pos[0], e: e.pos[1], cls: e.to.rule ? (e.to.artKey && !e.to.article ? 'ref bad' : 'ref') : (e.external ? 'ref ext' : 'ref bad'),
       rule: e.to.rule ? e.to.rule.id : '', art: e.to.article ? e.to.article.key : '',
       tip: e.to.rule ? (e.to.artKey && !e.to.article ? '해당 조항 없음' : '') : (e.outside === 'guideline' ? '지침 등(규정집 외 문서)' : e.external ? '외부 법령' : '규정집에 없는 규정') });
@@ -1014,7 +1022,9 @@ function openRule(id, artKey, q) {
           </div>
         </div>`;
       }).join('')}
-      ${rule.addenda ? `<details class="addenda"><summary>부칙</summary><pre>${hl(rule.addenda, matchers)}</pre></details>` : ''}
+      ${rule.addendaUnits && rule.addendaUnits.length ? `<details class="addenda" id="addenda"><summary>부칙 (${rule.addendaUnits.length})</summary>${
+        rule.addendaUnits.map(u => `<div class="unit" id="art-${esc(u.key)}"><h4>${esc(u.no)}${u.title ? ' (' + esc(u.title) + ')' : ''}</h4><div class="tags">${articleTags(rule, u)}</div><div class="body">${renderArticleBody(rule, u, matchers)}</div></div>`).join('')
+      }</details>` : rule.addenda ? `<details class="addenda"><summary>부칙</summary><pre>${hl(rule.addenda, matchers)}</pre></details>` : ''}
       ${!rule.articles.length ? '<div class="card" style="margin:12px"><p class="muted">조문을 인식하지 못했습니다. 원문 형식을 확인해 주세요.</p></div>' : ''}`;
   }
   $('#vStar').textContent = store.get('bookmarks', []).includes(rule.id) ? '★' : '☆';
@@ -1033,6 +1043,8 @@ function openRule(id, artKey, q) {
 function gotoArticle(key) {
   const el = document.getElementById('art-' + key);
   if (!el) return;
+  const fold = el.closest('details');
+  if (fold) fold.open = true; // 부칙은 접혀 있으니 펼친 뒤 이동
   el.scrollIntoView({ block: 'start' });
   el.classList.remove('flash');
   void el.offsetWidth;
