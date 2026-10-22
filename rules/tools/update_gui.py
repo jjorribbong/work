@@ -133,6 +133,25 @@ def rules_summary(old, new):
     return added, removed, changed
 
 
+MAX_EVENTS = 30        # changes.json에 남길 업데이트 횟수
+MAX_TEXT_RULES = 60    # 한 번에 이보다 많이 바뀌면(수집 형식 변경 등) 본문 없이 이름만 기록
+
+
+def change_event(old, new, at):
+    """이번 업데이트에서 바뀐 규정의 이전·이후 본문. 앱이 조문별 신구대비표를 만든다."""
+    o = {r['title']: r for r in (old or {}).get('rules', [])}
+    n = {r['title']: r for r in new.get('rules', [])}
+    added, removed, changed = rules_summary(old, new)
+    items = [{'title': t, 'kind': 'added', 'after': n[t].get('text', '')} for t in added]
+    items += [{'title': t, 'kind': 'removed', 'before': o[t].get('text', '')} for t in removed]
+    items += [{'title': t, 'kind': 'changed', 'before': o[t].get('text', ''), 'after': n[t].get('text', '')} for t in changed]
+    event = {'at': at, 'added': len(added), 'removed': len(removed), 'changed': len(changed), 'rules': items}
+    if len(items) > MAX_TEXT_RULES:
+        event['rules'] = [{'title': i['title'], 'kind': i['kind']} for i in items]
+        event['note'] = f'바뀐 규정이 {len(items)}건으로 많아 본문 비교는 저장하지 않았습니다(수집 형식이 바뀌었을 수 있음).'
+    return event
+
+
 def same_rules(old, new):
     a, r, c = rules_summary(old, new)
     if a or r or c:
@@ -196,6 +215,7 @@ def update(cfg, log, stop=None):
     log('■ 저장소의 현재 데이터를 확인하는 중…')
     rules_sha, old_rules_raw = gh.read('rules.json')
     laws_sha, old_laws_raw = gh.read('laws.json')
+    changes_sha, old_changes_raw = gh.read('changes.json')
     old_rules = json.loads(old_rules_raw) if old_rules_raw else None
     old_laws = json.loads(old_laws_raw) if old_laws_raw else None
     log(f"  현재 규정 {len(old_rules['rules']) if old_rules else 0}건, 법령 확인 {len(old_laws['laws']) if old_laws else 0}건")
@@ -235,6 +255,15 @@ def update(cfg, log, stop=None):
                      f'규정 데이터 갱신 ({today}): 규정 {n_new}건, 추가 {len(added)}·삭제 {len(removed)}·변경 {len(changed)}')
         uploaded.append('rules.json')
         log('  규정 데이터를 올렸습니다.')
+        # 개정 이력: 이전 수집본이 있을 때만(처음 올릴 때는 비교 대상이 없음)
+        if old_rules and (added or removed or changed):
+            history = json.loads(old_changes_raw) if old_changes_raw else {'events': []}
+            event = change_event(old_rules, new_rules, new_rules.get('fetchedAt') or dt.datetime.now().astimezone().isoformat(timespec='seconds'))
+            history['events'] = ([event] + history.get('events', []))[:MAX_EVENTS]
+            gh.write('changes.json', json.dumps(history, ensure_ascii=False, indent=1).encode('utf-8'), changes_sha,
+                     f'개정 이력 추가 ({today}): 추가 {len(added)}·삭제 {len(removed)}·변경 {len(changed)}')
+            uploaded.append('changes.json')
+            log('  개정 이력을 기록했습니다.')
     if new_laws is not None:
         if old_laws and same_laws(old_laws, new_laws) and 'rules.json' not in uploaded:
             log('  법령 확인: 바뀐 내용이 없어 올리지 않습니다.')

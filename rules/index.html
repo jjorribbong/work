@@ -223,6 +223,9 @@
   .ref.bad { color: var(--red); text-decoration-style: wavy; }
   .ref.ext { color: var(--sub); text-decoration-style: dotted; cursor: default; }
   .ref.law { color: var(--green); text-decoration-style: solid; cursor: pointer; }
+  .chg-ev + .chg-ev { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .lab-old { font-size: 12px; font-weight: 700; color: var(--red); }
+  .lab-new { font-size: 12px; font-weight: 700; color: var(--green); }
   .abolished-banner { margin-top: 8px; background: var(--red-bg); color: var(--red); font-size: 13px; font-weight: 700; padding: 8px 10px; border-radius: 8px; }
   .law-text { white-space: pre-wrap; font-size: 14px; line-height: 1.7; margin-top: 10px; }
   .addenda { background: #fff; margin-top: 8px; padding: 16px; }
@@ -690,7 +693,7 @@ function renderList() {
   });
   const keys = [...groups.keys()].sort((a, b) => a.localeCompare(b, 'ko', { numeric: true }));
   const gone = rules.filter(r => r.abolished).sort((a, b) => b.abolished.localeCompare(a.abolished));
-  let html = '';
+  let html = f ? '' : recentChangesHtml();
   if (bm.length && !f) html += `<details class="group" open><summary>⭐ 즐겨찾기 <span class="badge b-gray">${bm.length}</span></summary><div class="list">${bm.map(ruleItem).join('')}</div></details>`;
   html += keys.map(k => {
     const list = groups.get(k).sort((a, b) => (a.code || '').localeCompare(b.code || '', 'ko', { numeric: true }) || a.title.localeCompare(b.title, 'ko'));
@@ -699,7 +702,61 @@ function renderList() {
   if (gone.length) html += `<details class="group" ${f ? 'open' : ''}><summary>폐지된 규정 <span class="badge b-red">${gone.length}</span></summary><div class="list">${gone.map(ruleItem).join('')}</div></details>`;
   box.innerHTML = html || `<div class="card empty"><p class="muted">"${esc(f)}"에 맞는 규정이 없습니다.</p></div>`;
 }
+const KIND = { added: ['신규', 'b-green'], removed: ['삭제', 'b-red'], changed: ['변경', 'b-blue'] };
+
+// 규정목록 맨 위 '최근 개정': 업데이트 때마다 바뀐 규정 (최근 3회)
+function recentChangesHtml() {
+  const ev = dataset && dataset.changes && dataset.changes.events;
+  if (!ev || !ev.length) return '';
+  return `<div class="card" id="recentChanges"><h2>최근 개정</h2>${ev.slice(0, 3).map((e, ei) => `
+    <div class="chg-ev">
+      <div class="m small muted">${esc(String(e.at).slice(0, 10))} 업데이트 · 신규 ${e.added} · 변경 ${e.changed} · 삭제 ${e.removed}</div>
+      ${e.note ? `<div class="muted small">${esc(e.note)}</div>` : ''}
+      <div class="chips">${e.rules.slice(0, 12).map((r, ri) => `<button class="chip" data-chg="${ei}:${ri}"><span class="badge ${KIND[r.kind][1]}">${KIND[r.kind][0]}</span> ${esc(r.title)}</button>`).join('')}
+      ${e.rules.length > 12 ? `<span class="muted small">외 ${e.rules.length - 12}건</span>` : ''}</div>
+    </div>`).join('')}</div>`;
+}
+
+// 신구대비: 바뀐 조만, 개정 전(삭제 부분 빨강)과 개정 후(추가 부분 초록)를 맞대어 보여준다.
+function showChange(ei, ri) {
+  const e = dataset.changes.events[ei];
+  const item = e.rules[ri];
+  const date = String(e.at).slice(0, 10);
+  if (!('before' in item) && !('after' in item)) {
+    showSheet(`${item.title} (${KIND[item.kind][0]})`, `<div class="card"><p class="muted">${esc(e.note || '본문 비교가 저장되지 않았습니다.')}</p></div>`);
+    return;
+  }
+  const cmp = E.compareRuleTexts(item.title, item.before || '', item.after || '');
+  const r = index && E.findRuleByName(index, item.title);
+  const meta = [cmp.before && cmp.before.revised && `이전 개정 ${cmp.before.revised}`, cmp.after && cmp.after.revised && `이후 개정 ${cmp.after.revised}`].filter(Boolean).join(' → ');
+  const ST = { added: ['신설', 'b-green'], removed: ['삭제', 'b-red'], modified: ['변경', 'b-blue'] };
+  const rows = cmp.rows.map(row => {
+    const [l, rr] = row.status === 'modified' ? diffHtml(row.before, row.after) : [esc(row.before), esc(row.after)];
+    return `<div class="pair">
+      <div class="hd"><span class="badge ${ST[row.status][1]}">${ST[row.status][0]}</span> <b>${esc(row.no)}${row.title ? '(' + esc(row.title) + ')' : ''}</b></div>
+      ${row.status !== 'added' ? `<div class="side diff"><span class="lab-old">개정 전</span><br>${l}</div>` : ''}
+      ${row.status !== 'removed' ? `<div class="side diff"><span class="lab-new">개정 후</span><br>${rr}</div>` : ''}
+    </div>`;
+  }).join('');
+  showSheet(`${item.title} 신구대비`, `
+    <p class="muted small" style="margin-bottom:8px">${esc(date)} 업데이트에서 ${KIND[item.kind][0]}${meta ? ' · ' + esc(meta) : ''} · 바뀐 조 ${cmp.rows.length}개</p>
+    <div class="list">${rows || '<div class="pair muted">조문 내용은 같고 머리말(개정일 등)만 바뀌었습니다.</div>'}</div>
+    ${r ? `<button class="btn btn-ghost" style="margin-top:12px" data-open="${esc(r.id)}">현행 전문 보기</button>` : ''}`);
+}
+
+function latestChangeOf(title) {
+  const ev = dataset && dataset.changes && dataset.changes.events;
+  if (!ev) return null;
+  for (let ei = 0; ei < ev.length; ei++) {
+    const ri = ev[ei].rules.findIndex(r => E.normTitle(r.title) === E.normTitle(title));
+    if (ri >= 0) return { ei, ri, at: String(ev[ei].at).slice(0, 10) };
+  }
+  return null;
+}
+
 $('#listBody').addEventListener('click', e => {
+  const c = e.target.closest('[data-chg]');
+  if (c) { const [ei, ri] = c.dataset.chg.split(':').map(Number); showChange(ei, ri); return; }
   const item = e.target.closest('[data-rule]');
   if (item) openRule(item.dataset.rule);
 });
@@ -998,6 +1055,7 @@ function openRule(id, artKey, q) {
   if (!isSame || matchers) {
     const rel = E.relations(getChecked().analysis, rule);
     const issues = getChecked().issues.filter(i => i.rule === rule && i.level !== 'info').length;
+    const chg = latestChangeOf(rule.title);
     let lastChap = '';
     lawRefs = [];
     $('#vTitle').textContent = rule.title;
@@ -1009,6 +1067,7 @@ function openRule(id, artKey, q) {
         <div class="chips">
           <button class="chip" data-act="rel">⬆ 상위 ${rel.parents.length} · ⬇ 하위 ${rel.children.length}</button>
           ${issues ? `<button class="chip" data-act="issues" style="color:var(--red)">⚠ 점검 ${issues}건</button>` : ''}
+          ${chg ? `<button class="chip" data-chg="${chg.ei}:${chg.ri}">🕘 ${esc(chg.at)} 개정 비교</button>` : ''}
           ${rule.url ? `<a class="chip" href="${esc(rule.url)}" target="_blank" rel="noopener" style="text-decoration:none">원문 보기 ↗</a>` : ''}
         </div>
         ${rule.preamble ? `<div class="muted small" style="margin-top:10px;white-space:pre-wrap">${esc(rule.preamble)}</div>` : ''}
@@ -1078,6 +1137,8 @@ $('#vStar').addEventListener('click', () => {
 });
 
 $('#vBody').addEventListener('click', e => {
+  const cg = e.target.closest('[data-chg]');
+  if (cg) { const [ei, ri] = cg.dataset.chg.split(':').map(Number); showChange(ei, ri); return; }
   const lw = e.target.closest('[data-law]');
   if (lw) { showLaw(lawRefs[+lw.dataset.law]); return; }
   const g = e.target.closest('[data-goto]');
@@ -1201,6 +1262,18 @@ async function fetchLawCheck() {
   }
 }
 
+// 개정 이력(업데이트 프로그램이 만든 data/changes.json). 없으면 null
+async function fetchChanges() {
+  try {
+    const r = await fetch('data/changes.json', { cache: 'no-cache' });
+    if (!r.ok) return null;
+    const js = await r.json();
+    return js && Array.isArray(js.events) ? js : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 async function fetchServerData(silent) {
   try {
     const r = await fetch('data/rules.json', { cache: 'no-cache' });
@@ -1208,6 +1281,7 @@ async function fetchServerData(silent) {
     const ds = await r.json();
     if (!ds.rules || !ds.rules.length) throw new Error('empty');
     ds.lawCheck = await fetchLawCheck();
+    ds.changes = await fetchChanges();
     await setDataset(ds, true);
     if (!silent) toast(`규정 ${ds.rules.length}건을 받았습니다.` + (ds.lawCheck ? ` (법령 확인 ${Object.keys(ds.lawCheck.laws).length}건 포함)` : ''));
     return true;
@@ -1307,6 +1381,12 @@ $('#fileInput').addEventListener('change', async e => {
     try {
       if (f.name.toLowerCase().endsWith('.json')) {
         const js = JSON.parse(await f.text());
+        if (Array.isArray(js.events) && !js.rules) {
+          if (!dataset) { failed.push(f.name + '(규정 데이터를 먼저 넣어 주세요)'); continue; }
+          await setDataset(Object.assign({}, dataset, { changes: js }), true);
+          toast(`개정 이력 ${js.events.length}회분을 반영했습니다.`);
+          continue;
+        }
         if (js.laws && !js.rules) {
           if (!dataset) { failed.push(f.name + '(규정 데이터를 먼저 넣어 주세요)'); continue; }
           await setDataset(Object.assign({}, dataset, { lawCheck: { checkedAt: js.checkedAt || '', source: js.source || '', laws: js.laws } }), true);
@@ -1374,6 +1454,7 @@ $('#btnPaste').addEventListener('click', () => {
         const newLaws = lc && lc.checkedAt > ((ds.lawCheck && ds.lawCheck.checkedAt) || '');
         if (nd && nd.rules && nd.rules.length && (nd.fetchedAt || '') > ds.fetchedAt) {
           nd.lawCheck = lc || ds.lawCheck || null;
+          nd.changes = (await fetchChanges()) || ds.changes || null;
           await setDataset(nd, true);
           toast(`새 규정 데이터로 갱신했습니다 (${nd.fetchedAt.slice(0, 10)} 기준).`);
         } else if (newLaws) {

@@ -172,6 +172,8 @@
         units.push(cur);
       }
       if (!line) continue;
+      // 부칙 끝에 붙는 첨부 목록("별표서식", "별표1.hwp")은 부칙 내용이 아니다.
+      if (/^(?:별표\s*서식|별지\s*서식|별표서식)$|\.(?:hwp|hwpx|pdf|docx?|xlsx?)$/i.test(line)) continue;
       if (!cur.title && !cur.text) {
         const d = line.match(new RegExp('^[<(（\\[]?\\s*' + DATE_RE.source));
         if (d) { cur.title = fmtDate(d); continue; }
@@ -863,6 +865,34 @@
     return [...g.values()].sort((a, b) => b.pairs.length - a.pairs.length || b.identical - a.identical);
   }
 
+  /* ---------- 개정 전후 비교 (신구대비) ---------- */
+
+  /**
+   * 같은 규정의 이전·이후 전문을 조(부칙 포함) 단위로 맞대어 바뀐 조만 돌려준다.
+   * @returns {before, after, rows:[{key, no, title, status:'added'|'removed'|'modified', before, after}]}
+   */
+  function compareRuleTexts(title, beforeText, afterText) {
+    const b = beforeText ? normalizeRule({ title, text: beforeText }, 0) : null;
+    const a = afterText ? normalizeRule({ title, text: afterText }, 0) : null;
+    const units = r => (r ? r.articles.concat(r.addendaUnits || []) : []);
+    const bm = new Map(units(b).map(u => [u.key, u]));
+    const am = new Map(units(a).map(u => [u.key, u]));
+    const label = u => `${u.no}${u.title ? '(' + u.title + ')' : ''}`;
+    const rows = [];
+    for (const u of units(a)) {
+      const o = bm.get(u.key);
+      if (!o) rows.push({ key: u.key, no: u.no, title: u.title, status: 'added', before: '', after: u.text });
+      else if (o.text !== u.text || o.title !== u.title) {
+        rows.push({ key: u.key, no: u.no, title: u.title, status: 'modified', before: o.text, after: u.text,
+          beforeLabel: label(o), afterLabel: label(u) });
+      }
+    }
+    for (const u of units(b)) {
+      if (!am.has(u.key)) rows.push({ key: u.key, no: u.no, title: u.title, status: 'removed', before: u.text, after: '' });
+    }
+    return { before: b, after: a, rows };
+  }
+
   /* ---------- 차이 비교 ---------- */
 
   function tokenize(s) {
@@ -906,7 +936,7 @@
     normTitle, looseRegex, escapeRegex, artKey, artLabel,
     parseRuleText, normalizeRule, buildIndex, findRuleByName, findArticle,
     parseQuery, makeMatchers, search, snippet,
-    analyze, validate, relations, classify, lawAmendedAt,
+    analyze, validate, relations, classify, lawAmendedAt, compareRuleTexts,
     findSimilarPairs, similarTo, groupPairs, diff, numberConflicts,
   };
 });
