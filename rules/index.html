@@ -222,6 +222,8 @@
   .ref { color: var(--blue-l); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
   .ref.bad { color: var(--red); text-decoration-style: wavy; }
   .ref.ext { color: var(--sub); text-decoration-style: dotted; cursor: default; }
+  .ref.law { color: var(--green); text-decoration-style: solid; cursor: pointer; }
+  .law-text { white-space: pre-wrap; font-size: 14px; line-height: 1.7; margin-top: 10px; }
   .addenda { background: #fff; margin-top: 8px; padding: 16px; }
   .addenda summary { font-weight: 700; cursor: pointer; }
   .addenda pre { white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.7; margin-top: 10px; }
@@ -370,6 +372,18 @@
           </ol>
         </div>
       </div>
+      <div class="card guide">
+        <h2>국가 법령 인용 확인 안내</h2>
+        <div class="muted small">
+          규정이 인용한 법률·시행령·시행규칙·고시가 현행인지, 인용한 조가 있는지는 국가법령정보센터(law.go.kr) Open API로 확인합니다.
+          <ol>
+            <li><a href="https://open.law.go.kr" target="_blank" rel="noopener">open.law.go.kr</a>에서 OPEN API 신청: 인증키(OC)는 직접 정하고, PC의 공인 IP 등록, 현행법령·현행 행정규칙의 목록·본문 JSON 선택</li>
+            <li>PC에서 <code>python rules/tools/law_check.py --oc 인증키</code> 실행 → <code>rules/data/laws.json</code> 생성</li>
+            <li>파일을 저장소의 <code>rules/data/</code>에 올리거나, 이 화면의 <b>파일에서 가져오기</b>로 불러오기</li>
+          </ol>
+          확인 결과는 검증 탭의 정합성 점검에 반영되고, 규정 본문에서 초록색 법령 인용을 누르면 현행 조문을 볼 수 있습니다.
+        </div>
+      </div>
     </section>
   </main>
 
@@ -506,7 +520,7 @@ const idb = {
 /* ---------- 데이터 적용 ---------- */
 async function setDataset(ds, persist) {
   dataset = ds;
-  index = ds && ds.rules && ds.rules.length ? E.buildIndex(ds.rules) : null;
+  index = ds && ds.rules && ds.rules.length ? E.buildIndex(ds.rules, ds.lawCheck && ds.lawCheck.laws) : null;
   checked = null;
   if (persist) {
     try { ds ? await idb.set('dataset', ds) : await idb.del('dataset'); }
@@ -723,7 +737,7 @@ function renderRel() {
           <div class="stat ${relType === 'basis' ? 'on' : ''}" data-type="basis"><div class="n">${st.basis}</div><div class="l">근거 (~에 따라)</div></div>
           <div class="stat ${relType === 'apply' ? 'on' : ''}" data-type="apply"><div class="n">${st.apply}</div><div class="l">준용</div></div>
         </div>
-        <p class="muted small" style="margin-top:10px">대상 미지정 위임("별도로 정한다" 등) ${st.unnamed}건 · 외부 법령 인용 ${st.external}건</p>
+        <p class="muted small" style="margin-top:10px">대상 미지정 위임("별도로 정한다" 등) ${st.unnamed}건 · 외부 법령 인용 ${st.external}건 · 지침 등 인용 ${st.guideline}건</p>
       </div>
       ${hubs.length ? `<div class="result-count">하위 규정이 많은 규정</div><div class="list">${hubs.map(x => `<div class="item" data-pick="${esc(x.r.title)}"><div class="t">${esc(x.r.title)}</div><div class="m">하위 규정 ${x.n}건</div></div>`).join('')}</div>` : ''}
       <div class="result-count">${relType === 'all' ? '전체' : TYPE_LABEL[relType]} 관계 ${shown.length}건 ${relType !== 'all' ? '<a class="ref" data-type="all">전체 보기</a>' : ''}</div>
@@ -740,10 +754,10 @@ function renderRel() {
     ${sec('⬇ 하위 규정 (위임받은 규정)', rel.children, '이 규정에서 위임받은 하위 규정이 없습니다.')}
     ${sec('↔ 준용·참조', rel.others, '준용·참조 관계가 없습니다.')}
     <div class="rel-sec"><h3>대상 미지정 위임 (${rel.unnamed.length})</h3><div class="list">${
-      rel.unnamed.length ? rel.unnamed.map(u => `<div class="item" data-open="${esc(rule.id)}" data-art="${esc(u.article.key)}"><div class="m"><span class="badge ${u.kind === 'head' ? 'b-gray' : 'b-amber'}">${u.kind === 'head' ? '기관장 위임' : '세칙 등 위임'}</span> ${esc(u.article.no)}${u.article.title ? '(' + esc(u.article.title) + ')' : ''}</div><div class="quote">${esc(u.phrase)}</div></div>`).join('')
+      rel.unnamed.length ? rel.unnamed.map(u => `<div class="item" data-open="${esc(rule.id)}" data-art="${esc(u.article.key)}"><div class="m"><span class="badge ${u.kind === 'rule' ? 'b-amber' : 'b-gray'}">${{ head: '기관장 위임', guideline: '지침 등 위임', rule: '세칙 등 위임' }[u.kind]}</span> ${esc(u.article.no)}${u.article.title ? '(' + esc(u.article.title) + ')' : ''}</div><div class="quote">${esc(u.phrase)}</div></div>`).join('')
         : '<div class="item muted small">없습니다.</div>'}</div></div>
-    <div class="rel-sec"><h3>외부 법령·미등록 규정 인용 (${rel.external.length})</h3><div class="list">${
-      rel.external.length ? rel.external.map(e => `<div class="item" data-open="${esc(rule.id)}" data-art="${esc(e.from.article.key)}"><div class="m"><span class="badge ${e.external ? 'b-gray' : 'b-red'}">${e.external ? '외부 법령' : '미등록'}</span> ${esc(e.from.article.no)} → 「${esc(e.to.name)}」${e.to.artKey ? ' ' + E.artLabel(e.to.artKey) : ''}</div></div>`).join('')
+    <div class="rel-sec"><h3>외부 법령·지침·미등록 규정 인용 (${rel.external.length})</h3><div class="list">${
+      rel.external.length ? rel.external.map(e => `<div class="item" data-open="${esc(rule.id)}" data-art="${esc(e.from.article.key)}"><div class="m"><span class="badge ${e.law && e.law.found ? 'b-green' : e.external ? 'b-gray' : 'b-red'}">${e.law && e.law.found ? '법령 확인' : e.outside === 'guideline' ? '지침 등' : e.external ? '외부 법령' : '규정집에 없음'}</span> ${esc(e.from.article.no)} → 「${esc(e.to.name)}」${e.to.artKey ? ' ' + E.artLabel(e.to.artKey) : ''}</div></div>`).join('')
         : '<div class="item muted small">없습니다.</div>'}</div></div>
     <button class="btn btn-ghost" style="margin-top:14px" data-open="${esc(rule.id)}">규정 전문 보기</button>`;
 }
@@ -769,7 +783,8 @@ let checkLevel = 'all';
 const LEVEL = { error: ['오류', 'b-red'], warn: ['주의', 'b-amber'], info: ['참고', 'b-blue'] };
 const ISSUE_TYPE = {
   'missing-rule': '없는 규정 인용', 'missing-article': '없는 조항 인용', 'internal-missing': '내부 조항 오류',
-  'basis-mismatch': '근거 불일치', 'delegate-no-backref': '위임 근거 미표기', 'unresolved-delegation': '하위규정 미확인',
+  'law-missing': '법령 없음', 'law-article-missing': '법령 조항 없음', 'law-article-deleted': '삭제된 법령 조항', 'law-not-current': '현행 아닌 법령',
+  'basis-mismatch': '위임 근거 불일치', 'basis-weak': '근거 조항 확인', 'delegate-no-backref': '위임 근거 미표기', 'unresolved-delegation': '하위규정 미확인',
 };
 
 function renderCheck() {
@@ -786,8 +801,9 @@ function renderCheck() {
         <div class="stat ${checkLevel === 'info' ? 'on' : ''}" data-level="info"><div class="n" style="color:var(--blue-l)">${stats.info}</div><div class="l">참고</div></div>
       </div>
       <p class="muted small" style="margin-top:10px">
-        <b>오류</b> 없는 규정·조항을 인용 · <b>주의</b> "~에 따라"로 근거를 든 상위 조항에 위임 문언이 없음 ·
-        <b>참고</b> 위임했으나 하위 규정에 근거 표기가 없거나 하위 규정을 확인할 수 없음
+        <b>오류</b> 없는 규정·조항을 인용 · <b>주의</b> "~의 위임에 따라"라고 든 상위 조항에 위임 문언이 없음 ·
+        <b>참고</b> 목적 조항의 근거 조항에 위임 문언이 없거나, 위임한 하위 규정을 확인할 수 없음 등<br>
+        요건·절차를 끌어 쓰는 단순 인용("~에 의하여 표창을 받을 때")은 점검하지 않습니다.
       </p>
     </div>
     <div class="result-count">${shown.length}건 ${checkLevel !== 'all' ? '<a class="ref" data-level="all">전체 보기</a>' : ''}</div>
@@ -894,14 +910,23 @@ $('#cmpBody').addEventListener('click', e => {
 let viewing = null;
 let overlayDepth = 0;
 
+let lawRefs = []; // 화면에 그린 법령 인용(누르면 조문을 보여줌)
+
 function articleSpans(rule, art) {
   const an = getChecked().analysis;
   const spans = [];
   for (const e of an.edges) {
     if (e.from.article !== art) continue;
+    if (e.law && e.law.found) {
+      const a = e.to.artKey && e.law.articles ? e.law.articles[e.to.artKey] : null;
+      lawRefs.push(e);
+      spans.push({ s: e.pos[0], e: e.pos[1], cls: a && (a.missing || a.deleted) ? 'ref bad' : 'ref law', law: lawRefs.length - 1,
+        tip: a && a.missing ? '현행 법령에 없는 조' : a && a.deleted ? '삭제된 조' : '국가법령정보센터 확인' });
+      continue;
+    }
     spans.push({ s: e.pos[0], e: e.pos[1], cls: e.to.rule ? (e.to.artKey && !e.to.article ? 'ref bad' : 'ref') : (e.external ? 'ref ext' : 'ref bad'),
       rule: e.to.rule ? e.to.rule.id : '', art: e.to.article ? e.to.article.key : '',
-      tip: e.to.rule ? (e.to.artKey && !e.to.article ? '해당 조항 없음' : '') : (e.external ? '외부 법령' : '등록되지 않은 규정') });
+      tip: e.to.rule ? (e.to.artKey && !e.to.article ? '해당 조항 없음' : '') : (e.outside === 'guideline' ? '지침 등(규정집 외 문서)' : e.external ? '외부 법령' : '규정집에 없는 규정') });
   }
   for (const it of an.internal) {
     if (it.article !== art) continue;
@@ -916,7 +941,7 @@ function renderArticleBody(rule, art, matchers) {
   let out = '', pos = 0;
   for (const sp of articleSpans(rule, art)) {
     out += hl(text.slice(pos, sp.s), matchers);
-    out += `<span class="${sp.cls}" ${sp.rule ? `data-open="${esc(sp.rule)}"` : ''} ${sp.art ? `data-art="${esc(sp.art)}"` : ''} ${sp.tip ? `title="${esc(sp.tip)}"` : ''}>${hl(text.slice(sp.s, sp.e), matchers)}</span>`;
+    out += `<span class="${sp.cls}" ${sp.law != null ? `data-law="${sp.law}"` : ''} ${sp.rule ? `data-open="${esc(sp.rule)}"` : ''} ${sp.art ? `data-art="${esc(sp.art)}"` : ''} ${sp.tip ? `title="${esc(sp.tip)}"` : ''}>${hl(text.slice(sp.s, sp.e), matchers)}</span>`;
     pos = sp.e;
   }
   return out + hl(text.slice(pos), matchers);
@@ -954,6 +979,7 @@ function openRule(id, artKey, q) {
     const rel = E.relations(getChecked().analysis, rule);
     const issues = getChecked().issues.filter(i => i.rule === rule && i.level !== 'info').length;
     let lastChap = '';
+    lawRefs = [];
     $('#vTitle').textContent = rule.title;
     $('#vBody').innerHTML = `
       <div class="vhead">
@@ -1027,6 +1053,8 @@ $('#vStar').addEventListener('click', () => {
 });
 
 $('#vBody').addEventListener('click', e => {
+  const lw = e.target.closest('[data-law]');
+  if (lw) { showLaw(lawRefs[+lw.dataset.law]); return; }
   const g = e.target.closest('[data-goto]');
   if (g) { gotoArticle(g.dataset.goto); return; }
   const act = e.target.closest('[data-act]');
@@ -1080,6 +1108,25 @@ $('#sheetBody').addEventListener('click', e => {
   setTimeout(() => openRule(o.dataset.open, o.dataset.art || null), 50);
 });
 
+function showLaw(e) {
+  const L = e.law;
+  const key = e.to.artKey;
+  const a = key && L.articles ? L.articles[key] : null;
+  const artNo = key ? E.artLabel(key) : '';
+  const url = L.url ? L.url + (artNo ? '/' + artNo : '') : '';
+  const checked = dataset.lawCheck && dataset.lawCheck.checkedAt ? dataset.lawCheck.checkedAt.slice(0, 10) : '';
+  showSheet(`${L.name}${artNo ? ' ' + artNo : ''}`, `
+    <div class="card">
+      <div class="m small muted">${[L.type, L.current === false ? '현행 아님' : '현행', L.enforced && `시행 ${L.enforced.replace(/(\d{4})(\d{2})(\d{2})/, '$1.$2.$3')}`, checked && `${checked} 확인`].filter(Boolean).map(esc).join(' · ')}</div>
+      ${a && a.missing ? `<p class="msg" style="color:var(--red);font-weight:700;margin-top:10px">현행 「${esc(L.name)}」에 ${esc(artNo)}가 없습니다.</p>` : ''}
+      ${a && !a.missing ? `<div class="law-text">${esc(a.text)}</div>` : ''}
+      ${!key ? '<p class="muted small" style="margin-top:10px">조 번호 없이 법령 이름만 인용했습니다.</p>' : ''}
+      ${key && !a ? '<p class="muted small" style="margin-top:10px">이 조문은 확인 결과에 없습니다.</p>' : ''}
+      ${url ? `<a class="btn btn-ghost" style="margin-top:12px" href="${esc(url)}" target="_blank" rel="noopener">국가법령정보센터에서 보기 ↗</a>` : ''}
+      <div class="quote">${esc(e.phrase)}</div>
+    </div>`);
+}
+
 function showSimilar(rule, art) {
   const res = E.similarTo(index, art).filter(p => p.ruleB !== rule || p.b !== art);
   showSheet(`${art.no} 유사 조항`, res.length
@@ -1112,7 +1159,20 @@ function renderDataStatus() {
       <div class="stat"><div class="n">${index.articles.length}</div><div class="l">조문</div></div>
       <div class="stat"><div class="n">${cats}</div><div class="l">분류</div></div>
     </div>
-    <p class="muted small" style="margin-top:10px">출처: ${esc(dataset.source || '직접 가져옴')}${dataset.fetchedAt ? `<br>수집일: ${esc(dataset.fetchedAt.replace('T', ' ').slice(0, 16))}` : ''}</p>`;
+    <p class="muted small" style="margin-top:10px">출처: ${esc(dataset.source || '직접 가져옴')}${dataset.fetchedAt ? `<br>수집일: ${esc(dataset.fetchedAt.replace('T', ' ').slice(0, 16))}` : ''}
+    <br>법령 확인: ${dataset.lawCheck ? `국가법령정보센터 ${Object.keys(dataset.lawCheck.laws).length}건 (${esc((dataset.lawCheck.checkedAt || '').replace('T', ' ').slice(0, 16))})` : '없음 — 아래 안내의 법령 확인 프로그램으로 만들 수 있습니다'}</p>`;
+}
+
+// 국가법령정보센터 확인 결과(law_check.py가 만든 data/laws.json). 없으면 null
+async function fetchLawCheck() {
+  try {
+    const r = await fetch('data/laws.json', { cache: 'no-cache' });
+    if (!r.ok) return null;
+    const js = await r.json();
+    return js && js.laws ? { checkedAt: js.checkedAt || '', source: js.source || '', laws: js.laws } : null;
+  } catch (e) {
+    return null;
+  }
 }
 
 async function fetchServerData(silent) {
@@ -1121,8 +1181,9 @@ async function fetchServerData(silent) {
     if (!r.ok) throw new Error(r.status);
     const ds = await r.json();
     if (!ds.rules || !ds.rules.length) throw new Error('empty');
+    ds.lawCheck = await fetchLawCheck();
     await setDataset(ds, true);
-    if (!silent) toast(`규정 ${ds.rules.length}건을 받았습니다.`);
+    if (!silent) toast(`규정 ${ds.rules.length}건을 받았습니다.` + (ds.lawCheck ? ` (법령 확인 ${Object.keys(ds.lawCheck.laws).length}건 포함)` : ''));
     return true;
   } catch (e) {
     if (!silent) toast('아직 서버에 올라온 규정 데이터(data/rules.json)가 없습니다.');
@@ -1220,6 +1281,12 @@ $('#fileInput').addEventListener('change', async e => {
     try {
       if (f.name.toLowerCase().endsWith('.json')) {
         const js = JSON.parse(await f.text());
+        if (js.laws && !js.rules) {
+          if (!dataset) { failed.push(f.name + '(규정 데이터를 먼저 넣어 주세요)'); continue; }
+          await setDataset(Object.assign({}, dataset, { lawCheck: { checkedAt: js.checkedAt || '', source: js.source || '', laws: js.laws } }), true);
+          toast(`법령 확인 결과 ${Object.keys(js.laws).length}건을 반영했습니다.`);
+          continue;
+        }
         if (js.rules && Array.isArray(js.rules)) {
           if (files.length === 1 && dataset && !dataset.sample && !confirm(`현재 데이터를 "${f.name}"(규정 ${js.rules.length}건)로 바꿀까요?\n취소하면 기존 데이터에 합칩니다.`)) {
             added.push(...js.rules);
@@ -1277,9 +1344,15 @@ $('#btnPaste').addEventListener('click', () => {
     // 서버(수집 프로그램)에서 받은 데이터라면 더 새로운 수집본이 있는지 확인
     if (!ds.sample && ds.fetchedAt && ds.source !== '직접 가져옴') {
       fetch('data/rules.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(async nd => {
+        const lc = await fetchLawCheck();
+        const newLaws = lc && lc.checkedAt > ((ds.lawCheck && ds.lawCheck.checkedAt) || '');
         if (nd && nd.rules && nd.rules.length && (nd.fetchedAt || '') > ds.fetchedAt) {
+          nd.lawCheck = lc || ds.lawCheck || null;
           await setDataset(nd, true);
           toast(`새 규정 데이터로 갱신했습니다 (${nd.fetchedAt.slice(0, 10)} 기준).`);
+        } else if (newLaws) {
+          await setDataset(Object.assign({}, ds, { lawCheck: lc }), true);
+          toast(`법령 확인 결과를 갱신했습니다 (${lc.checkedAt.slice(0, 10)} 기준).`);
         }
       }).catch(() => {});
     }

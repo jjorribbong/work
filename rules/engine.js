@@ -176,7 +176,11 @@
 
   /* ---------- 인덱스 ---------- */
 
-  function buildIndex(rules) {
+  /**
+   * @param rules 규정 목록
+   * @param laws  국가법령정보센터 확인 결과(laws.json의 laws: {정규화한 인용 이름: 결과}), 없으면 생략
+   */
+  function buildIndex(rules, laws) {
     rules = rules.map(normalizeRule);
     const seen = new Set();
     rules.forEach(r => { while (seen.has(r.id)) r.id += '_'; seen.add(r.id); });
@@ -190,12 +194,16 @@
     }));
     alias.forEach((r, k) => { if (r) byTitle.set(k, r); });
     // 긴 규정명부터 매칭해야 "학칙 시행세칙" 안의 "학칙"을 따로 잡지 않는다.
-    const titlesByLen = [...byTitle.entries()].map(([norm, rule]) => ({ rule, norm }))
+    const titlesByLen = [...byTitle.entries()].map(([norm, rule]) => ({ rule, norm, alias: norm !== normTitle(rule.title) }))
       .filter(t => t.norm.length >= 2)
       .sort((a, b) => b.norm.length - a.norm.length);
     const articles = [];
     rules.forEach(r => r.articles.forEach(a => { a.ruleId = r.id; articles.push(a); }));
-    return { rules, byId, byTitle, titlesByLen, articles };
+    const lawMap = new Map(Object.entries(laws || {}));
+    // 괄호 없이 쓴 법령명("고등교육법 제6조")을 찾을 때 쓰는, 확인된 법령 이름 목록
+    const lawNames = [...lawMap.entries()].filter(([k, v]) => v.found && k.length >= 3)
+      .map(([norm, law]) => ({ norm, law })).sort((a, b) => b.norm.length - a.norm.length);
+    return { rules, byId, byTitle, titlesByLen, articles, laws: lawMap, lawNames };
   }
 
   function findRuleByName(index, name) {
@@ -275,6 +283,8 @@
   const EXTERNAL_LAW_RE = /(법|법률|령|시행규칙|헌법|조례|고시|훈령|예규)$/;
   // 학내 규정이 아닌 국가 법령·지침으로 자주 인용되는 것 (이름 끝만으로는 구분이 안 됨)
   const EXTERNAL_NAME_RE = /^(?:공무원|교육공무원|교육부|국가|대학교원자격기준|대학설립|사학기관|평가인정학습과정|사업주직업능력개발|유치원및초등|교원양성과정이수|대학등록금에관한|대학재정지원사업|재직중인대학교원|중소기업회계|유전자재조합실험)/;
+  // 지침·기준·요령 등은 규정이 아니어서 규정집에 실리지 않는다. 규정집에 없어도 오류가 아니다.
+  const GUIDELINE_RE = /(지침|기준|요령|매뉴얼|편람|운영계획|방침)$/;
   // 「 」 안이 규정 이름 꼴일 때만 규정 인용으로 본다(교과목명·서식명 등 제외)
   const RULE_NAME_RE = /(규정|학칙|세칙|규칙|지침|정관|요령|기준|내규|준칙|강령|회칙|규약|요강|수칙|헌장|약관|규범|법|법률|령|조례|고시|훈령|예규)$/;
   const REF_ART_RE = /^\s*(?:의\s*)?제\s*(\d+)\s*조(?:\s*의\s*(\d+))?(?:\s*의?\s*제\s*(\d+)\s*항)?(?:\s*제\s*[\dㆍ·,\s]+호)?/;
@@ -322,14 +332,27 @@
           const CHAIN_RE = /^(?:\s*(?:및|또는|내지|부터|와|과|,|·|ㆍ|~|∼)\s*제\s*\d+\s*조(?:\s*의\s*\d+)?(?:\s*제\s*\d+\s*[항호])*)+/;
           if ((cm = text.slice(aEnd).match(CHAIN_RE))) { mark(aEnd, aEnd + cm[0].length); aEnd += cm[0].length; }
           const after = text.slice(aEnd, aEnd + 80);
+          // "~에 따라/의하여"는 대부분 요건·절차를 끌어 쓰는 단순 인용이다(예: "직원인사규정 제35조에
+          // 의하여 표창을 받을 때"). 위임 문언이 있거나 제1조(목적)에서 근거로 든 경우만 '근거'로 본다.
+          let type = classify(after);
+          const explicit = /위\s*임/.test(text.slice(Math.max(0, start - 15), aEnd + 30));
+          const purpose = /목적/.test(art.title) || art.key === '1';
+          if (type === 'basis' && !explicit && !purpose) type = 'ref';
           const sentS = Math.max(text.lastIndexOf('.', start) + 1, text.lastIndexOf('\n', start) + 1, 0);
           let sentE = text.indexOf('.', aEnd); if (sentE < 0) sentE = text.length;
+          const law = target ? null : index.laws.get(normTitle(name)) || null;
           edges.push({
             from: { rule, article: art },
             to: { name, rule: target, artKey: akey, article: target && akey ? findArticle(target, akey) : null },
-            type: classify(after),
+            type,
+            explicit,
             phrase: text.slice(sentS, Math.min(sentE + 1, sentS + 200)).trim(),
-            external: !target && (EXTERNAL_LAW_RE.test(normTitle(name)) || EXTERNAL_NAME_RE.test(normTitle(name))),
+            external: !target && (!!(law && law.found) || EXTERNAL_LAW_RE.test(normTitle(name)) || EXTERNAL_NAME_RE.test(normTitle(name)) || GUIDELINE_RE.test(normTitle(name))),
+            // 규정집 밖 문서의 종류: law(국가 법령) | guideline(지침·기준 등)
+            outside: target ? '' : (law && law.found) || EXTERNAL_LAW_RE.test(normTitle(name)) || EXTERNAL_NAME_RE.test(normTitle(name)) ? 'law'
+              : GUIDELINE_RE.test(normTitle(name)) ? 'guideline' : '',
+            // 국가법령정보센터 확인 결과 (law_check.py로 만든 laws.json이 있을 때)
+            law,
             pos: [start, aEnd],
           });
         };
@@ -354,8 +377,7 @@
           if (!/\s/.test(text[i])) { compact.push(text[i]); posMap.push(i); }
         }
         const cstr = compact.join('');
-        for (const { rule: target, norm } of index.titlesByLen) {
-          if (target.id === rule.id) continue;
+        for (const { rule: target, norm, alias } of index.titlesByLen) {
           let from = 0, idx;
           while ((idx = cstr.indexOf(norm, from)) >= 0) {
             from = idx + norm.length;
@@ -364,7 +386,28 @@
             // "학칙"이 "학칙시행세칙"의 일부로 쓰인 경우 등 단어 중간 매칭 배제
             const next = text.slice(e, e + 1);
             if (next && /[가-힣]/.test(next) && !/^[은는이가을를의에과와로으도만]/.test(next)) continue;
+            // 자기 규정 이름(예: 대학원학칙 안의 "대학원 학칙")은 가려 두어 짧은 이름("학칙")으로 다시 잡히지 않게 한다.
+            if (target.id === rule.id) { mark(s, e); continue; }
+            // "학칙", "정관"처럼 앞말을 뺀 짧은 별칭은 일반 낱말로도 쓰이므로("학칙을 위반한") 조 번호가 따라올 때만 인용으로 본다.
+            if (alias && norm.length <= 3 && !/^\s*(?:의\s*)?제\s*\d+\s*조/.test(text.slice(e, e + 12))) continue;
+            // "본 학칙", "이 규정", "동 규정"은 다른 규정이 아니라 자기 자신(또는 앞서 든 규정)을 가리킨다.
+            if (/(?:^|[\s(,“"'])(?:본|이|동)\s*$/.test(text.slice(Math.max(0, s - 4), s))) { mark(s, e); continue; }
             pushEdge(target.title, s, e, target);
+          }
+        }
+
+        // 2-1) 괄호 없이 쓴 국가 법령명("고등교육법 제6조") — 국가법령정보센터에서 확인된 이름만
+        for (const { norm, law } of index.lawNames) {
+          let from = 0, idx;
+          while ((idx = cstr.indexOf(norm, from)) >= 0) {
+            from = idx + norm.length;
+            const s = posMap[idx], e = posMap[idx + norm.length - 1] + 1;
+            if (masked[s] || masked[e - 1] || /[가-힣·ㆍ]/.test(text.slice(s - 1, s))) continue;
+            if (!/^\s*(?:의\s*)?제\s*\d+\s*조/.test(text.slice(e, e + 12))) continue;
+            pushEdge(law.name, s, e, null);
+            edges[edges.length - 1].law = law;
+            edges[edges.length - 1].external = true;
+            edges[edges.length - 1].outside = 'law';
           }
         }
 
@@ -396,7 +439,8 @@
           const toHead = /^(?:총장|이사장|학장|대학원장|원장|처장|위원회|위원장|교무처장|기획처장)/.test(m[0]);
           unnamed.push({
             rule, article: art,
-            kind: toHead ? 'head' : 'rule',
+            // head: 총장 등에게 맡김, guideline: 지침·요령·기준으로 정하게 함(규정집 밖), rule: 세칙·내규 등 규정
+            kind: toHead ? 'head' : /지침|요령|기준/.test(m[0]) ? 'guideline' : 'rule',
             phrase: text.slice(sentS, m.index + m[0].length).trim(),
           });
         }
@@ -438,9 +482,31 @@
     for (const e of analysis.edges) {
       const fr = e.from.rule, fa = e.from.article;
       if (!e.to.rule) {
-        if (e.external) continue; // 고등교육법 등 외부 법령은 검증 대상 아님
+        const L = e.law;
+        if (L && L.found) {
+          // 국가법령정보센터에서 확인한 법령: 현행 여부와 인용한 조를 점검
+          if (L.current === false) {
+            add('warn', 'law-not-current', fr, fa, `「${L.name}」은 현행 법령이 아님`,
+              '국가법령정보센터에 연혁 법령으로만 있습니다. 폐지되었거나 다른 법령으로 바뀌었는지 확인이 필요합니다.', { edge: e });
+          }
+          const a = e.to.artKey && L.articles ? L.articles[e.to.artKey] : null;
+          if (a && a.missing) {
+            add('error', 'law-article-missing', fr, fa, `「${L.name}」에 ${artLabel(e.to.artKey)}가 없음`,
+              `국가법령정보센터의 현행 「${L.name}」에는 이 조가 없습니다. 법령 개정으로 조 번호가 바뀌었는지 확인이 필요합니다.`, { edge: e });
+          } else if (a && a.deleted) {
+            add('warn', 'law-article-deleted', fr, fa, `「${L.name}」 ${artLabel(e.to.artKey)}는 삭제된 조`,
+              `현행 법령에서 삭제된 조를 인용하고 있습니다: ${a.text}`, { edge: e });
+          }
+          continue;
+        }
+        if (L && !L.found && !/규정$/.test(normTitle(e.to.name)) && !GUIDELINE_RE.test(normTitle(e.to.name))) {
+          add('error', 'law-missing', fr, fa, `「${e.to.name}」을 규정집·국가법령정보센터 어디에서도 찾을 수 없음`,
+            '법령 이름이 바뀌었거나 폐지되었을 수 있습니다.' + (L.similar && L.similar.length ? ` 비슷한 현행 법령: ${L.similar.join(', ')}` : ''), { edge: e });
+          continue;
+        }
+        if (e.external) continue; // 고등교육법 등 외부 법령, 지침·기준 등 규정집 밖 문서는 검증 대상 아님
         add('error', 'missing-rule', fr, fa, `참조한 「${e.to.name}」 규정을 찾을 수 없음`,
-          '규정명이 바뀌었거나 폐지된 규정을 인용하고 있을 수 있습니다.', { edge: e });
+          '규정명이 바뀌었거나 폐지된 규정을 인용하고 있을 수 있습니다.' + (L ? ' 국가법령정보센터에도 없습니다.' : ''), { edge: e });
         continue;
       }
       if (e.to.artKey && !e.to.article) {
@@ -449,10 +515,19 @@
         continue;
       }
       if (e.type === 'basis' && e.to.article && !articleDelegates(e.to.article, fr)) {
-        add('warn', 'basis-mismatch', fr, fa,
-          `근거 조항 「${e.to.rule.title}」 ${e.to.article.no}에 위임 문언이 없음`,
-          `근거로 든 조항(${e.to.article.no}${e.to.article.title ? '(' + e.to.article.title + ')' : ''})이 이 규정 또는 하위 규정에 위임하는 내용을 담고 있지 않습니다.`,
-          { edge: e });
+        const at = `${e.to.article.no}${e.to.article.title ? '(' + e.to.article.title + ')' : ''}`;
+        if (e.explicit) {
+          // "제N조의 위임에 따라"라고 했는데 그 조에 위임 문언이 없는 경우
+          add('warn', 'basis-mismatch', fr, fa,
+            `위임 근거로 든 「${e.to.rule.title}」 ${e.to.article.no}에 위임 문언이 없음`,
+            `"위임"을 근거로 들었으나 ${at}에는 이 규정이나 하위 규정에 정하도록 맡기는 내용이 없습니다. 조 번호가 바뀌었는지 확인이 필요합니다.`,
+            { edge: e });
+        } else {
+          add('info', 'basis-weak', fr, fa,
+            `근거 조항 「${e.to.rule.title}」 ${e.to.article.no}에 명시적 위임 문언 없음`,
+            `목적 조항에서 근거로 든 ${at}에 "~으로 정한다" 같은 위임 문언은 없습니다. 기구 설치 조항 등 근거 규정으로는 적절할 수 있습니다.`,
+            { edge: e });
+        }
       }
       if (e.type === 'delegate') {
         // 상위 규정이 위임한 하위 규정이 실제로 그 조항을 근거로 두는지
@@ -473,13 +548,13 @@
     }
 
     for (const u of analysis.unnamed) {
-      if (u.kind === 'head') continue; // 총장 등 기관장 위임은 규정 제정 의무가 아님
+      if (u.kind !== 'rule') continue; // 기관장 위임·지침 위임은 규정집에 하위 규정이 생기지 않음
       const got = inbound.get(`${u.rule.id}|${u.article.key}`);
       if (got && got.length) continue;
       const stem = normTitle(u.rule.title);
       const guess = index.rules.find(r => r !== u.rule && normTitle(r.title).startsWith(stem) && /세칙|지침|요령|내규|기준/.test(r.title));
       add('info', 'unresolved-delegation', u.rule, u.article,
-        guess ? `위임 사항의 하위 규정 추정: 「${guess.title}」` : '위임한 하위 규정(세칙·지침 등)을 확인할 수 없음',
+        guess ? `위임 사항의 하위 규정 추정: 「${guess.title}」` : '위임한 하위 규정(세칙·내규 등)을 확인할 수 없음',
         `"${u.phrase}"` + (guess ? ' — 하위 규정에 근거 조항 표기가 없어 이름으로 추정했습니다.' : ''),
         { guess });
     }
@@ -499,7 +574,8 @@
       delegate: analysis.edges.filter(e => e.type === 'delegate').length,
       basis: analysis.edges.filter(e => e.type === 'basis').length,
       apply: analysis.edges.filter(e => e.type === 'apply').length,
-      external: analysis.edges.filter(e => e.external).length,
+      external: analysis.edges.filter(e => e.outside === 'law').length,
+      guideline: analysis.edges.filter(e => e.outside === 'guideline').length,
       unnamed: analysis.unnamed.length,
       error: issues.filter(i => i.level === 'error').length,
       warn: issues.filter(i => i.level === 'warn').length,

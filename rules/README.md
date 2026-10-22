@@ -38,6 +38,20 @@ git add rules/data/rules.json && git commit -m "규정 데이터 갱신" && git 
 학교 서버에 부담을 주지 않도록 요청 사이에 0.5초(`--delay`) 쉽니다. 학교 밖·해외 IP는 막혀 있을 수 있으니
 교내망 PC에서 실행하는 것을 권장합니다.
 
+## 국가 법령 인용 확인
+
+규정이 인용한 법률·시행령·시행규칙·고시·훈령·예규는 국가법령정보센터(law.go.kr) Open API로 확인합니다.
+현행 법령인지, 인용한 조가 있는지, 삭제된 조인지를 점검하고 인용한 조문의 현행 내용을 저장합니다.
+
+```bash
+python rules/tools/law_check.py --oc 인증키          # rules/data/rules.json → rules/data/laws.json
+python rules/tools/law_check.py --oc 인증키 --debug 고등교육법   # API 응답 확인
+```
+
+인증키(OC)는 [open.law.go.kr](https://open.law.go.kr)에서 OPEN API를 신청할 때 직접 정합니다. 신청할 때 프로그램을
+실행할 PC의 공인 IP를 등록하고, 공동활용 법령종류는 '대한민국 현행법령'과 '현행 행정규칙'의 목록 JSON·본문 JSON을 고릅니다. `laws.json`을 `rules/data/`에 올리면 앱의 정합성 점검에 반영되고, 본문의 초록색 법령
+인용을 누르면 현행 조문이 보입니다.
+
 ## 분석 기준
 
 - **위임**: 「규정명」 뒤에 "으로/에서 정한다" → 이 조항이 대상 규정에 위임
@@ -56,3 +70,5 @@ git add rules/data/rules.json && git commit -m "규정 데이터 갱신" && git 
 - `data/sample.json`: 체험용 예시 데이터 (실제 규정 아님)
 - `data/rules.json`: 수집기 출력 (수집 후 추가)
 - `tools/cju_rules_crawler.py`: 규정 수집기
+- `tools/law_check.py`: 국가 법령 인용 확인(국가법령정보센터 Open API)
+- `data/laws.json`: 법령 확인 결과 (확인 후 추가)
