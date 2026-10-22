@@ -176,7 +176,11 @@
 
   /* ---------- 인덱스 ---------- */
 
-  function buildIndex(rules) {
+  /**
+   * @param rules 규정 목록
+   * @param laws  국가법령정보센터 확인 결과(laws.json의 laws: {정규화한 인용 이름: 결과}), 없으면 생략
+   */
+  function buildIndex(rules, laws) {
     rules = rules.map(normalizeRule);
     const seen = new Set();
     rules.forEach(r => { while (seen.has(r.id)) r.id += '_'; seen.add(r.id); });
@@ -195,7 +199,11 @@
       .sort((a, b) => b.norm.length - a.norm.length);
     const articles = [];
     rules.forEach(r => r.articles.forEach(a => { a.ruleId = r.id; articles.push(a); }));
-    return { rules, byId, byTitle, titlesByLen, articles };
+    const lawMap = new Map(Object.entries(laws || {}));
+    // 괄호 없이 쓴 법령명("고등교육법 제6조")을 찾을 때 쓰는, 확인된 법령 이름 목록
+    const lawNames = [...lawMap.entries()].filter(([k, v]) => v.found && k.length >= 3)
+      .map(([norm, law]) => ({ norm, law })).sort((a, b) => b.norm.length - a.norm.length);
+    return { rules, byId, byTitle, titlesByLen, articles, laws: lawMap, lawNames };
   }
 
   function findRuleByName(index, name) {
@@ -332,16 +340,19 @@
           if (type === 'basis' && !explicit && !purpose) type = 'ref';
           const sentS = Math.max(text.lastIndexOf('.', start) + 1, text.lastIndexOf('\n', start) + 1, 0);
           let sentE = text.indexOf('.', aEnd); if (sentE < 0) sentE = text.length;
+          const law = target ? null : index.laws.get(normTitle(name)) || null;
           edges.push({
             from: { rule, article: art },
             to: { name, rule: target, artKey: akey, article: target && akey ? findArticle(target, akey) : null },
             type,
             explicit,
             phrase: text.slice(sentS, Math.min(sentE + 1, sentS + 200)).trim(),
-            external: !target && (EXTERNAL_LAW_RE.test(normTitle(name)) || EXTERNAL_NAME_RE.test(normTitle(name)) || GUIDELINE_RE.test(normTitle(name))),
+            external: !target && (!!(law && law.found) || EXTERNAL_LAW_RE.test(normTitle(name)) || EXTERNAL_NAME_RE.test(normTitle(name)) || GUIDELINE_RE.test(normTitle(name))),
             // 규정집 밖 문서의 종류: law(국가 법령) | guideline(지침·기준 등)
-            outside: target ? '' : (EXTERNAL_LAW_RE.test(normTitle(name)) || EXTERNAL_NAME_RE.test(normTitle(name))) ? 'law'
+            outside: target ? '' : (law && law.found) || EXTERNAL_LAW_RE.test(normTitle(name)) || EXTERNAL_NAME_RE.test(normTitle(name)) ? 'law'
               : GUIDELINE_RE.test(normTitle(name)) ? 'guideline' : '',
+            // 국가법령정보센터 확인 결과 (law_check.py로 만든 laws.json이 있을 때)
+            law,
             pos: [start, aEnd],
           });
         };
@@ -382,6 +393,21 @@
             // "본 학칙", "이 규정", "동 규정"은 다른 규정이 아니라 자기 자신(또는 앞서 든 규정)을 가리킨다.
             if (/(?:^|[\s(,“"'])(?:본|이|동)\s*$/.test(text.slice(Math.max(0, s - 4), s))) { mark(s, e); continue; }
             pushEdge(target.title, s, e, target);
+          }
+        }
+
+        // 2-1) 괄호 없이 쓴 국가 법령명("고등교육법 제6조") — 국가법령정보센터에서 확인된 이름만
+        for (const { norm, law } of index.lawNames) {
+          let from = 0, idx;
+          while ((idx = cstr.indexOf(norm, from)) >= 0) {
+            from = idx + norm.length;
+            const s = posMap[idx], e = posMap[idx + norm.length - 1] + 1;
+            if (masked[s] || masked[e - 1] || /[가-힣·ㆍ]/.test(text.slice(s - 1, s))) continue;
+            if (!/^\s*(?:의\s*)?제\s*\d+\s*조/.test(text.slice(e, e + 12))) continue;
+            pushEdge(law.name, s, e, null);
+            edges[edges.length - 1].law = law;
+            edges[edges.length - 1].external = true;
+            edges[edges.length - 1].outside = 'law';
           }
         }
 
@@ -456,9 +482,31 @@
     for (const e of analysis.edges) {
       const fr = e.from.rule, fa = e.from.article;
       if (!e.to.rule) {
+        const L = e.law;
+        if (L && L.found) {
+          // 국가법령정보센터에서 확인한 법령: 현행 여부와 인용한 조를 점검
+          if (L.current === false) {
+            add('warn', 'law-not-current', fr, fa, `「${L.name}」은 현행 법령이 아님`,
+              '국가법령정보센터에 연혁 법령으로만 있습니다. 폐지되었거나 다른 법령으로 바뀌었는지 확인이 필요합니다.', { edge: e });
+          }
+          const a = e.to.artKey && L.articles ? L.articles[e.to.artKey] : null;
+          if (a && a.missing) {
+            add('error', 'law-article-missing', fr, fa, `「${L.name}」에 ${artLabel(e.to.artKey)}가 없음`,
+              `국가법령정보센터의 현행 「${L.name}」에는 이 조가 없습니다. 법령 개정으로 조 번호가 바뀌었는지 확인이 필요합니다.`, { edge: e });
+          } else if (a && a.deleted) {
+            add('warn', 'law-article-deleted', fr, fa, `「${L.name}」 ${artLabel(e.to.artKey)}는 삭제된 조`,
+              `현행 법령에서 삭제된 조를 인용하고 있습니다: ${a.text}`, { edge: e });
+          }
+          continue;
+        }
+        if (L && !L.found && !/규정$/.test(normTitle(e.to.name)) && !GUIDELINE_RE.test(normTitle(e.to.name))) {
+          add('error', 'law-missing', fr, fa, `「${e.to.name}」을 규정집·국가법령정보센터 어디에서도 찾을 수 없음`,
+            '법령 이름이 바뀌었거나 폐지되었을 수 있습니다.' + (L.similar && L.similar.length ? ` 비슷한 현행 법령: ${L.similar.join(', ')}` : ''), { edge: e });
+          continue;
+        }
         if (e.external) continue; // 고등교육법 등 외부 법령, 지침·기준 등 규정집 밖 문서는 검증 대상 아님
         add('error', 'missing-rule', fr, fa, `참조한 「${e.to.name}」 규정을 찾을 수 없음`,
-          '규정명이 바뀌었거나 폐지된 규정을 인용하고 있을 수 있습니다.', { edge: e });
+          '규정명이 바뀌었거나 폐지된 규정을 인용하고 있을 수 있습니다.' + (L ? ' 국가법령정보센터에도 없습니다.' : ''), { edge: e });
         continue;
       }
       if (e.to.artKey && !e.to.article) {

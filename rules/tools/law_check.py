@@ -1,0 +1,318 @@
+#!/usr/bin/env python3
+"""규정에서 인용한 국가 법령·행정규칙을 국가법령정보센터(law.go.kr) Open API로 확인한다.
+
+규정집(rules/data/rules.json)에서 「고등교육법」 제6조, 「대학교원 자격기준 등에 관한 규정」,
+교육공무원법 제25조처럼 인용한 법률·시행령·시행규칙·고시·훈령·예규를 찾아
+  - 그 이름의 현행 법령이 있는지(폐지·제명 변경 여부)
+  - 인용한 조(제N조, 제N조의M)가 있는지, 삭제된 조는 아닌지
+를 확인하고, 인용한 조문의 현행 내용과 함께 rules/data/laws.json 으로 저장한다.
+모바일 앱은 이 파일을 읽어 정합성 점검에 반영하고 인용 조문을 바로 보여준다.
+
+사용법
+    pip install requests
+    python law_check.py --oc 내OC --rules rules.json --out laws.json
+    python law_check.py --oc 내OC --debug 고등교육법          # API 응답 확인용
+
+OC(인증키)는 국가법령정보 공동활용(https://open.law.go.kr) 회원가입 후 OPEN API 사용
+신청을 하면 받는다(가입 이메일의 @ 앞부분). 신청 시 이 프로그램을 실행할 PC의
+공인 IP를 등록해야 한다.
+"""
+import argparse
+import datetime as dt
+import json
+import os
+import re
+import sys
+import time
+
+try:
+    import requests
+except ImportError:  # pragma: no cover
+    sys.exit('필요한 패키지가 없습니다: pip install requests')
+
+API = 'https://www.law.go.kr/DRF'
+VIEW = 'https://www.law.go.kr'
+
+# 인용 이름 끝말로 국가 법령·행정규칙 후보를 고른다.
+LAW_SUFFIX = r'(?:법|법률|령|규칙|고시|훈령|예규|규정)'
+BRACKET_RE = re.compile(r'[「『]([^」』\n]{2,80})[」』]\s*(?:의\s*)?(?:제\s*(\d+)\s*조(?:\s*의\s*(\d+))?)?')
+# 괄호 없이 쓴 "고등교육법 제6조", "고등교육법 시행령 제14조"
+PLAIN_RE = re.compile(r'(?<![가-힣·ㆍ])([가-힣][가-힣·ㆍ]{1,30}(?:법|법률)(?:\s*시행(?:령|규칙))?)\s*(?:의\s*)?제\s*(\d+)\s*조(?:\s*의\s*(\d+))?')
+NOT_LAW_WORDS = {'방법', '불법', '용법', '문법', '수법', '기법', '편법', '위법', '적법', '합법', '법', '사법', '해법', '공법', '사용법', '작성법'}
+
+
+def log(*a):
+    print(*a, file=sys.stderr, flush=True)
+
+
+def norm(s):
+    return re.sub(r'[\s「」『』"\'“”‘’<>〈〉《》·ㆍ・,]', '', s or '')
+
+
+def rule_keys(title):
+    """앱(engine.js)과 같은 방식: 공백 등을 없애고 '청주대학교/학교법인/청석학원' 앞말을 뺀 이름도 같은 규정으로 본다."""
+    n = norm(title)
+    return {n, re.sub(r'^(?:청주대학교|학교법인|청석학원|본대학교|본교|본)+', '', n)}
+
+
+def collect_citations(rules):
+    """규정 본문에서 국가 법령 인용 후보를 모은다. {이름: {'bracket': bool, 'articles': {key}, 'from': [...]}}"""
+    internal = set()
+    for r in rules:
+        internal |= rule_keys(r['title'])
+    cites = {}
+
+    def add(name, art, sub, where, bracket):
+        name = re.sub(r'\s+', ' ', name).strip()
+        name = re.sub(r'\s*제\s*\d+\s*조.*$', '', name)
+        name = re.split(r'\s+및\s+(?:동법\s*)?시행', name)[0]  # "○○법률 및 시행령, 시행규칙"
+        n = norm(name)
+        if len(n) < 3 or n in NOT_LAW_WORDS or rule_keys(name) & internal or not re.search(LAW_SUFFIX + '$', n):
+            return
+        c = cites.setdefault(n, {'name': name, 'bracket': False, 'articles': set(), 'from': []})
+        c['bracket'] |= bracket
+        if art:
+            c['articles'].add(f'{int(art)}-{int(sub)}' if sub else str(int(art)))
+        if len(c['from']) < 5 and where not in c['from']:
+            c['from'].append(where)
+
+    for r in rules:
+        text = r.get('text') or '\n'.join(a.get('text', '') for a in r.get('articles', []))
+        for m in BRACKET_RE.finditer(text):
+            add(m.group(1), m.group(2), m.group(3), r['title'], True)
+        for m in PLAIN_RE.finditer(text):
+            add(m.group(1), m.group(2), m.group(3), r['title'], False)
+    return cites
+
+
+class LawApi:
+    def __init__(self, oc, delay, base=API):
+        self.base = base.rstrip('/')
+        self.oc = oc
+        self.delay = delay
+        self.s = requests.Session()
+        self.s.headers['User-Agent'] = 'Mozilla/5.0 (CJU-rules law check)'
+        self._last = 0.0
+
+    def get(self, path, **params):
+        params.update(OC=self.oc, type='JSON')
+        wait = self.delay - (time.time() - self._last)
+        if wait > 0:
+            time.sleep(wait)
+        for attempt in range(3):
+            try:
+                r = self.s.get(f'{self.base}/{path}', params=params, timeout=30)
+                self._last = time.time()
+                r.raise_for_status()
+                txt = r.text.strip()
+                if not txt.startswith(('{', '[')):
+                    # 인증 실패 등은 HTML/텍스트로 온다
+                    raise RuntimeError(re.sub(r'<[^>]+>|\s+', ' ', txt)[:200])
+                return r.json()
+            except (requests.RequestException, ValueError) as e:
+                if attempt == 2:
+                    raise RuntimeError(f'API 요청 실패: {e}')
+                time.sleep(2 ** attempt)
+
+
+def walk(obj):
+    """JSON 안의 모든 dict를 차례로 돌려준다(응답 구조가 조금 달라도 찾을 수 있게)."""
+    if isinstance(obj, dict):
+        yield obj
+        for v in obj.values():
+            yield from walk(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from walk(v)
+
+
+def first(d, *keys):
+    for k in keys:
+        if d.get(k) not in (None, ''):
+            return str(d[k]).strip()
+    return ''
+
+
+def _search_once(api, query):
+    out = []
+    for target, name_keys, id_keys in (
+            ('law', ('법령명한글', '법령명'), ('법령일련번호', 'MST')),
+            ('admrul', ('행정규칙명',), ('행정규칙일련번호', '행정규칙ID'))):
+        data = api.get('lawSearch.do', target=target, query=query, display=100)
+        for d in walk(data):
+            nm = first(d, *name_keys)
+            if not nm:
+                continue
+            out.append({
+                'target': target,
+                'name': nm,
+                'id': first(d, *id_keys),
+                'type': first(d, '법령구분명', '행정규칙종류', '법령종류'),
+                'current': first(d, '현행연혁코드', '현행연혁구분') in ('', '현행'),
+                'enforced': first(d, '시행일자'),
+            })
+        if any(norm(o['name']) == norm(query) for o in out):
+            break
+    return out
+
+
+def search(api, name):
+    """법령(법률·시행령·시행규칙)과 행정규칙(고시·훈령·예규)에서 이름으로 찾는다.
+    "원자력안전법시행규칙"처럼 띄어 쓰지 않은 이름은 모법 이름으로 다시 찾아 맞춘다.
+    반환: [{'target', 'name', 'id', 'type', 'current', 'enforced'}]"""
+    out = _search_once(api, name)
+    # 띄어쓰기·가운뎃점이 다르게 쓰인 경우("대학설립 운영규정" ↔ "대학설립·운영 규정")를 위해 짧은 검색어로 다시 찾는다.
+    retries = [re.sub(r'\s*시행\s*(령|규칙)$', '', name), re.split(r'[\s·ㆍ]', name)[0]]
+    for q in retries:
+        if any(norm(o['name']) == norm(name) for o in out):
+            break
+        if q != name and len(q) >= 2:
+            out += _search_once(api, q)
+    return out
+
+
+ART_HEAD_RE = re.compile(r'^\s*제\s*(\d+)\s*조(?:\s*의\s*(\d+))?\s*(?:\(([^)]*)\))?')
+
+
+def law_articles(api, hit):
+    """{조키: {'no', 'title', 'text', 'deleted'}}"""
+    arts = {}
+    if hit['target'] == 'law':
+        data = api.get('lawService.do', target='law', MST=hit['id'])
+        for d in walk(data):
+            if '조문번호' not in d:
+                continue
+            if first(d, '조문여부') not in ('', '조문'):
+                continue  # 장·절 제목 등
+            n, sub = first(d, '조문번호'), first(d, '조문가지번호')
+            key = f'{int(n)}-{int(sub)}' if sub and sub != '0' else str(int(n))
+            parts = [first(d, '조문내용')]
+            for h in walk(d.get('항', [])):
+                for k in ('항내용', '호내용', '목내용'):
+                    if h.get(k):
+                        parts.append(str(h[k]).strip())
+            text = '\n'.join(p for p in parts if p)
+            arts[key] = {
+                'no': f'제{int(n)}조' + (f'의{int(sub)}' if key.find('-') > 0 else ''),
+                'title': first(d, '조문제목'),
+                'text': text,
+                'deleted': bool(re.match(r'^\s*제\s*\d+\s*조(?:의\s*\d+)?\s*(?:\([^)]*\))?\s*삭제', text)),
+            }
+    else:
+        data = api.get('lawService.do', target='admrul', ID=hit['id'])
+        lines = []
+        for d in walk(data):
+            v = d.get('조문내용')
+            if isinstance(v, list):
+                lines += [str(x) for x in v]
+            elif isinstance(v, str):
+                lines += v.split('\n')
+        cur = None
+        for l in lines:
+            m = ART_HEAD_RE.match(l)
+            if m:
+                key = f'{int(m.group(1))}-{int(m.group(2))}' if m.group(2) else str(int(m.group(1)))
+                cur = arts[key] = {'no': f'제{int(m.group(1))}조' + (f'의{int(m.group(2))}' if m.group(2) else ''),
+                                   'title': (m.group(3) or '').strip(), 'text': l.strip(), 'deleted': False}
+                cur['deleted'] = bool(re.search(r'^\s*제\s*\d+\s*조(?:의\s*\d+)?\s*(?:\([^)]*\))?\s*삭제', l))
+            elif cur:
+                cur['text'] += '\n' + l.strip()
+    return arts
+
+
+def view_url(hit):
+    return f"{VIEW}/{'법령' if hit['target'] == 'law' else '행정규칙'}/{hit['name'].replace(' ', '')}"
+
+
+def check(api, cites):
+    results = {}
+    total = len(cites)
+    for i, (n, c) in enumerate(sorted(cites.items(), key=lambda x: (not x[1]['bracket'], x[0])), 1):
+        try:
+            hits = search(api, c['name'])
+        except RuntimeError as e:
+            sys.exit(f'국가법령정보센터 API 오류: {e}\nOC 값과 OPEN API 신청 시 등록한 IP를 확인해 주세요.')
+        exact = [h for h in hits if norm(h['name']) == n]
+        cur = [h for h in exact if h['current']] or exact
+        if not cur:
+            if not c['bracket']:
+                continue  # 괄호 없이 쓴 낱말("○○법")은 법령으로 확인될 때만 남긴다
+            similar = []
+            for h in hits:
+                if h['name'] not in similar and h['current']:
+                    similar.append(h['name'])
+            results[n] = {'name': c['name'], 'found': False, 'similar': similar[:5], 'from': c['from'],
+                          'articles': sorted(c['articles'])}
+            log(f'  [{i}/{total}] ✗ {c["name"]}' + (f'  (비슷한 현행 법령: {", ".join(similar[:3])})' if similar else ''))
+            continue
+        hit = cur[0]
+        entry = {'name': hit['name'], 'found': True, 'type': hit['type'], 'current': hit['current'],
+                 'enforced': hit['enforced'], 'url': view_url(hit), 'from': c['from'], 'articles': {}}
+        if c['articles']:
+            try:
+                arts = law_articles(api, hit)
+            except RuntimeError as e:
+                log(f'  ! {hit["name"]} 조문을 받지 못함: {e}')
+                arts = None
+            for key in sorted(c['articles'], key=lambda k: [int(x) for x in k.split('-')]):
+                if arts is None:
+                    continue
+                a = arts.get(key)
+                entry['articles'][key] = a if a else {'missing': True}
+        results[n] = entry
+        miss = [k for k, a in entry['articles'].items() if a.get('missing')]
+        dele = [k for k, a in entry['articles'].items() if a.get('deleted')]
+        log(f'  [{i}/{total}] ✓ {hit["name"]} ({hit["type"]}{"" if hit["current"] else ", 현행 아님"})'
+            + (f'  없는 조: {", ".join(miss)}' if miss else '') + (f'  삭제된 조: {", ".join(dele)}' if dele else ''))
+    return results
+
+
+def main():
+    here = os.path.dirname(os.path.abspath(__file__))
+    ap = argparse.ArgumentParser(description='규정이 인용한 국가 법령을 국가법령정보센터 Open API로 확인')
+    ap.add_argument('--oc', default=os.environ.get('LAW_OC'), help='국가법령정보 Open API 인증키(OC). 환경변수 LAW_OC로도 지정 가능')
+    ap.add_argument('--rules', default=os.path.join(here, '..', 'data', 'rules.json'), help='규정 데이터 (기본: rules/data/rules.json)')
+    ap.add_argument('--out', default=os.path.join(here, '..', 'data', 'laws.json'), help='저장할 파일 (기본: rules/data/laws.json)')
+    ap.add_argument('--delay', type=float, default=0.3, help='요청 간 대기(초)')
+    ap.add_argument('--api', default=API, help=argparse.SUPPRESS)  # 시험용 서버 주소
+    ap.add_argument('--debug', metavar='법령명', help='한 법령의 검색·조문 API 응답을 그대로 출력(문제 확인용)')
+    args = ap.parse_args()
+    if not args.oc:
+        sys.exit('OC(인증키)가 필요합니다: --oc 내OC  (https://open.law.go.kr 에서 OPEN API 신청)')
+    api = LawApi(args.oc, args.delay, args.api)
+
+    if args.debug:
+        data = api.get('lawSearch.do', target='law', query=args.debug, display=5)
+        print('--- lawSearch(law) ---')
+        print(json.dumps(data, ensure_ascii=False, indent=1)[:3000])
+        hits = search(api, args.debug)
+        print('--- 해석한 검색 결과 ---')
+        for h in hits[:10]:
+            print(h)
+        exact = [h for h in hits if norm(h['name']) == norm(args.debug)]
+        if exact:
+            arts = law_articles(api, exact[0])
+            print(f'--- 조문 {len(arts)}개 중 앞부분 ---')
+            for k in list(arts)[:5]:
+                print(k, arts[k]['no'], arts[k]['title'], '|', arts[k]['text'][:80].replace('\n', ' '))
+        return
+
+    with open(args.rules, encoding='utf-8') as f:
+        rules = json.load(f)['rules']
+    cites = collect_citations(rules)
+    log(f'규정 {len(rules)}건에서 국가 법령 인용 후보 {len(cites)}개를 찾았습니다. 국가법령정보센터에서 확인합니다.')
+    results = check(api, cites)
+    data = {
+        'source': '국가법령정보센터 Open API (law.go.kr)',
+        'checkedAt': dt.datetime.now().astimezone().isoformat(timespec='seconds'),
+        'laws': results,
+    }
+    with open(args.out, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=1)
+    nf = sum(1 for v in results.values() if not v['found'])
+    na = sum(1 for v in results.values() if v['found'] for a in v['articles'].values() if a.get('missing'))
+    log(f'완료: 법령 {len(results)}개 확인 (없는 법령 {nf}개, 없는 조 {na}개) → {os.path.abspath(args.out)}')
+
+
+if __name__ == '__main__':
+    main()
