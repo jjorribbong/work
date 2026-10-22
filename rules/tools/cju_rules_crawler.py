@@ -183,6 +183,16 @@ def title_candidates(soup, text, hint='', page_text=''):
     c += [('머리글', h.get_text(' ', strip=True)) for h in soup.find_all(['h1', 'h2', 'h3', 'h4', 'strong', 'b'])]
     for sc in soup.find_all('script'):
         c += [('스크립트', m.group(1)) for m in SCRIPT_TITLE_RE.finditer(sc.get_text())]
+    # 화면 글자가 아닌 곳(숨은 입력값, 버튼의 onclick 인자, 스크립트 문자열)에 규정명이 있는 경우
+    for inp in soup.find_all('input'):
+        if inp.get('value'):
+            c.append(('입력값', inp['value']))
+    for el in soup.find_all(True):
+        for k, v in el.attrs.items():
+            if k in ('onclick', 'href', 'title', 'alt', 'data-title', 'data-name') and isinstance(v, str):
+                c += [('속성 ' + k, m) for m in re.findall(r"['\"]([^'\"\n]{2,60})['\"]", v)] + ([('속성 ' + k, v)] if k in ('title', 'alt', 'data-title', 'data-name') else [])
+    for sc in soup.find_all('script'):
+        c += [('스크립트 문자열', m) for m in re.findall(r"['\"]([^'\"\n<>]{2,60})['\"]", sc.get_text())]
     if soup.title:
         c.append(('<title>', re.split(r'\s*[-|:]\s*', soup.title.get_text(strip=True))[0]))
     return [(k, _clean(v)) for k, v in c if _clean(v)]
@@ -449,12 +459,16 @@ def debug_page(args):
     text = html_to_text(node) if node else ''
     print(f'조문 머리 수: {n}')
     print('--- 규정명 후보 (위에서부터 우선) ---')
-    for k, v in title_candidates(soup, text, '', page_text)[:25]:
+    for k, v in title_candidates(soup, text, '', page_text)[:40]:
         mark = '★' if _plausible(v) and TITLE_SUFFIX_RE.search(v) else ('○' if _plausible(v) else ' ')
         print(f' {mark} [{k}] {v}')
     print('→ 선택된 규정명:', guess_title(BeautifulSoup(r.text, 'html.parser'), text, '', page_text) or '(없음)')
     print('--- 페이지 글자 앞부분 ---')
     print('\n'.join(page_text.split('\n')[:40]))
+    out = f'debug_{args.debug}.html'
+    with open(out, 'w', encoding='utf-8') as f:
+        f.write(r.text)
+    print(f'(페이지 원본을 {out} 로 저장했습니다)')
 
 
 def main():
