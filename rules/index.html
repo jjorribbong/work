@@ -223,6 +223,7 @@
   .ref.bad { color: var(--red); text-decoration-style: wavy; }
   .ref.ext { color: var(--sub); text-decoration-style: dotted; cursor: default; }
   .ref.law { color: var(--green); text-decoration-style: solid; cursor: pointer; }
+  .abolished-banner { margin-top: 8px; background: var(--red-bg); color: var(--red); font-size: 13px; font-weight: 700; padding: 8px 10px; border-radius: 8px; }
   .law-text { white-space: pre-wrap; font-size: 14px; line-height: 1.7; margin-top: 10px; }
   .addenda { background: #fff; margin-top: 8px; padding: 16px; }
   .addenda summary { font-weight: 700; cursor: pointer; }
@@ -543,7 +544,7 @@ async function setDataset(ds, persist) {
 function refreshAll() {
   $('#sampleBanner').classList.toggle('show', !!(dataset && dataset.sample));
   $('#headerSub').textContent = index
-    ? `규정 ${index.rules.length}건 · 조문 ${index.articles.length}개` + (dataset.fetchedAt ? ` · ${dataset.fetchedAt.slice(0, 10)} 기준` : '')
+    ? `현행 규정 ${index.rules.filter(r => !r.abolished).length}건` + (index.rules.some(r => r.abolished) ? ` (폐지 ${index.rules.filter(r => r.abolished).length})` : '') + ` · 조문 ${index.articles.length}개` + (dataset.fetchedAt ? ` · ${dataset.fetchedAt.slice(0, 10)} 기준` : '')
     : '규정 검색 · 위임조항 · 동일내용 검증';
   const cats = index ? [...new Set(index.rules.map(r => r.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko')) : [];
   $('#catFilter').innerHTML = '<option value="">전체 분류</option>' + cats.map(c => `<option>${esc(c)}</option>`).join('');
@@ -634,7 +635,9 @@ function renderSearch() {
     return;
   }
   const matchers = E.makeMatchers(q, $('#ignoreSpace').checked);
-  const res = E.search(index, q, { scope, ignoreSpace: $('#ignoreSpace').checked, category: $('#catFilter').value });
+  // 폐지된 규정은 결과 맨 뒤로
+  const res = E.search(index, q, { scope, ignoreSpace: $('#ignoreSpace').checked, category: $('#catFilter').value })
+    .sort((a, b) => !!a.rule.abolished - !!b.rule.abolished);
   const artCount = res.reduce((s, r) => s + r.hits.length, 0);
   if (!res.length) {
     box.innerHTML = `<div class="card empty"><div class="icon">🤔</div><p class="muted">"${esc(q)}"에 맞는 규정이 없습니다.<br>띄어쓰기 무시를 켜거나 다른 낱말로 찾아보세요.</p></div>`;
@@ -645,7 +648,7 @@ function renderSearch() {
       const open = expanded.has(r.rule.id);
       const hits = open ? r.hits : r.hits.slice(0, 3);
       return `<div class="item" data-rule="${esc(r.rule.id)}">
-        <div class="t">${hl(r.rule.title, matchers)} ${r.titleHit ? '<span class="badge b-blue">규정명</span>' : ''}</div>
+        <div class="t">${hl(r.rule.title, matchers)} ${r.titleHit ? '<span class="badge b-blue">규정명</span>' : ''} ${r.rule.abolished ? '<span class="badge b-red">폐지</span>' : ''}</div>
         <div class="m">${esc(r.rule.category || '')}${r.hits.length ? ` · 일치 조문 ${r.hits.length}개` : ''}</div>
         ${hits.map(h => `<div class="hit" data-art="${esc(h.article.key)}"><b>${esc(h.article.no)}${h.article.title ? '(' + hl(h.article.title, matchers) + ')' : ''}</b> ${hl(h.snippet, matchers)}</div>`).join('')}
         ${r.hits.length > 3 && !open ? `<div class="more" data-expand="${esc(r.rule.id)}">조문 ${r.hits.length - 3}개 더 보기</div>` : ''}
@@ -665,8 +668,8 @@ $('#searchResults').addEventListener('click', e => {
 
 function ruleItem(r) {
   return `<div class="item" data-rule="${esc(r.id)}">
-    <div class="t">${esc(r.title)}</div>
-    <div class="m">${[r.category, `${r.articles.length}개 조`, r.revised ? `개정 ${r.revised}` : (r.enacted ? `제정 ${r.enacted}` : '')].filter(Boolean).map(esc).join(' · ')}</div>
+    <div class="t">${esc(r.title)} ${r.abolished ? '<span class="badge b-red">폐지</span>' : ''}</div>
+    <div class="m">${[r.category, `${r.articles.length}개 조`, r.abolished ? `폐지 ${r.abolished}` : r.revised ? `개정 ${r.revised}` : (r.enacted ? `제정 ${r.enacted}` : '')].filter(Boolean).map(esc).join(' · ')}</div>
   </div>`;
 }
 
@@ -680,18 +683,20 @@ function renderList() {
   const rules = index.rules.filter(r => !re || re.test(r.title));
   const bm = store.get('bookmarks', []).map(id => index.byId.get(id)).filter(Boolean);
   const groups = new Map();
-  rules.forEach(r => {
+  rules.filter(r => !r.abolished).forEach(r => {
     const c = r.category || '분류 없음';
     if (!groups.has(c)) groups.set(c, []);
     groups.get(c).push(r);
   });
   const keys = [...groups.keys()].sort((a, b) => a.localeCompare(b, 'ko', { numeric: true }));
+  const gone = rules.filter(r => r.abolished).sort((a, b) => b.abolished.localeCompare(a.abolished));
   let html = '';
   if (bm.length && !f) html += `<details class="group" open><summary>⭐ 즐겨찾기 <span class="badge b-gray">${bm.length}</span></summary><div class="list">${bm.map(ruleItem).join('')}</div></details>`;
   html += keys.map(k => {
     const list = groups.get(k).sort((a, b) => (a.code || '').localeCompare(b.code || '', 'ko', { numeric: true }) || a.title.localeCompare(b.title, 'ko'));
     return `<details class="group" ${f || keys.length === 1 ? 'open' : ''}><summary>${esc(k)} <span class="badge b-gray">${list.length}</span></summary><div class="list">${list.map(ruleItem).join('')}</div></details>`;
   }).join('');
+  if (gone.length) html += `<details class="group" ${f ? 'open' : ''}><summary>폐지된 규정 <span class="badge b-red">${gone.length}</span></summary><div class="list">${gone.map(ruleItem).join('')}</div></details>`;
   box.innerHTML = html || `<div class="card empty"><p class="muted">"${esc(f)}"에 맞는 규정이 없습니다.</p></div>`;
 }
 $('#listBody').addEventListener('click', e => {
@@ -794,7 +799,7 @@ let checkLevel = 'all';
 const LEVEL = { error: ['오류', 'b-red'], warn: ['주의', 'b-amber'], info: ['참고', 'b-blue'] };
 const ISSUE_TYPE = {
   'missing-rule': '없는 규정 인용', 'missing-article': '없는 조항 인용', 'internal-missing': '내부 조항 오류',
-  'law-amended': '상위법 개정 확인', 'law-missing': '법령 없음', 'law-article-missing': '법령 조항 없음', 'law-article-deleted': '삭제된 법령 조항', 'law-not-current': '현행 아닌 법령',
+  'abolished-ref': '폐지 규정 인용', 'law-amended': '상위법 개정 확인', 'law-missing': '법령 없음', 'law-article-missing': '법령 조항 없음', 'law-article-deleted': '삭제된 법령 조항', 'law-not-current': '현행 아닌 법령',
   'basis-mismatch': '위임 근거 불일치', 'basis-weak': '근거 조항 확인', 'delegate-no-backref': '위임 근거 미표기', 'unresolved-delegation': '하위규정 미확인',
 };
 
@@ -812,8 +817,8 @@ function renderCheck() {
         <div class="stat ${checkLevel === 'info' ? 'on' : ''}" data-level="info"><div class="n" style="color:var(--blue-l)">${stats.info}</div><div class="l">참고</div></div>
       </div>
       <p class="muted small" style="margin-top:10px">
-        <b>오류</b> 없는 규정·조항을 인용 · <b>주의</b> "~의 위임에 따라"라고 든 상위 조항에 위임 문언이 없음 ·
-        <b>참고</b> 목적 조항의 근거 조항에 위임 문언이 없거나, 위임한 하위 규정을 확인할 수 없음 등<br>
+        <b>오류</b> 없는 규정·조항·법령이나 폐지된 규정을 인용 · <b>주의</b> 인용한 법령 조가 규정 개정 뒤에 바뀜, 삭제된 법령 조 인용, 부칙의 인용 문제 등 ·
+        <b>참고</b> 목적 조항의 근거 조항에 위임 문언이 없거나, 위임한 하위 규정을 확인할 수 없음 등. 폐지된 규정은 점검하지 않습니다.<br>
         요건·절차를 끌어 쓰는 단순 인용("~에 의하여 표창을 받을 때")은 점검하지 않습니다.
       </p>
     </div>
@@ -999,6 +1004,7 @@ function openRule(id, artKey, q) {
     $('#vBody').innerHTML = `
       <div class="vhead">
         <div class="t">${esc(rule.title)}</div>
+        ${rule.abolished ? `<div class="abolished-banner">${esc(rule.abolished)}에 폐지된 규정입니다. 현행 규정이 아니므로 정합성 점검·중복 비교에서 뺍니다.</div>` : ''}
         <div class="m">${[rule.category, rule.code, rule.enacted && `제정 ${rule.enacted}`, rule.revised && `개정 ${rule.revised}`].filter(Boolean).map(esc).join(' · ')}</div>
         <div class="chips">
           <button class="chip" data-act="rel">⬆ 상위 ${rel.parents.length} · ⬇ 하위 ${rel.children.length}</button>
@@ -1175,7 +1181,7 @@ function renderDataStatus() {
   const cats = new Set(index.rules.map(r => r.category).filter(Boolean)).size;
   box.innerHTML = `<h2>현재 데이터</h2>
     <div class="stat-grid">
-      <div class="stat"><div class="n">${index.rules.length}</div><div class="l">규정</div></div>
+      <div class="stat"><div class="n">${index.rules.filter(r => !r.abolished).length}</div><div class="l">현행 규정${index.rules.some(r => r.abolished) ? ` (폐지 ${index.rules.filter(r => r.abolished).length})` : ''}</div></div>
       <div class="stat"><div class="n">${index.articles.length}</div><div class="l">조문</div></div>
       <div class="stat"><div class="n">${cats}</div><div class="l">분류</div></div>
     </div>

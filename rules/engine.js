@@ -133,7 +133,15 @@
       revised = best;
     }
 
+    // 머리말의 "폐지 2020. 5. 26." 줄 → 폐지된 규정 (본문에 쓰인 '학과 폐지' 같은 낱말과 구분하려고 줄 첫머리만 본다)
+    let abolished = meta.abolished || '';
+    if (!abolished) {
+      const m = preLines.join('\n').match(new RegExp('^\\s*폐\\s*지\\s*[:：]?\\s*' + DATE_RE.source, 'm'));
+      if (m) abolished = fmtDate(m);
+    }
+
     return Object.assign({}, meta, {
+      abolished,
       title,
       preamble: meta.preamble != null ? meta.preamble
         : preLines.filter(l => l !== title && !/^(제개정\s*내역\s*보기|내용\s*보기)$/.test(l)).join('\n'),
@@ -204,6 +212,7 @@
       url: rule.url || '',
       enacted: rule.enacted || '',
       revised: rule.revised || '',
+      abolished: rule.abolished || '',
       preamble: articles.length === 1 && articles[0].key === 'body' ? '' : rule.preamble || '',
       addenda: rule.addenda || '',
       articles,
@@ -541,6 +550,13 @@
 
     for (const e of analysis.edges) {
       const fr = e.from.rule, fa = e.from.article;
+      if (e.to.rule && e.to.rule.abolished) {
+        // "「…규정」은 폐지한다"처럼 폐지하는 조항 자체는 문제가 아니다.
+        if (/폐\s*지/.test(e.phrase)) continue;
+        add('error', 'abolished-ref', fr, fa, `폐지된 「${e.to.rule.title}」을 인용 (${e.to.rule.abolished} 폐지)`,
+          '폐지된 규정을 아직 인용하고 있습니다. 대신하는 규정으로 바꾸거나 문구를 정리해야 하는지 확인이 필요합니다.', { edge: e });
+        continue;
+      }
       if (!e.to.rule) {
         const L = e.law;
         if (L && L.found) {
@@ -634,9 +650,10 @@
         { guess });
     }
 
-    // 한 조에서 같은 대상을 여러 번 인용해 생긴 같은 지적은 하나로
+    // 한 조에서 같은 대상을 여러 번 인용해 생긴 같은 지적은 하나로. 폐지된 규정 자체는 점검하지 않는다.
     const seenIssue = new Set();
     issues = issues.filter(i => {
+      if (i.rule.abolished) return false;
       const k = `${i.rule.id}|${i.article.key}|${i.type}|${i.message}`;
       if (seenIssue.has(k)) return false;
       seenIssue.add(k);
@@ -651,6 +668,7 @@
       apply: analysis.edges.filter(e => e.type === 'apply').length,
       external: analysis.edges.filter(e => e.outside === 'law').length,
       guideline: analysis.edges.filter(e => e.outside === 'guideline').length,
+      abolished: index.rules.filter(r => r.abolished).length,
       unnamed: analysis.unnamed.length,
       error: issues.filter(i => i.level === 'error').length,
       warn: issues.filter(i => i.level === 'warn').length,
@@ -730,6 +748,7 @@
     const items = [];
     for (const a of index.articles) {
       const rule = index.byId.get(a.ruleId);
+      if (rule.abolished) continue; // 폐지된 규정은 중복 비교에서 뺀다
       const paras = paragraphs(a.text);
       if (paras.length > 1) {
         const whole = makeItem(a, rule, a.text);
