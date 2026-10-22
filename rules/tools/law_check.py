@@ -267,6 +267,32 @@ def check(api, cites):
     return results
 
 
+def extra_articles(rules, results):
+    """확인된 법령 이름이 괄호 없이 쓰인 곳("교원자격검정령 제17조", 띄어쓰기가 다른 이름 포함)에서
+    인용한 조를 더 모은다. 앱(engine.js)도 확인된 이름으로 같은 방식으로 인용을 찾는다.
+    반환: {법령 키: {조 키}}"""
+    names = sorted(((k, v) for k, v in results.items() if v['found'] and len(k) >= 3), key=lambda x: -len(x[0]))
+    found = {}
+    for r in rules:
+        text = r.get('text') or ''
+        chars = [(i, ch) for i, ch in enumerate(text) if not ch.isspace()]
+        compact = ''.join(ch for _, ch in chars)
+        for k, v in names:
+            start = 0
+            while True:
+                idx = compact.find(k, start)
+                if idx < 0:
+                    break
+                start = idx + len(k)
+                end = chars[idx + len(k) - 1][0] + 1
+                m = re.match(r'\s*(?:의\s*)?제\s*(\d+)\s*조(?:\s*의\s*(\d+))?', text[end:end + 20])
+                if m:
+                    key = f'{int(m.group(1))}-{int(m.group(2))}' if m.group(2) else str(int(m.group(1)))
+                    if key not in v['articles']:
+                        found.setdefault(k, set()).add(key)
+    return found
+
+
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     ap = argparse.ArgumentParser(description='규정이 인용한 국가 법령을 국가법령정보센터 Open API로 확인')
@@ -302,6 +328,18 @@ def main():
     cites = collect_citations(rules)
     log(f'규정 {len(rules)}건에서 국가 법령 인용 후보 {len(cites)}개를 찾았습니다. 국가법령정보센터에서 확인합니다.')
     results = check(api, cites)
+    more = extra_articles(rules, results)
+    if more:
+        log(f'괄호 없이 인용한 조문 {sum(len(v) for v in more.values())}개를 더 확인합니다.')
+        for k, keys in more.items():
+            v = results[k]
+            hits = [h for h in search(api, v['name']) if norm(h['name']) == norm(v['name'])]
+            hit = ([h for h in hits if h['current']] or hits or [None])[0]
+            if not hit:
+                continue
+            arts = law_articles(api, hit)
+            for key in keys:
+                v['articles'][key] = arts.get(key) or {'missing': True}
     data = {
         'source': '국가법령정보센터 Open API (law.go.kr)',
         'checkedAt': dt.datetime.now().astimezone().isoformat(timespec='seconds'),

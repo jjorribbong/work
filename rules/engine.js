@@ -500,8 +500,13 @@
           continue;
         }
         if (L && !L.found && !/규정$/.test(normTitle(e.to.name)) && !GUIDELINE_RE.test(normTitle(e.to.name))) {
+          // 비슷한 현행 법령 중 인용한 것과 같은 단계(법률/시행령/시행규칙)를 먼저 권한다.
+          const tier = n => (/시행령$/.test(n) ? 1 : /시행규칙$/.test(n) ? 2 : 0);
+          const sim = (L.similar || []).slice().sort((a, b) =>
+            (tier(normTitle(a)) !== tier(normTitle(e.to.name))) - (tier(normTitle(b)) !== tier(normTitle(e.to.name))));
           add('error', 'law-missing', fr, fa, `「${e.to.name}」을 규정집·국가법령정보센터 어디에서도 찾을 수 없음`,
-            '법령 이름이 바뀌었거나 폐지되었을 수 있습니다.' + (L.similar && L.similar.length ? ` 비슷한 현행 법령: ${L.similar.join(', ')}` : ''), { edge: e });
+            (sim.length ? `현행 명칭 확인 필요: 「${sim[0]}」일 수 있습니다.` : '법령 이름이 바뀌었거나 폐지되었을 수 있습니다.')
+            + (sim.length > 1 ? ` (그 밖의 비슷한 법령: ${sim.slice(1, 4).join(', ')})` : ''), { edge: e });
           continue;
         }
         if (e.external) continue; // 고등교육법 등 외부 법령, 지침·기준 등 규정집 밖 문서는 검증 대상 아님
