@@ -486,6 +486,22 @@
     return { edges, unnamed, internal };
   }
 
+  // 법령 조문 본문의 "<개정 2016.12.20, 2019.12.3>", "[본조신설 2014.1.28]" 표시 중 가장 최근 날짜 (YYYY.MM.DD)
+  function lawAmendedAt(text) {
+    let best = '';
+    const tag = /[<\[]([^>\]]*?(?:개정|신설)[^>\]]*)[>\]]/g;
+    let m;
+    while ((m = tag.exec(String(text || '')))) {
+      const dr = /(\d{4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})/g;
+      let d;
+      while ((d = dr.exec(m[1]))) {
+        const v = fmtDate(d);
+        if (v > best) best = v;
+      }
+    }
+    return best;
+  }
+
   // 상위 규정 제N조가 하위 규정에 위임하는 내용을 담고 있는지
   function articleDelegates(article, lowerRule) {
     if (!article) return false;
@@ -540,6 +556,16 @@
           } else if (a && a.deleted) {
             add('warn', 'law-article-deleted', fr, fa, `「${L.name}」 ${artLabel(e.to.artKey)}는 삭제된 조`,
               `현행 법령에서 삭제된 조를 인용하고 있습니다: ${a.text}`, { edge: e });
+          } else if (a && !fa.addenda) {
+            // 인용한 법령 조가 이 규정의 마지막 개정 뒤에 바뀌었으면 규정이 따라 바뀌어야 하는지 확인이 필요하다.
+            const amended = lawAmendedAt(a.text);
+            const ruleAt = fr.revised || fr.enacted;
+            if (amended && ruleAt && amended > ruleAt) {
+              add('warn', 'law-amended', fr, fa,
+                `인용한 「${L.name}」 ${artLabel(e.to.artKey)}가 이 규정의 마지막 개정 뒤에 개정됨`,
+                `법령 개정 ${amended} · 규정 ${fr.revised ? '개정' : '제정'} ${ruleAt}. 규정 내용이 현행 법령과 맞는지 확인이 필요합니다.`,
+                { edge: e, amended });
+            }
           }
           continue;
         }
@@ -861,7 +887,7 @@
     normTitle, looseRegex, escapeRegex, artKey, artLabel,
     parseRuleText, normalizeRule, buildIndex, findRuleByName, findArticle,
     parseQuery, makeMatchers, search, snippet,
-    analyze, validate, relations, classify,
+    analyze, validate, relations, classify, lawAmendedAt,
     findSimilarPairs, similarTo, groupPairs, diff, numberConflicts,
   };
 });

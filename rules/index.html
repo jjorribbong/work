@@ -794,7 +794,7 @@ let checkLevel = 'all';
 const LEVEL = { error: ['오류', 'b-red'], warn: ['주의', 'b-amber'], info: ['참고', 'b-blue'] };
 const ISSUE_TYPE = {
   'missing-rule': '없는 규정 인용', 'missing-article': '없는 조항 인용', 'internal-missing': '내부 조항 오류',
-  'law-missing': '법령 없음', 'law-article-missing': '법령 조항 없음', 'law-article-deleted': '삭제된 법령 조항', 'law-not-current': '현행 아닌 법령',
+  'law-amended': '상위법 개정 확인', 'law-missing': '법령 없음', 'law-article-missing': '법령 조항 없음', 'law-article-deleted': '삭제된 법령 조항', 'law-not-current': '현행 아닌 법령',
   'basis-mismatch': '위임 근거 불일치', 'basis-weak': '근거 조항 확인', 'delegate-no-backref': '위임 근거 미표기', 'unresolved-delegation': '하위규정 미확인',
 };
 
@@ -1138,6 +1138,7 @@ function showLaw(e) {
     <div class="card">
       <div class="m small muted">${[L.type, L.current === false ? '현행 아님' : '현행', L.enforced && `시행 ${L.enforced.replace(/(\d{4})(\d{2})(\d{2})/, '$1.$2.$3')}`, checked && `${checked} 확인`].filter(Boolean).map(esc).join(' · ')}</div>
       ${a && a.missing ? `<p class="msg" style="color:var(--red);font-weight:700;margin-top:10px">현행 「${esc(L.name)}」에 ${esc(artNo)}가 없습니다.</p>` : ''}
+      ${a && !a.missing && E.lawAmendedAt(a.text) ? `<p class="small" style="margin-top:10px;${E.lawAmendedAt(a.text) > (e.from.rule.revised || e.from.rule.enacted || '9') ? 'color:var(--amber);font-weight:700' : 'color:var(--sub)'}">이 조의 최근 개정 ${esc(E.lawAmendedAt(a.text))} · 「${esc(e.from.rule.title)}」 ${e.from.rule.revised ? '개정' : '제정'} ${esc(e.from.rule.revised || e.from.rule.enacted || '-')}${E.lawAmendedAt(a.text) > (e.from.rule.revised || e.from.rule.enacted || '9') ? ' — 규정 개정 뒤에 바뀜' : ''}</p>` : ''}
       ${a && !a.missing ? `<div class="law-text">${esc(a.text)}</div>` : ''}
       ${!key ? '<p class="muted small" style="margin-top:10px">조 번호 없이 법령 이름만 인용했습니다.</p>' : ''}
       ${key && !a ? '<p class="muted small" style="margin-top:10px">이 조문은 확인 결과에 없습니다.</p>' : ''}
