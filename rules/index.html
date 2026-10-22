@@ -723,7 +723,7 @@ function renderRel() {
           <div class="stat ${relType === 'basis' ? 'on' : ''}" data-type="basis"><div class="n">${st.basis}</div><div class="l">근거 (~에 따라)</div></div>
           <div class="stat ${relType === 'apply' ? 'on' : ''}" data-type="apply"><div class="n">${st.apply}</div><div class="l">준용</div></div>
         </div>
-        <p class="muted small" style="margin-top:10px">대상 미지정 위임("별도로 정한다" 등) ${st.unnamed}건 · 외부 법령 인용 ${st.external}건</p>
+        <p class="muted small" style="margin-top:10px">대상 미지정 위임("별도로 정한다" 등) ${st.unnamed}건 · 외부 법령 인용 ${st.external}건 · 지침 등 인용 ${st.guideline}건</p>
       </div>
       ${hubs.length ? `<div class="result-count">하위 규정이 많은 규정</div><div class="list">${hubs.map(x => `<div class="item" data-pick="${esc(x.r.title)}"><div class="t">${esc(x.r.title)}</div><div class="m">하위 규정 ${x.n}건</div></div>`).join('')}</div>` : ''}
       <div class="result-count">${relType === 'all' ? '전체' : TYPE_LABEL[relType]} 관계 ${shown.length}건 ${relType !== 'all' ? '<a class="ref" data-type="all">전체 보기</a>' : ''}</div>
@@ -740,10 +740,10 @@ function renderRel() {
     ${sec('⬇ 하위 규정 (위임받은 규정)', rel.children, '이 규정에서 위임받은 하위 규정이 없습니다.')}
     ${sec('↔ 준용·참조', rel.others, '준용·참조 관계가 없습니다.')}
     <div class="rel-sec"><h3>대상 미지정 위임 (${rel.unnamed.length})</h3><div class="list">${
-      rel.unnamed.length ? rel.unnamed.map(u => `<div class="item" data-open="${esc(rule.id)}" data-art="${esc(u.article.key)}"><div class="m"><span class="badge ${u.kind === 'head' ? 'b-gray' : 'b-amber'}">${u.kind === 'head' ? '기관장 위임' : '세칙 등 위임'}</span> ${esc(u.article.no)}${u.article.title ? '(' + esc(u.article.title) + ')' : ''}</div><div class="quote">${esc(u.phrase)}</div></div>`).join('')
+      rel.unnamed.length ? rel.unnamed.map(u => `<div class="item" data-open="${esc(rule.id)}" data-art="${esc(u.article.key)}"><div class="m"><span class="badge ${u.kind === 'rule' ? 'b-amber' : 'b-gray'}">${{ head: '기관장 위임', guideline: '지침 등 위임', rule: '세칙 등 위임' }[u.kind]}</span> ${esc(u.article.no)}${u.article.title ? '(' + esc(u.article.title) + ')' : ''}</div><div class="quote">${esc(u.phrase)}</div></div>`).join('')
         : '<div class="item muted small">없습니다.</div>'}</div></div>
-    <div class="rel-sec"><h3>외부 법령·미등록 규정 인용 (${rel.external.length})</h3><div class="list">${
-      rel.external.length ? rel.external.map(e => `<div class="item" data-open="${esc(rule.id)}" data-art="${esc(e.from.article.key)}"><div class="m"><span class="badge ${e.external ? 'b-gray' : 'b-red'}">${e.external ? '외부 법령' : '미등록'}</span> ${esc(e.from.article.no)} → 「${esc(e.to.name)}」${e.to.artKey ? ' ' + E.artLabel(e.to.artKey) : ''}</div></div>`).join('')
+    <div class="rel-sec"><h3>외부 법령·지침·미등록 규정 인용 (${rel.external.length})</h3><div class="list">${
+      rel.external.length ? rel.external.map(e => `<div class="item" data-open="${esc(rule.id)}" data-art="${esc(e.from.article.key)}"><div class="m"><span class="badge ${e.external ? 'b-gray' : 'b-red'}">${e.outside === 'guideline' ? '지침 등' : e.external ? '외부 법령' : '규정집에 없음'}</span> ${esc(e.from.article.no)} → 「${esc(e.to.name)}」${e.to.artKey ? ' ' + E.artLabel(e.to.artKey) : ''}</div></div>`).join('')
         : '<div class="item muted small">없습니다.</div>'}</div></div>
     <button class="btn btn-ghost" style="margin-top:14px" data-open="${esc(rule.id)}">규정 전문 보기</button>`;
 }
@@ -902,7 +902,7 @@ function articleSpans(rule, art) {
     if (e.from.article !== art) continue;
     spans.push({ s: e.pos[0], e: e.pos[1], cls: e.to.rule ? (e.to.artKey && !e.to.article ? 'ref bad' : 'ref') : (e.external ? 'ref ext' : 'ref bad'),
       rule: e.to.rule ? e.to.rule.id : '', art: e.to.article ? e.to.article.key : '',
-      tip: e.to.rule ? (e.to.artKey && !e.to.article ? '해당 조항 없음' : '') : (e.external ? '외부 법령' : '등록되지 않은 규정') });
+      tip: e.to.rule ? (e.to.artKey && !e.to.article ? '해당 조항 없음' : '') : (e.outside === 'guideline' ? '지침 등(규정집 외 문서)' : e.external ? '외부 법령' : '규정집에 없는 규정') });
   }
   for (const it of an.internal) {
     if (it.article !== art) continue;

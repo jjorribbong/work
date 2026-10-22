@@ -275,6 +275,8 @@
   const EXTERNAL_LAW_RE = /(법|법률|령|시행규칙|헌법|조례|고시|훈령|예규)$/;
   // 학내 규정이 아닌 국가 법령·지침으로 자주 인용되는 것 (이름 끝만으로는 구분이 안 됨)
   const EXTERNAL_NAME_RE = /^(?:공무원|교육공무원|교육부|국가|대학교원자격기준|대학설립|사학기관|평가인정학습과정|사업주직업능력개발|유치원및초등|교원양성과정이수|대학등록금에관한|대학재정지원사업|재직중인대학교원|중소기업회계|유전자재조합실험)/;
+  // 지침·기준·요령 등은 규정이 아니어서 규정집에 실리지 않는다. 규정집에 없어도 오류가 아니다.
+  const GUIDELINE_RE = /(지침|기준|요령|매뉴얼|편람|운영계획|방침)$/;
   // 「 」 안이 규정 이름 꼴일 때만 규정 인용으로 본다(교과목명·서식명 등 제외)
   const RULE_NAME_RE = /(규정|학칙|세칙|규칙|지침|정관|요령|기준|내규|준칙|강령|회칙|규약|요강|수칙|헌장|약관|규범|법|법률|령|조례|고시|훈령|예규)$/;
   const REF_ART_RE = /^\s*(?:의\s*)?제\s*(\d+)\s*조(?:\s*의\s*(\d+))?(?:\s*의?\s*제\s*(\d+)\s*항)?(?:\s*제\s*[\dㆍ·,\s]+호)?/;
@@ -336,7 +338,10 @@
             type,
             explicit,
             phrase: text.slice(sentS, Math.min(sentE + 1, sentS + 200)).trim(),
-            external: !target && (EXTERNAL_LAW_RE.test(normTitle(name)) || EXTERNAL_NAME_RE.test(normTitle(name))),
+            external: !target && (EXTERNAL_LAW_RE.test(normTitle(name)) || EXTERNAL_NAME_RE.test(normTitle(name)) || GUIDELINE_RE.test(normTitle(name))),
+            // 규정집 밖 문서의 종류: law(국가 법령) | guideline(지침·기준 등)
+            outside: target ? '' : (EXTERNAL_LAW_RE.test(normTitle(name)) || EXTERNAL_NAME_RE.test(normTitle(name))) ? 'law'
+              : GUIDELINE_RE.test(normTitle(name)) ? 'guideline' : '',
             pos: [start, aEnd],
           });
         };
@@ -408,7 +413,8 @@
           const toHead = /^(?:총장|이사장|학장|대학원장|원장|처장|위원회|위원장|교무처장|기획처장)/.test(m[0]);
           unnamed.push({
             rule, article: art,
-            kind: toHead ? 'head' : 'rule',
+            // head: 총장 등에게 맡김, guideline: 지침·요령·기준으로 정하게 함(규정집 밖), rule: 세칙·내규 등 규정
+            kind: toHead ? 'head' : /지침|요령|기준/.test(m[0]) ? 'guideline' : 'rule',
             phrase: text.slice(sentS, m.index + m[0].length).trim(),
           });
         }
@@ -450,7 +456,7 @@
     for (const e of analysis.edges) {
       const fr = e.from.rule, fa = e.from.article;
       if (!e.to.rule) {
-        if (e.external) continue; // 고등교육법 등 외부 법령은 검증 대상 아님
+        if (e.external) continue; // 고등교육법 등 외부 법령, 지침·기준 등 규정집 밖 문서는 검증 대상 아님
         add('error', 'missing-rule', fr, fa, `참조한 「${e.to.name}」 규정을 찾을 수 없음`,
           '규정명이 바뀌었거나 폐지된 규정을 인용하고 있을 수 있습니다.', { edge: e });
         continue;
@@ -494,13 +500,13 @@
     }
 
     for (const u of analysis.unnamed) {
-      if (u.kind === 'head') continue; // 총장 등 기관장 위임은 규정 제정 의무가 아님
+      if (u.kind !== 'rule') continue; // 기관장 위임·지침 위임은 규정집에 하위 규정이 생기지 않음
       const got = inbound.get(`${u.rule.id}|${u.article.key}`);
       if (got && got.length) continue;
       const stem = normTitle(u.rule.title);
       const guess = index.rules.find(r => r !== u.rule && normTitle(r.title).startsWith(stem) && /세칙|지침|요령|내규|기준/.test(r.title));
       add('info', 'unresolved-delegation', u.rule, u.article,
-        guess ? `위임 사항의 하위 규정 추정: 「${guess.title}」` : '위임한 하위 규정(세칙·지침 등)을 확인할 수 없음',
+        guess ? `위임 사항의 하위 규정 추정: 「${guess.title}」` : '위임한 하위 규정(세칙·내규 등)을 확인할 수 없음',
         `"${u.phrase}"` + (guess ? ' — 하위 규정에 근거 조항 표기가 없어 이름으로 추정했습니다.' : ''),
         { guess });
     }
@@ -520,7 +526,8 @@
       delegate: analysis.edges.filter(e => e.type === 'delegate').length,
       basis: analysis.edges.filter(e => e.type === 'basis').length,
       apply: analysis.edges.filter(e => e.type === 'apply').length,
-      external: analysis.edges.filter(e => e.external).length,
+      external: analysis.edges.filter(e => e.outside === 'law').length,
+      guideline: analysis.edges.filter(e => e.outside === 'guideline').length,
       unnamed: analysis.unnamed.length,
       error: issues.filter(i => i.level === 'error').length,
       warn: issues.filter(i => i.level === 'warn').length,
