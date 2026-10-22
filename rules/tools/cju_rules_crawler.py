@@ -382,32 +382,35 @@ def crawl(args):
     log('[3/3] 규정 전문 수집' + ('' if args.scan else f' (SEQ 1번부터, {last_known}번 이후 빈 번호 {args.max_miss}회 연속이면 종료)'))
     pages, misses, seq, tried = [], 0, 0, 0
     it = iter(seqs) if seqs is not None else None
-    while True:
-        if it is not None:
-            seq = next(it, None)
-            if seq is None:
+    try:
+        while True:
+            if it is not None:
+                seq = next(it, None)
+                if seq is None:
+                    break
+            else:
+                seq += 1
+                if misses >= args.max_miss and seq > last_known:
+                    break
+            tried += 1
+            if tried % 100 == 0:
+                log(f'  … SEQ {seq}까지 확인, 규정 페이지 {len(pages)}개')
+            url = urljoin(client.base + '/', tpl.format(seq=seq))
+            r = client.get(url)
+            got = extract_rule(client, r.text, r.url, found.get(seq, {}).get('title', '')) if r is not None and r.ok else None
+            if not got:
+                misses += 1
+                continue
+            misses = 0
+            last_known = max(last_known, seq)
+            got.update(seq=seq, url=url, category=got.get('category') or found.get(seq, {}).get('category', ''))
+            pages.append(got)
+            log(f'  [{len(pages):>4}] SEQ {seq}: {got["title"] or got["text_title"] or "(규정명 미확인)"}'
+                + (' ※ 조문 형식 아님(본문 전체 저장)' if got.get('no_articles') else ''))
+            if args.limit and len(pages) >= args.limit:
                 break
-        else:
-            seq += 1
-            if misses >= args.max_miss and seq > last_known:
-                break
-        tried += 1
-        if tried % 100 == 0:
-            log(f'  … SEQ {seq}까지 확인, 규정 페이지 {len(pages)}개')
-        url = urljoin(client.base + '/', tpl.format(seq=seq))
-        r = client.get(url)
-        got = extract_rule(client, r.text, r.url, found.get(seq, {}).get('title', '')) if r is not None and r.ok else None
-        if not got:
-            misses += 1
-            continue
-        misses = 0
-        last_known = max(last_known, seq)
-        got.update(seq=seq, url=url, category=got.get('category') or found.get(seq, {}).get('category', ''))
-        pages.append(got)
-        log(f'  [{len(pages):>4}] SEQ {seq}: {got["title"] or got["text_title"] or "(규정명 미확인)"}'
-            + (' ※ 조문 형식 아님(본문 전체 저장)' if got.get('no_articles') else ''))
-        if args.limit and len(pages) >= args.limit:
-            break
+    except KeyboardInterrupt:
+        log(f'\n  중단됨(Ctrl+C) — SEQ {seq}까지 받은 규정 {len(pages)}개를 저장합니다.')
     return finalize(pages)
 
 
