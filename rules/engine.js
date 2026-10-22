@@ -133,7 +133,15 @@
       revised = best;
     }
 
+    // 머리말의 "폐지 2020. 5. 26." 줄 → 폐지된 규정 (본문에 쓰인 '학과 폐지' 같은 낱말과 구분하려고 줄 첫머리만 본다)
+    let abolished = meta.abolished || '';
+    if (!abolished) {
+      const m = preLines.join('\n').match(new RegExp('^\\s*폐\\s*지\\s*[:：]?\\s*' + DATE_RE.source, 'm'));
+      if (m) abolished = fmtDate(m);
+    }
+
     return Object.assign({}, meta, {
+      abolished,
       title,
       preamble: meta.preamble != null ? meta.preamble
         : preLines.filter(l => l !== title && !/^(제개정\s*내역\s*보기|내용\s*보기)$/.test(l)).join('\n'),
@@ -142,6 +150,43 @@
       enacted,
       revised,
     });
+  }
+
+  // 부칙을 개정 때마다 붙은 "부칙" 단위로 나눈다. 단위마다 인용 점검에 쓴다.
+  // key: b1, b2 …(부칙이 실린 순서), no: "부칙" 또는 "부칙 <2024. 3. 1.>"
+  function splitAddenda(text) {
+    const units = [];
+    let cur = null;
+    for (const raw of String(text || '').split('\n')) {
+      const line = raw.trim();
+      if (ADDENDA_RE.test(line)) {
+        const d = line.match(DATE_RE);
+        cur = { key: `b${units.length + 1}`, no: '부칙', title: d ? fmtDate(d) : '', chapter: '', text: '', addenda: true };
+        units.push(cur);
+        const rest = line.replace(ADDENDA_RE, '').trim();
+        if (rest && !d) cur.text = rest;
+        continue;
+      }
+      if (!cur) {
+        cur = { key: 'b1', no: '부칙', title: '', chapter: '', text: '', addenda: true };
+        units.push(cur);
+      }
+      if (!line) continue;
+      // 부칙 끝에 붙는 첨부 목록("별표서식", "별표1.hwp")은 부칙 내용이 아니다.
+      if (/^(?:별표\s*서식|별지\s*서식|별표서식)$|\.(?:hwp|hwpx|pdf|docx?|xlsx?)$/i.test(line)) continue;
+      if (!cur.title && !cur.text) {
+        const d = line.match(new RegExp('^[<(（\\[]?\\s*' + DATE_RE.source));
+        if (d) { cur.title = fmtDate(d); continue; }
+      }
+      cur.text += (cur.text ? '\n' : '') + line;
+    }
+    // 날짜 줄이 없으면 "…년 …월 …일부터 시행" 문구의 날짜로 어느 부칙인지 표시한다.
+    units.forEach(u => {
+      if (u.title) return;
+      const m = u.text.match(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+      if (m) u.title = `${fmtDate(m)} 시행`;
+    });
+    return units.filter(u => u.text);
   }
 
   // 외부 데이터(JSON)를 앱 내부 형식으로 정리한다.
@@ -161,6 +206,7 @@
       articles.push({ key: 'body', no: '본문', title: '', chapter: '', text: String(rule.preamble || r.text).trim() });
     }
     return {
+      addendaUnits: splitAddenda(rule.addenda || ''),
       id: String(rule.id || rule.seq || `r${i}`),
       title: String(rule.title || '(제목 없음)').trim(),
       category: rule.category || '',
@@ -168,6 +214,7 @@
       url: rule.url || '',
       enacted: rule.enacted || '',
       revised: rule.revised || '',
+      abolished: rule.abolished || '',
       preamble: articles.length === 1 && articles[0].key === 'body' ? '' : rule.preamble || '',
       addenda: rule.addenda || '',
       articles,
@@ -261,7 +308,7 @@
       const titleHit = opts.scope !== 'body' && res.every(re => countMatches(re, rule.title) > 0);
       const hits = [];
       if (opts.scope !== 'title') {
-        for (const a of rule.articles) {
+        for (const a of rule.articles.concat(rule.addendaUnits || [])) {
           const full = `${a.no}(${a.title}) ${a.text}`;
           // 각 검색어가 해당 조 또는 규정명 어딘가에 있으면 일치로 본다.
           if (!res.every(re => countMatches(re, full) > 0 || countMatches(re, rule.title) > 0)) continue;
@@ -316,7 +363,7 @@
     const internal = [];
 
     for (const rule of index.rules) {
-      for (const art of rule.articles) {
+      for (const art of rule.articles.concat(rule.addendaUnits || [])) {
         const text = art.text;
         const masked = new Array(text.length).fill(false);
         const mark = (s, e) => { for (let i = s; i < e; i++) masked[i] = true; };
@@ -413,7 +460,8 @@
 
         // 3) 같은 규정 내부 "제N조" 참조 (조문 형식이 아닌 규정은 제외)
         INTERNAL_ART_RE.lastIndex = 0;
-        while (art.key !== 'body' && (m = INTERNAL_ART_RE.exec(text))) {
+        // 부칙의 "제N조"는 그 개정 당시의 조문을 가리키는 경과 규정이 많아 점검하지 않는다.
+        while (art.key !== 'body' && !art.addenda && (m = INTERNAL_ART_RE.exec(text))) {
           if (masked[m.index]) continue;
           const before = text.slice(Math.max(0, m.index - 12), m.index).replace(/\s+/g, '');
           const self = /(?:이|본|같은)(?:규정|학칙|정관|세칙|지침|요령|내규|기준|회칙)$/.test(before);
@@ -430,7 +478,7 @@
 
         // 4) 대상을 특정하지 않은 위임
         UNNAMED_DELEGATION_RE.lastIndex = 0;
-        while ((m = UNNAMED_DELEGATION_RE.exec(text))) {
+        while (!art.addenda && (m = UNNAMED_DELEGATION_RE.exec(text))) {
           if (masked[m.index]) continue;
           // 바로 앞에 「규정명」으로/에서가 있으면 이미 명시 위임으로 처리됨
           const before = text.slice(Math.max(0, m.index - 30), m.index);
@@ -449,6 +497,22 @@
     return { edges, unnamed, internal };
   }
 
+  // 법령 조문 본문의 "<개정 2016.12.20, 2019.12.3>", "[본조신설 2014.1.28]" 표시 중 가장 최근 날짜 (YYYY.MM.DD)
+  function lawAmendedAt(text) {
+    let best = '';
+    const tag = /[<\[]([^>\]]*?(?:개정|신설)[^>\]]*)[>\]]/g;
+    let m;
+    while ((m = tag.exec(String(text || '')))) {
+      const dr = /(\d{4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})/g;
+      let d;
+      while ((d = dr.exec(m[1]))) {
+        const v = fmtDate(d);
+        if (v > best) best = v;
+      }
+    }
+    return best;
+  }
+
   // 상위 규정 제N조가 하위 규정에 위임하는 내용을 담고 있는지
   function articleDelegates(article, lowerRule) {
     if (!article) return false;
@@ -464,8 +528,15 @@
   function validate(index, analysis) {
     analysis = analysis || analyze(index);
     let issues = [];
-    const add = (level, type, rule, article, message, detail, extra) =>
+    const DOWN = { error: 'warn', warn: 'info', info: 'info' };
+    const add = (level, type, rule, article, message, detail, extra) => {
+      if (article && article.addenda) {
+        // 부칙은 개정 당시 기준의 경과 규정일 수 있어 한 단계 낮춰 알린다.
+        level = DOWN[level];
+        detail = `${detail} 부칙의 인용이라 개정 당시 기준일 수 있습니다.`;
+      }
       issues.push(Object.assign({ level, type, rule, article, message, detail }, extra || {}));
+    };
 
     // 하위 규정에서 받은 근거(역방향) 집계
     const inbound = new Map(); // `${ruleId}|${artKey}` -> [edge]
@@ -481,6 +552,13 @@
 
     for (const e of analysis.edges) {
       const fr = e.from.rule, fa = e.from.article;
+      if (e.to.rule && e.to.rule.abolished) {
+        // "「…규정」은 폐지한다"처럼 폐지하는 조항 자체는 문제가 아니다.
+        if (/폐\s*지/.test(e.phrase)) continue;
+        add('error', 'abolished-ref', fr, fa, `폐지된 「${e.to.rule.title}」을 인용 (${e.to.rule.abolished} 폐지)`,
+          '폐지된 규정을 아직 인용하고 있습니다. 대신하는 규정으로 바꾸거나 문구를 정리해야 하는지 확인이 필요합니다.', { edge: e });
+        continue;
+      }
       if (!e.to.rule) {
         const L = e.law;
         if (L && L.found) {
@@ -496,6 +574,16 @@
           } else if (a && a.deleted) {
             add('warn', 'law-article-deleted', fr, fa, `「${L.name}」 ${artLabel(e.to.artKey)}는 삭제된 조`,
               `현행 법령에서 삭제된 조를 인용하고 있습니다: ${a.text}`, { edge: e });
+          } else if (a && !fa.addenda) {
+            // 인용한 법령 조가 이 규정의 마지막 개정 뒤에 바뀌었으면 규정이 따라 바뀌어야 하는지 확인이 필요하다.
+            const amended = lawAmendedAt(a.text);
+            const ruleAt = fr.revised || fr.enacted;
+            if (amended && ruleAt && amended > ruleAt) {
+              add('warn', 'law-amended', fr, fa,
+                `인용한 「${L.name}」 ${artLabel(e.to.artKey)}가 이 규정의 마지막 개정 뒤에 개정됨`,
+                `법령 개정 ${amended} · 규정 ${fr.revised ? '개정' : '제정'} ${ruleAt}. 규정 내용이 현행 법령과 맞는지 확인이 필요합니다.`,
+                { edge: e, amended });
+            }
           }
           continue;
         }
@@ -564,9 +652,10 @@
         { guess });
     }
 
-    // 한 조에서 같은 대상을 여러 번 인용해 생긴 같은 지적은 하나로
+    // 한 조에서 같은 대상을 여러 번 인용해 생긴 같은 지적은 하나로. 폐지된 규정 자체는 점검하지 않는다.
     const seenIssue = new Set();
     issues = issues.filter(i => {
+      if (i.rule.abolished) return false;
       const k = `${i.rule.id}|${i.article.key}|${i.type}|${i.message}`;
       if (seenIssue.has(k)) return false;
       seenIssue.add(k);
@@ -581,6 +670,7 @@
       apply: analysis.edges.filter(e => e.type === 'apply').length,
       external: analysis.edges.filter(e => e.outside === 'law').length,
       guideline: analysis.edges.filter(e => e.outside === 'guideline').length,
+      abolished: index.rules.filter(r => r.abolished).length,
       unnamed: analysis.unnamed.length,
       error: issues.filter(i => i.level === 'error').length,
       warn: issues.filter(i => i.level === 'warn').length,
@@ -660,6 +750,7 @@
     const items = [];
     for (const a of index.articles) {
       const rule = index.byId.get(a.ruleId);
+      if (rule.abolished) continue; // 폐지된 규정은 중복 비교에서 뺀다
       const paras = paragraphs(a.text);
       if (paras.length > 1) {
         const whole = makeItem(a, rule, a.text);
@@ -774,6 +865,34 @@
     return [...g.values()].sort((a, b) => b.pairs.length - a.pairs.length || b.identical - a.identical);
   }
 
+  /* ---------- 개정 전후 비교 (신구대비) ---------- */
+
+  /**
+   * 같은 규정의 이전·이후 전문을 조(부칙 포함) 단위로 맞대어 바뀐 조만 돌려준다.
+   * @returns {before, after, rows:[{key, no, title, status:'added'|'removed'|'modified', before, after}]}
+   */
+  function compareRuleTexts(title, beforeText, afterText) {
+    const b = beforeText ? normalizeRule({ title, text: beforeText }, 0) : null;
+    const a = afterText ? normalizeRule({ title, text: afterText }, 0) : null;
+    const units = r => (r ? r.articles.concat(r.addendaUnits || []) : []);
+    const bm = new Map(units(b).map(u => [u.key, u]));
+    const am = new Map(units(a).map(u => [u.key, u]));
+    const label = u => `${u.no}${u.title ? '(' + u.title + ')' : ''}`;
+    const rows = [];
+    for (const u of units(a)) {
+      const o = bm.get(u.key);
+      if (!o) rows.push({ key: u.key, no: u.no, title: u.title, status: 'added', before: '', after: u.text });
+      else if (o.text !== u.text || o.title !== u.title) {
+        rows.push({ key: u.key, no: u.no, title: u.title, status: 'modified', before: o.text, after: u.text,
+          beforeLabel: label(o), afterLabel: label(u) });
+      }
+    }
+    for (const u of units(b)) {
+      if (!am.has(u.key)) rows.push({ key: u.key, no: u.no, title: u.title, status: 'removed', before: u.text, after: '' });
+    }
+    return { before: b, after: a, rows };
+  }
+
   /* ---------- 차이 비교 ---------- */
 
   function tokenize(s) {
@@ -817,7 +936,7 @@
     normTitle, looseRegex, escapeRegex, artKey, artLabel,
     parseRuleText, normalizeRule, buildIndex, findRuleByName, findArticle,
     parseQuery, makeMatchers, search, snippet,
-    analyze, validate, relations, classify,
+    analyze, validate, relations, classify, lawAmendedAt, compareRuleTexts,
     findSimilarPairs, similarTo, groupPairs, diff, numberConflicts,
   };
 });
