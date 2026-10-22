@@ -200,6 +200,9 @@ def title_candidates(soup, text, hint='', page_text=''):
 
 def guess_title(soup, text, hint='', page_text=''):
     cands = title_candidates(soup, text, hint, page_text)
+    # 목록 링크·바깥 화면에서 받은 규정명이 이름 꼴이면 가장 믿는다.
+    if hint and _plausible(_clean(hint)) and TITLE_SUFFIX_RE.search(_clean(hint)):
+        return _clean(hint)
     # 1순위: 규정 이름 꼴(…규정/학칙/정관 등)로 끝나는 후보
     for _, v in cands:
         if _plausible(v) and TITLE_SUFFIX_RE.search(v):
@@ -211,26 +214,56 @@ def guess_title(soup, text, hint='', page_text=''):
     return ''
 
 
-def extract_rule(client, html, url, hint_title='', depth=0):
-    """규정 보기 페이지 HTML → {title, text}. 본문이 iframe에 있으면 한 단계 따라간다."""
+# 왼쪽 메뉴의 편 이름 (규정 화면에는 "[제3편]"처럼 번호만 나온다)
+PART_NAMES = {
+    1: '학교법인', 2: '학칙 및 학위수여 규정', 3: '일반행정', 4: '교무행정', 5: '학생행정', 6: '부속기관',
+    7: '부설연구기관', 8: '각종위원회', 9: '대학원', 10: '기타', 11: '부록',
+}
+
+
+def outer_info(html):
+    """규정 보기 화면 바깥쪽(본문 iframe을 감싼 페이지)에 있는 규정명과 편 번호."""
+    page_text = html_to_text(BeautifulSoup(html, 'html.parser'))
+    title, cat = '', ''
+    for raw in [l.strip() for l in page_text.split('\n') if l.strip()][:80]:
+        m = re.match(r'^\[?\s*제\s*(\d+)\s*편\s*\]?$', raw)
+        if m and not cat:
+            n = int(m.group(1))
+            cat = f'제{n}편' + (f' {PART_NAMES[n]}' if n in PART_NAMES else '')
+            continue
+        c = _clean(raw)
+        if not title and _plausible(c) and TITLE_SUFFIX_RE.search(c):
+            title = c
+    return title, cat
+
+
+def extract_rule(client, html, url, hint_title='', depth=0, category=''):
+    """규정 보기 페이지 HTML → {title, category, text}. 본문이 iframe에 있으면 따라간다."""
     soup = BeautifulSoup(html, 'html.parser')
     node, n = content_node(soup)
+    o_title, o_cat = outer_info(html)
+    category = category or o_cat
     if n == 0 and depth < 2 and client is not None:
+        # 바깥 화면의 규정명을 안쪽 본문 페이지의 규정명 후보로 넘긴다.
+        hint = hint_title or o_title
         for fr in soup.find_all(['iframe', 'frame']):
             src = fr.get('src')
             if not src or src.startswith('javascript') or not client.same_host(src):
                 continue
             r = client.get(urljoin(url, src))
             if r is not None and r.ok:
-                got = extract_rule(client, r.text, r.url, hint_title, depth + 1)
+                got = extract_rule(client, r.text, r.url, hint, depth + 1, category)
                 if got:
                     return got
     if n == 0:
-        return extract_without_articles(html, hint_title)
+        got = extract_without_articles(html, hint_title)
+        if got:
+            got['category'] = category
+        return got
     page_text = html_to_text(BeautifulSoup(html, 'html.parser'))
     text = html_to_text(node)
     title = guess_title(BeautifulSoup(html, 'html.parser'), text, hint_title, page_text)
-    return {'title': title, 'text_title': title_from_text(text), 'text': text}
+    return {'title': title, 'text_title': title_from_text(text), 'text': text, 'category': category}
 
 
 def extract_without_articles(html, hint_title=''):
@@ -369,7 +402,7 @@ def crawl(args):
             continue
         misses = 0
         last_known = max(last_known, seq)
-        got.update(seq=seq, url=url, category=found.get(seq, {}).get('category', ''))
+        got.update(seq=seq, url=url, category=got.get('category') or found.get(seq, {}).get('category', ''))
         pages.append(got)
         log(f'  [{len(pages):>4}] SEQ {seq}: {got["title"] or got["text_title"] or "(규정명 미확인)"}'
             + (' ※ 조문 형식 아님(본문 전체 저장)' if got.get('no_articles') else ''))
@@ -454,21 +487,23 @@ def debug_page(args):
         sys.exit('페이지를 받지 못했습니다.')
     print(f'주소: {r.url}  상태: {r.status_code}  인코딩: {r.encoding}')
     soup = BeautifulSoup(r.text, 'html.parser')
-    node, n = content_node(BeautifulSoup(r.text, 'html.parser'))
-    page_text = html_to_text(BeautifulSoup(r.text, 'html.parser'))
-    text = html_to_text(node) if node else ''
-    print(f'조문 머리 수: {n}')
-    print('--- 규정명 후보 (위에서부터 우선) ---')
-    for k, v in title_candidates(soup, text, '', page_text)[:40]:
-        mark = '★' if _plausible(v) and TITLE_SUFFIX_RE.search(v) else ('○' if _plausible(v) else ' ')
-        print(f' {mark} [{k}] {v}')
-    print('→ 선택된 규정명:', guess_title(BeautifulSoup(r.text, 'html.parser'), text, '', page_text) or '(없음)')
-    print('--- 페이지 글자 앞부분 ---')
-    print('\n'.join(page_text.split('\n')[:40]))
+    _, n = content_node(BeautifulSoup(r.text, 'html.parser'))
+    frames = [f.get('src') for f in soup.find_all(['iframe', 'frame']) if f.get('src')]
+    print(f'바깥 페이지 조문 머리 수: {n}  /  iframe: {frames or "없음"}')
+    o_title, o_cat = outer_info(r.text)
+    print(f'바깥 페이지 규정명: {o_title or "(없음)"}  /  편: {o_cat or "(없음)"}')
+    got = extract_rule(client, r.text, r.url)
+    print('--- 수집 결과 ---')
+    if not got:
+        print('규정으로 인식하지 못함')
+    else:
+        print(f'규정명: {got["title"] or "(없음)"}  /  분류: {got.get("category") or "(없음)"}'
+              + ('  /  조문 형식 아님' if got.get('no_articles') else ''))
+        print('\n'.join(got['text'].split('\n')[:15]))
     out = f'debug_{args.debug}.html'
     with open(out, 'w', encoding='utf-8') as f:
         f.write(r.text)
-    print(f'(페이지 원본을 {out} 로 저장했습니다)')
+    print(f'(바깥 페이지 원본을 {out} 로 저장했습니다)')
 
 
 def main():
