@@ -50,7 +50,8 @@ VIEWER_TEMPLATES = [
     '/lmxsrv/law/twoView.do?SEQ={seq}',
 ]
 
-ART_LINE_RE = re.compile(r'^\s*제\s*(\d+)\s*조(?:\s*의\s*\d+)?\s*[(【]', re.M)
+# 조문 머리: "제1조(목적)" 또는 제목 없이 "제1조 이 규정은…"
+ART_LINE_RE = re.compile(r'^\s*제\s*(\d+)\s*조(?:\s*의\s*\d+)?(?:\s*[(【]|\s+(?!에|의|및|또는|부터|까지)\S)', re.M)
 SEQ_RES = [
     re.compile(r'[?&]SEQ=(\d+)', re.I),
     re.compile(r'''\bSEQ['"]?\s*[:=,]\s*['"]?(\d+)''', re.I),
@@ -214,13 +215,30 @@ def extract_rule(client, html, url, hint_title='', depth=0):
                 got = extract_rule(client, r.text, r.url, hint_title, depth + 1)
                 if got:
                     return got
-        return None
     if n == 0:
-        return None
+        return extract_without_articles(html, hint_title)
     page_text = html_to_text(BeautifulSoup(html, 'html.parser'))
     text = html_to_text(node)
     title = guess_title(BeautifulSoup(html, 'html.parser'), text, hint_title, page_text)
     return {'title': title, 'text_title': title_from_text(text), 'text': text}
+
+
+def extract_without_articles(html, hint_title=''):
+    """조문(제N조) 형식이 아닌 규정(번호 목록으로 된 요령·기준 등)은 규정명 줄 아래 글 전체를 본문으로 쓴다."""
+    page_text = html_to_text(BeautifulSoup(html, 'html.parser'))
+    title = guess_title(BeautifulSoup(html, 'html.parser'), '', hint_title, '')
+    lines = page_text.split('\n')
+    if not title or not TITLE_SUFFIX_RE.search(title):
+        title = next((_clean(l) for l in lines if _plausible(_clean(l)) and TITLE_SUFFIX_RE.search(_clean(l))), '')
+    if not title:
+        return None
+    start = next((i for i, l in enumerate(lines) if _clean(l) == title), None)
+    if start is None:
+        return None
+    body = '\n'.join(lines[start + 1:]).strip()
+    if len(re.sub(r'\s', '', body)) < 200:
+        return None
+    return {'title': title, 'text_title': '', 'text': body, 'no_articles': True}
 
 
 def title_from_text(text, loose=False):
@@ -336,14 +354,15 @@ def crawl(args):
         url = urljoin(client.base + '/', tpl.format(seq=seq))
         r = client.get(url)
         got = extract_rule(client, r.text, r.url, found.get(seq, {}).get('title', '')) if r is not None and r.ok else None
-        if not got or not (got['title'] or got['text_title']):
+        if not got:
             misses += 1
             continue
         misses = 0
         last_known = max(last_known, seq)
         got.update(seq=seq, url=url, category=found.get(seq, {}).get('category', ''))
         pages.append(got)
-        log(f'  [{len(pages):>4}] SEQ {seq}: {got["title"] or got["text_title"]}')
+        log(f'  [{len(pages):>4}] SEQ {seq}: {got["title"] or got["text_title"] or "(규정명 미확인)"}'
+            + (' ※ 조문 형식 아님(본문 전체 저장)' if got.get('no_articles') else ''))
         if args.limit and len(pages) >= args.limit:
             break
     return finalize(pages)
@@ -381,7 +400,10 @@ def finalize(pages):
             'url': p.get('url', ''),
             'text': text,
         })
-    log(f'  → 규정 페이지 {len(pages)}개 중 중복 제외 {len(rules)}건')
+        if p.get('no_articles'):
+            rules[-1]['noArticles'] = True
+    log(f'  → 규정 페이지 {len(pages)}개 중 중복 제외 {len(rules)}건'
+        + (f" (조문 형식이 아닌 규정 {sum(1 for r in rules if r.get('noArticles'))}건 포함)" if any(r.get('noArticles') for r in rules) else ''))
     return rules
 
 

@@ -140,6 +140,10 @@
       }
       return { key, no: a.no || artLabel(key), title: a.title || '', chapter: a.chapter || '', text: a.text || '' };
     });
+    // 조문(제N조) 형식이 아닌 규정은 본문 전체를 하나의 단위로 두어 검색·비교되게 한다.
+    if (!articles.length && (rule.preamble || r.text)) {
+      articles.push({ key: 'body', no: '본문', title: '', chapter: '', text: String(rule.preamble || r.text).trim() });
+    }
     return {
       id: String(rule.id || rule.seq || `r${i}`),
       title: String(rule.title || '(제목 없음)').trim(),
@@ -148,7 +152,7 @@
       url: rule.url || '',
       enacted: rule.enacted || '',
       revised: rule.revised || '',
-      preamble: rule.preamble || '',
+      preamble: articles.length === 1 && articles[0].key === 'body' ? '' : rule.preamble || '',
       addenda: rule.addenda || '',
       articles,
     };
@@ -327,9 +331,9 @@
           }
         }
 
-        // 3) 같은 규정 내부 "제N조" 참조
+        // 3) 같은 규정 내부 "제N조" 참조 (조문 형식이 아닌 규정은 제외)
         INTERNAL_ART_RE.lastIndex = 0;
-        while ((m = INTERNAL_ART_RE.exec(text))) {
+        while (art.key !== 'body' && (m = INTERNAL_ART_RE.exec(text))) {
           if (masked[m.index]) continue;
           const before = text.slice(Math.max(0, m.index - 6), m.index).replace(/\s+/g, '');
           if (/(?:법|령|규칙|규정|학칙|세칙|지침|」|』)$/.test(before) && !/이규정$|이학칙$|이세칙$|이지침$/.test(before)) continue; // 외부 법령 조문
