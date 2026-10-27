@@ -1,0 +1,128 @@
+{
+ "version": "2026-10-27",
+ "about": "상위법 기준 비교 주제 목록. 앱은 주제마다 규정 조문과 상위 법령 조문에서 같은 내용의 숫자(기간·일수·나이)를 찾아 비교하고, 업데이트 프로그램(law_check.py)은 여기 적힌 법령 조문을 국가법령정보센터에서 받아 laws.json에 넣는다. value는 법령 조문을 아직 받지 못했을 때 쓰는 참고값(asOf 기준)이고, 조문을 받으면 조문에서 읽은 값을 쓴다.",
+ "asOf": "2026-06",
+ "fields": {
+  "find": "규정 조문을 고르는 정규식(조 제목 또는 본문)",
+  "group": "적용 대상: 교원 | 직원 | 공통. 규정 제목에 교원·교수·강사가 있으면 교원, 직원이 있으면 직원 규정으로 보고 같은 대상(또는 공통) 기준과만 비교한다",
+  "kind": "min = 법이 정한 최소 기준(규정이 더 짧거나 적으면 미달) | eq = 법과 같아야 함 | ref = 사립학교에 바로 적용되지 않는 참고 기준",
+  "clause": "법령·규정 문장에서 해당 내용을 찾는 정규식. ruleClause가 있으면 규정 쪽은 그것을 쓴다. 숫자는 일치한 곳 뒤에서 가장 가까운 것, 없으면 앞에서 가장 가까운 것",
+  "not": "이 정규식에 맞는 줄은 건너뜀",
+  "unit": "일 | 기간(년·개월·주) | 세",
+  "wide": "true면 조 제목·본문에 주제어(find)가 없어도 규정 쪽 문구로 조문을 찾는다"
+ },
+ "topics": [
+  {
+   "id": "annual-leave",
+   "name": "연차휴가",
+   "find": "연차휴가|연가",
+   "refs": [
+    {"group": "공통", "law": "근로기준법", "article": "60", "kind": "min", "checks": [
+     {"label": "1년간 80% 이상 출근 시", "clause": "80퍼센트\\s*이상|8할\\s*이상", "unit": "일", "value": 15},
+     {"label": "1년 미만 근무자(1개월 개근 시)", "clause": "1개월\\s*개근", "unit": "일", "value": 1},
+     {"label": "가산휴가 포함 총 휴가일수 한도", "clause": "한도", "unit": "일", "value": 25}
+    ]}
+   ]
+  },
+  {
+   "id": "menstrual-leave",
+   "name": "생리휴가(보건휴가)",
+   "find": "생리|보건휴가",
+   "refs": [
+    {"group": "공통", "law": "근로기준법", "article": "73", "kind": "min", "checks": [
+     {"label": "월 생리휴가", "clause": "생리", "ruleClause": "생리|보건휴가", "unit": "일", "value": 1}
+    ]}
+   ]
+  },
+  {
+   "id": "maternity-leave",
+   "name": "출산전후휴가",
+   "find": "출산\\s*(?:전후\\s*)?휴가|분만휴가|출산\\s*전(?:과|후)",
+   "refs": [
+    {"group": "공통", "law": "근로기준법", "article": "74", "kind": "min", "checks": [
+     {"label": "출산전후휴가 기간", "clause": "출산\\s*전(?:과|후)|출산\\s*(?:전후\\s*)?휴가|분만휴가", "not": "배우자", "unit": "일", "value": 90},
+     {"label": "다태아 출산전후휴가 기간", "clause": "둘\\s*이상\\s*(?:의\\s*)?자녀|다태아", "not": "배우자", "unit": "일", "value": 120}
+    ]}
+   ]
+  },
+  {
+   "id": "paternity-leave",
+   "name": "배우자 출산휴가",
+   "find": "배우자.{0,8}출산",
+   "refs": [
+    {"group": "공통", "law": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률", "article": "18-2", "kind": "min", "checks": [
+     {"label": "배우자 출산휴가 기간", "clause": "배우자\\s*(?:의\\s*)?출산", "unit": "일", "value": 20}
+    ]}
+   ]
+  },
+  {
+   "id": "parental-leave",
+   "name": "육아휴직 기간",
+   "find": "육아휴직|양육",
+   "refs": [
+    {"group": "직원", "law": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률", "article": "19", "kind": "min", "checks": [
+     {"label": "육아휴직 기간", "clause": "육아휴직\\s*(?:의\\s*)?기간", "ruleClause": "육아휴직\\s*(?:의\\s*)?기간|양육.{0,20}휴직\\s*기간", "unit": "기간", "value": "1년"}
+    ]},
+    {"group": "교원", "law": "교육공무원법", "article": "45", "kind": "ref", "checks": [
+     {"label": "육아휴직 기간(자녀 1명당)", "clause": "자녀\\s*1\\s*명에\\s*대하여", "not": "입양", "wide": true, "unit": "기간", "value": "3년"},
+     {"label": "입양 휴직 기간(입양자녀 1명당)", "clause": "입양\\s*자녀\\s*1\\s*명에\\s*대하여", "wide": true, "unit": "기간", "value": "6개월"}
+    ]}
+   ]
+  },
+  {
+   "id": "family-care",
+   "name": "가족돌봄휴직·휴가",
+   "find": "가족돌봄|가족\\s*간호",
+   "refs": [
+    {"group": "직원", "law": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률", "article": "22-2", "kind": "min", "checks": [
+     {"label": "가족돌봄휴직 기간(연간)", "clause": "가족돌봄휴직\\s*(?:의\\s*)?기간", "unit": "일", "value": 90},
+     {"label": "가족돌봄휴가 기간(연간)", "clause": "가족돌봄휴가\\s*(?:의\\s*)?기간", "unit": "일", "value": 10}
+    ]}
+   ]
+  },
+  {
+   "id": "fertility-leave",
+   "name": "난임치료휴가",
+   "find": "난임",
+   "refs": [
+    {"group": "공통", "law": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률", "article": "18-3", "kind": "min", "checks": [
+     {"label": "난임치료휴가(연간)", "clause": "연간\\s*\\d+\\s*일", "ruleClause": "난임.{0,30}휴가|휴가.{0,30}난임", "unit": "일", "value": 6}
+    ]}
+   ]
+  },
+  {
+   "id": "sick-leave",
+   "name": "병가",
+   "find": "병가",
+   "refs": [
+    {"group": "공통", "law": "국가공무원 복무규정", "article": "18", "kind": "ref", "checks": [
+     {"label": "일반 병가(연간)", "clause": "연\\s*\\d+\\s*일의\\s*범위", "ruleClause": "연\\s*\\d+\\s*일의\\s*범위", "unit": "일", "value": 60},
+     {"label": "공무상 병가(연간)", "clause": "공무상", "ruleClause": "공무상|직무\\s*수행\\s*중", "unit": "일", "value": 180}
+    ]}
+   ]
+  },
+  {
+   "id": "retirement-age",
+   "name": "정년",
+   "find": "정년",
+   "refs": [
+    {"group": "교원", "law": "교육공무원법", "article": "47", "kind": "ref", "checks": [
+     {"label": "대학 교원 정년", "clause": "고등교육법", "ruleClause": "(?:^|[^비])정년(?!\\s*트랙|\\s*보장)", "unit": "세", "value": 65}
+    ]},
+    {"group": "직원", "law": "고용상 연령차별금지 및 고령자고용촉진에 관한 법률", "article": "19", "kind": "min", "checks": [
+     {"label": "근로자 정년(이상)", "clause": "정년을", "ruleClause": "(?:^|[^비])정년(?!\\s*트랙|\\s*보장)", "unit": "세", "value": 60}
+    ]}
+   ]
+  },
+  {
+   "id": "discipline-limit",
+   "name": "징계 시효",
+   "find": "시효",
+   "refs": [
+    {"group": "교원", "law": "사립학교법", "article": "66-4", "kind": "eq", "checks": [
+     {"label": "징계 시효(그 밖의 사유)", "clause": "그\\s*밖의\\s*징계\\s*사유", "ruleClause": "징계.{0,15}시효|시효.{0,15}징계|징계\\s*의결\\s*(?:의\\s*)?요구", "unit": "기간", "value": "3년"}
+    ]}
+   ]
+  }
+ ]
+}
