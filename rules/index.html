@@ -155,6 +155,7 @@
   .issue .where { font-size: 12px; color: var(--sub); margin-top: 4px; }
   .issue .msg { font-size: 14px; font-weight: 700; margin-top: 5px; line-height: 1.45; }
   .issue .det { font-size: 12px; color: var(--sub); margin-top: 4px; line-height: 1.5; }
+  .crow { margin-top: 10px; cursor: pointer; font-size: 13px; }
   .quote { margin-top: 6px; font-size: 12px; background: #f9fafb; border-left: 3px solid var(--border); padding: 6px 8px; line-height: 1.5; }
 
   .rel-sec h3 { font-size: 13px; color: var(--sub); margin: 16px 4px 8px; }
@@ -321,10 +322,12 @@
     <section class="page" id="page-verify">
       <div class="seg" id="verifySeg" style="margin-top:0">
         <button data-v="check" class="on">정합성 점검</button>
-        <button data-v="dup">동일·유사 조항</button>
+        <button data-v="law">상위법 비교</button>
+        <button data-v="dup">동일·유사</button>
         <button data-v="cmp">두 규정 비교</button>
       </div>
       <div id="verify-check" style="margin-top:12px"></div>
+      <div id="verify-law" class="hidden" style="margin-top:12px"></div>
       <div id="verify-dup" class="hidden" style="margin-top:12px">
         <div class="card">
           <h2>규정 간 동일·유사 조항 찾기</h2>
@@ -557,6 +560,7 @@ function refreshAll() {
   renderList();
   renderRel();
   renderCheck();
+  renderConform();
   $('#dupBody').innerHTML = '';
   $('#cmpBody').innerHTML = '';
   renderDataStatus();
@@ -898,7 +902,102 @@ $('#verify-check').addEventListener('click', e => {
 });
 
 segment($('#verifySeg'), v => {
-  ['check', 'dup', 'cmp'].forEach(k => $('#verify-' + k).classList.toggle('hidden', k !== v));
+  ['check', 'law', 'dup', 'cmp'].forEach(k => $('#verify-' + k).classList.toggle('hidden', k !== v));
+});
+
+/* ---------- 검증: 상위법 비교 ---------- */
+let topicSet = null; // data/topics.json
+const CONFORM = {
+  worse: ['법 기준 미달', 'b-red'], diff: ['법과 다름', 'b-amber'], 'ref-diff': ['참고 기준과 다름', 'b-blue'],
+  better: ['법보다 유리', 'b-green'], ok: ['일치', 'b-green'], follows: ['법령 준용', 'b-gray'],
+  unknown: ['확인 필요', 'b-gray'], missing: ['규정에 없음', 'b-gray'],
+};
+const LAW_KIND = { min: '법이 정한 최소 기준', eq: '법과 같아야 함', ref: '참고 기준(사립학교에 바로 적용되지 않음)' };
+let conformFilter = '';
+
+async function fetchTopics() {
+  try {
+    const r = await fetch('data/topics.json', { cache: 'no-cache' });
+    const js = r.ok ? await r.json() : null;
+    return js && Array.isArray(js.topics) ? js : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function renderConform() {
+  const box = $('#verify-law');
+  if (!index) { emptyState(box); return; }
+  if (!topicSet) { box.innerHTML = '<div class="card empty"><p class="muted">상위법 기준 목록(data/topics.json)을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.</p></div>'; return; }
+  const res = E.conformance(index, topicSet.topics);
+  const count = { worse: 0, diff: 0, missing: 0, ok: 0 };
+  let fromLaw = 0, total = 0;
+  for (const t of res) for (const R of t.refs) for (const c of R.checks) {
+    total++;
+    if (c.law.source === 'law') fromLaw++;
+    if (!c.rows.length) count.missing++;
+    for (const w of c.rows) {
+      if (w.status === 'worse') count.worse++;
+      else if (w.status === 'diff' || w.status === 'ref-diff') count.diff++;
+      else if (w.status === 'ok' || w.status === 'better' || w.status === 'follows') count.ok++;
+    }
+  }
+  const want = st => !conformFilter || (conformFilter === 'diff' ? st === 'diff' || st === 'ref-diff' : conformFilter === 'ok' ? ['ok', 'better', 'follows'].includes(st) : st === conformFilter);
+  const lawLink = R => `<a class="ref" href="${esc(((R.law && R.law.url) || 'https://www.law.go.kr/법령/' + R.ref.law.replace(/\s+/g, '')) + '/' + E.artLabel(R.ref.article))}" target="_blank" rel="noopener">조문 보기</a>`;
+  const checkHtml = (R, c) => {
+    const rows = c.rows.filter(w => want(w.status));
+    if (!c.rows.length && !want('missing')) return '';
+    if (c.rows.length && !rows.length) return '';
+    const v = c.law.value ? c.law.value.text : '?';
+    return `<div class="issue" style="cursor:default">
+      <div class="where">${R.ref.group !== '공통' ? `<span class="badge b-gray">${esc(R.ref.group)}</span> ` : ''}${esc(R.ref.law)} ${esc(E.artLabel(R.ref.article))} · ${esc(LAW_KIND[R.ref.kind] || '')} · ${lawLink(R)}</div>
+      <div class="msg">${esc(c.check.label)}: ${esc(v)} <span class="muted small" style="font-weight:400">${c.law.source === 'law' ? '(현행 조문에서 읽음)' : `(참고값, ${esc(topicSet.asOf || '')} 기준 — 업데이트하면 현행 조문으로 확인)`}</span></div>
+      ${c.law.line ? `<div class="quote">${esc(c.law.line)}</div>` : ''}
+      ${c.rows.length ? rows.map(w => `
+        <div class="crow" data-open="${esc(w.rule.id)}" data-art="${esc(w.article.key)}">
+          <span class="badge ${CONFORM[w.status][1]}">${CONFORM[w.status][0]}</span>
+          <b>${esc(w.rule.title)} ${esc(w.article.no)}</b>${w.value ? ` · ${esc(w.value.text)}` : ''}
+          <div class="quote">${esc(w.line)}</div>
+        </div>`).join('') : `<div class="det"><span class="badge b-gray">규정에 없음</span> 규정 본문에서 이 내용을 찾지 못했습니다. 별표나 다른 문서(지침 등)에 정했을 수 있으니 확인해 주세요.</div>`}
+    </div>`;
+  };
+  const topicsHtml = res.map(t => {
+    const body = t.refs.map(R => R.checks.map(c => checkHtml(R, c)).join('')).join('');
+    if (!body) return '';
+    const st = [];
+    for (const R of t.refs) for (const c of R.checks) { if (!c.rows.length) st.push('missing'); for (const w of c.rows) st.push(w.status); }
+    const badge = ['worse', 'diff', 'ref-diff', 'missing'].filter(k => st.includes(k)).map(k => `<span class="badge ${CONFORM[k][1]}">${CONFORM[k][0]}</span>`).join('')
+      + (st.some(k => ['ok', 'better', 'follows'].includes(k)) ? '<span class="badge b-green">일치</span>' : '');
+    const cand = t.candidates.length ? `<div class="muted small" style="padding:10px 16px;line-height:1.7">관련 조문: ${t.candidates.slice(0, 8).map(c => `<a class="ref" data-open="${esc(c.rule.id)}" data-art="${esc(c.article.key)}">${esc(c.rule.title)} ${esc(c.article.no)}</a>`).join(', ')}${t.candidates.length > 8 ? ` 외 ${t.candidates.length - 8}개` : ''}</div>` : '';
+    return `<details class="group" ${st.includes('worse') || st.includes('diff') ? 'open' : ''}>
+      <summary><span>${esc(t.topic.name)}</span> <span class="sum-badges">${badge}</span></summary>
+      <div class="list">${body}${cand}</div>
+    </details>`;
+  }).join('');
+  box.innerHTML = `
+    <div class="card">
+      <h2>상위법 기준 비교</h2>
+      <div class="stat-grid" style="grid-template-columns:1fr 1fr">
+        <div class="stat ${conformFilter === 'worse' ? 'on' : ''}" data-cf="worse"><div class="n" style="color:var(--red)">${count.worse}</div><div class="l">법 기준 미달</div></div>
+        <div class="stat ${conformFilter === 'diff' ? 'on' : ''}" data-cf="diff"><div class="n" style="color:var(--amber)">${count.diff}</div><div class="l">법과 다름</div></div>
+        <div class="stat ${conformFilter === 'missing' ? 'on' : ''}" data-cf="missing"><div class="n" style="color:var(--sub)">${count.missing}</div><div class="l">규정에 없음</div></div>
+        <div class="stat ${conformFilter === 'ok' ? 'on' : ''}" data-cf="ok"><div class="n" style="color:var(--green)">${count.ok}</div><div class="l">일치·준용</div></div>
+      </div>
+      <p class="muted small" style="margin-top:10px">
+        출산휴가·육아휴직·연차·병가·정년 등 주제별로 규정 조문과 상위 법령 조문에서 같은 내용의 숫자(기간·일수·나이)를 찾아 비교합니다.
+        기준 ${total}개 중 ${fromLaw}개는 국가법령정보센터의 현행 조문에서 읽었고, 나머지는 ${esc(topicSet.asOf || '')} 기준 참고값입니다${fromLaw < total ? ' (업데이트 프로그램을 한 번 실행하면 현행 조문으로 바뀝니다)' : ''}.<br>
+        교원·직원에 따라 적용 법령이 다를 수 있고 문장 속 숫자를 자동으로 읽은 결과이므로, <b>검토 후보</b>로 보고 원문으로 확인해 주세요.
+      </p>
+    </div>
+    ${conformFilter ? `<div class="result-count"><a class="ref" data-cf="">전체 보기</a></div>` : ''}
+    ${topicsHtml || '<div class="card empty"><p class="muted">해당하는 항목이 없습니다.</p></div>'}`;
+}
+
+$('#verify-law').addEventListener('click', e => {
+  const f = e.target.closest('[data-cf]');
+  if (f) { conformFilter = conformFilter === f.dataset.cf ? '' : f.dataset.cf; renderConform(); return; }
+  const o = e.target.closest('[data-open]');
+  if (o) openRule(o.dataset.open, o.dataset.art);
 });
 
 /* ---------- 검증: 동일·유사 ---------- */
@@ -1443,6 +1542,7 @@ $('#btnPaste').addEventListener('click', () => {
 /* ---------- 시작 ---------- */
 (async function init() {
   renderRecent();
+  fetchTopics().then(t => { topicSet = t; renderConform(); });
   let ds = null;
   try { ds = await idb.get('dataset'); } catch (e) { /* IndexedDB 사용 불가 */ }
   if (ds && ds.rules && ds.rules.length) {

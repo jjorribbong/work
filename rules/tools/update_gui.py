@@ -239,7 +239,18 @@ def update(cfg, log, stop=None):
     if cfg.get('check_laws'):
         log('■ 국가법령정보센터에서 인용 법령을 확인하는 중… (3분 정도 걸립니다)')
         laws_path = os.path.join(WORK_DIR, 'laws.json')
-        run_tool([os.path.join(tool_dir, 'law_check.py'), '--oc', cfg['oc'], '--rules', rules_path, '--out', laws_path] + list(cfg.get('law_args') or []), log, stop)
+        topics_path = os.path.join(WORK_DIR, 'topics.json')
+        try:  # 상위법 기준 비교 주제 목록(저장소의 data/topics.json)
+            _, topics_raw = gh.read('topics.json')
+        except StepError:
+            topics_raw = None
+        if topics_raw:
+            with open(topics_path, 'wb') as f:
+                f.write(topics_raw)
+        elif os.path.exists(topics_path):
+            os.remove(topics_path)
+        run_tool([os.path.join(tool_dir, 'law_check.py'), '--oc', cfg['oc'], '--rules', rules_path, '--out', laws_path,
+                  '--topics', topics_path] + list(cfg.get('law_args') or []), log, stop)
         with open(laws_path, encoding='utf-8') as f:
             new_laws = json.load(f)
 

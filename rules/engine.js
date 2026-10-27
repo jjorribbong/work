@@ -932,7 +932,142 @@
     return { onlyA: na.filter(t => !sb.has(t)), onlyB: nb.filter(t => !sa.has(t)) };
   }
 
+  /* ---------- 상위법 기준 비교 ---------- */
+
+  const AMOUNT_RE = /(\d+(?:\.\d+)?)\s*(개월|년|주|일|세)/g;
+  const FOLLOWS_RE = /준용|(?:에|을|를)\s*따른다|에\s*의한다|에서\s*정하는\s*바에\s*따/;
+
+  // "1년"·"6개월"·90 → {n, unit, text}. 기간은 개월로 맞춰 비교한다.
+  function amount(n, u) {
+    n = Number(n);
+    if (u === '년') return { n: n * 12, unit: '기간', text: n + '년' };
+    if (u === '개월') return { n, unit: '기간', text: n + '개월' };
+    if (u === '주') return { n: n * 7, unit: '일', text: n + '주', week: true };
+    if (u === '세') return { n, unit: '세', text: n + '세' };
+    return { n, unit: '일', text: n + '일' };
+  }
+
+  function catalogAmount(v, unit) {
+    if (v == null) return null;
+    const m = String(v).match(/^(\d+(?:\.\d+)?)\s*(개월|년|주|일|세)?$/);
+    if (!m) return null;
+    return amount(m[1], m[2] || (unit === '세' ? '세' : unit === '기간' ? '개월' : '일'));
+  }
+
+  function unitOk(a, unit) {
+    return a.unit === unit || (unit === '일' && a.week);
+  }
+
+  /** 줄에서 clause가 처음 나온 곳 뒤의 가장 가까운 숫자, 없으면 앞의 가장 가까운 숫자 */
+  function amountNear(line, clauseRe, unit) {
+    const m = clauseRe.exec(line);
+    if (!m) return null;
+    const all = [];
+    AMOUNT_RE.lastIndex = 0;
+    let t;
+    while ((t = AMOUNT_RE.exec(line))) {
+      const a = amount(t[1], t[2]);
+      if (unitOk(a, unit)) all.push(Object.assign(a, { pos: t.index }));
+    }
+    const after = all.find(a => a.pos >= m.index);
+    const before = all.filter(a => a.pos < m.index).pop();
+    return { match: m, value: after || before || null };
+  }
+
+  // 줄에 다른 대상만 적혀 있으면("교원의 정년은…") 그 대상의 기준과만 비교한다.
+  function lineGroupOk(line, group) {
+    if (group === '공통') return true;
+    const other = group === '교원' ? /직원/ : /교원|교수|강사/;
+    const own = group === '교원' ? /교원|교수|강사/ : /직원/;
+    return !other.test(line) || own.test(line) || /교직원/.test(line);
+  }
+
+  function findAmount(text, check, ruleSide, group) {
+    const re = new RegExp((ruleSide && check.ruleClause) || check.clause);
+    const not = check.not ? new RegExp(check.not) : null;
+    let follows = null;
+    for (const line of String(text || '').split('\n')) {
+      if (not && not.test(line)) continue;
+      if (ruleSide && group && !lineGroupOk(line, group)) continue;
+      const r = amountNear(line, re, check.unit);
+      if (!r) continue;
+      if (r.value) return { value: r.value, line: line.trim() };
+      if (!follows && ruleSide && FOLLOWS_RE.test(line)) follows = line.trim();
+    }
+    return follows ? { follows, line: follows } : null;
+  }
+
+  function wideCandidates(index, check, cand) {
+    const re = new RegExp(check.ruleClause || check.clause);
+    const seen = new Set(cand.map(c => c.article));
+    const out = [];
+    for (const r of index.rules) {
+      if (r.abolished) continue;
+      for (const a of r.articles) if (!a.addenda && !seen.has(a) && re.test(a.text)) out.push({ rule: r, article: a, group: ruleGroup(r.title) });
+    }
+    return out;
+  }
+
+  function ruleGroup(title) {
+    if (/교원|교수|강사|교육공무원/.test(title)) return '교원';
+    if (/직원/.test(title)) return '직원';
+    return '공통';
+  }
+
+  /**
+   * 규정을 상위 법령 기준(topics.json)과 비교한다.
+   * @param topics topics.json의 topics
+   * @returns [{topic, refs: [{ref, law, article, checks: [{check, law: {value, line, source}, rows: [{rule, article, value, line, status}]}]}], candidates}]
+   * status: ok(같음) | worse(법 기준 미달) | better(법보다 유리) | diff(법과 다름) | ref-diff(참고 기준과 다름) | follows(법령 준용)
+   */
+  function conformance(index, topics) {
+    const out = [];
+    for (const topic of topics || []) {
+      const findRe = new RegExp(topic.find);
+      const cand = [];
+      for (const r of index.rules) {
+        if (r.abolished) continue;
+        for (const a of r.articles) {
+          if (a.addenda) continue;
+          if (findRe.test(a.title || '') || findRe.test(a.text)) cand.push({ rule: r, article: a, group: ruleGroup(r.title) });
+        }
+      }
+      const res = { topic, refs: [], candidates: cand };
+      for (const ref of topic.refs || []) {
+        const law = index.laws.get(normTitle(ref.law)) || null;
+        const lawArt = law && law.found && law.articles ? law.articles[ref.article] : null;
+        const lawText = lawArt && !lawArt.missing ? lawArt.text : '';
+        const R = { ref, law, article: lawArt && !lawArt.missing ? lawArt : null, checks: [] };
+        for (const check of ref.checks || []) {
+          const got = lawText ? findAmount(lawText, check, false) : null;
+          const lv = got && got.value
+            ? { value: got.value, line: got.line, source: 'law' }
+            : { value: catalogAmount(check.value, check.unit), line: '', source: 'catalog' };
+          const rows = [];
+          // wide: 조 제목·본문에 주제어가 없어도 규정 쪽 문구만으로 찾는다(예: "자녀 1명에 대하여 3년")
+          const pool = check.wide ? cand.concat(wideCandidates(index, check, cand)) : cand;
+          for (const c of pool) {
+            if (ref.group !== '공통' && c.group !== '공통' && c.group !== ref.group) continue;
+            const f = findAmount(c.article.text, check, true, ref.group);
+            if (!f) continue;
+            let status = 'follows';
+            if (f.value && lv.value) {
+              const d = f.value.n - lv.value.n;
+              status = d === 0 ? 'ok' : ref.kind === 'min' ? (d < 0 ? 'worse' : 'better') : ref.kind === 'eq' ? 'diff' : 'ref-diff';
+            } else if (f.value) status = 'unknown';
+            rows.push({ rule: c.rule, article: c.article, value: f.value || null, line: f.line, status });
+          }
+          R.checks.push({ check, law: lv, rows });
+        }
+        res.refs.push(R);
+      }
+      out.push(res);
+    }
+    return out;
+  }
+
   return {
+    conformance,
     normTitle, looseRegex, escapeRegex, artKey, artLabel,
     parseRuleText, normalizeRule, buildIndex, findRuleByName, findArticle,
     parseQuery, makeMatchers, search, snippet,
