@@ -326,7 +326,6 @@
         <button data-v="check" class="on">정합성 점검</button>
         <button data-v="law">상위법 비교</button>
         <button data-v="dup">동일·유사</button>
-        <button data-v="cmp">두 규정 비교</button>
       </div>
       <div id="verify-check" style="margin-top:12px"></div>
       <div id="verify-law" class="hidden" style="margin-top:12px"></div>
@@ -343,17 +342,6 @@
           <button class="btn btn-primary" id="dupRun" style="margin-top:12px">분석 실행</button>
         </div>
         <div id="dupBody"></div>
-      </div>
-      <div id="verify-cmp" class="hidden" style="margin-top:12px">
-        <div class="card">
-          <h2>두 규정 비교</h2>
-          <label class="field">규정 A</label>
-          <input type="text" id="cmpA" list="ruleNames" placeholder="규정명 입력" autocomplete="off">
-          <label class="field">규정 B</label>
-          <input type="text" id="cmpB" list="ruleNames" placeholder="규정명 입력" autocomplete="off">
-          <button class="btn btn-primary" id="cmpRun" style="margin-top:12px">비교</button>
-        </div>
-        <div id="cmpBody"></div>
       </div>
     </section>
 
@@ -564,7 +552,6 @@ function refreshAll() {
   renderCheck();
   renderConform();
   $('#dupBody').innerHTML = '';
-  $('#cmpBody').innerHTML = '';
   renderDataStatus();
 }
 
@@ -904,7 +891,7 @@ $('#verify-check').addEventListener('click', e => {
 });
 
 segment($('#verifySeg'), v => {
-  ['check', 'law', 'dup', 'cmp'].forEach(k => $('#verify-' + k).classList.toggle('hidden', k !== v));
+  ['check', 'law', 'dup'].forEach(k => $('#verify-' + k).classList.toggle('hidden', k !== v));
 });
 
 /* ---------- 검증: 상위법 비교 ---------- */
@@ -1050,34 +1037,6 @@ $('#dupRun').addEventListener('click', () => {
 $('#dupBody').addEventListener('click', e => {
   const o = e.target.closest('[data-open]');
   if (o) openRule(o.dataset.open, o.dataset.art);
-});
-
-/* ---------- 검증: 두 규정 비교 ---------- */
-$('#cmpRun').addEventListener('click', () => {
-  const box = $('#cmpBody');
-  if (!index) { emptyState(box); return; }
-  const a = E.findRuleByName(index, $('#cmpA').value), b = E.findRuleByName(index, $('#cmpB').value);
-  if (!a || !b) { toast('목록에 있는 규정명을 골라 주세요.'); return; }
-  if (a === b) { toast('서로 다른 두 규정을 골라 주세요.'); return; }
-  const pairs = E.findSimilarPairs(index, { threshold: 0.4, ruleA: a.id, ruleB: b.id })
-    .map(p => p.ruleA === a ? p : Object.assign({}, p, { a: p.b, b: p.a, ruleA: p.ruleB, ruleB: p.ruleA, textA: p.textB, textB: p.textA }));
-  const matchedA = new Set(pairs.map(p => p.a.key)), matchedB = new Set(pairs.map(p => p.b.key));
-  const relEdges = getChecked().analysis.edges.filter(e => (e.from.rule === a && e.to.rule === b) || (e.from.rule === b && e.to.rule === a));
-  box.innerHTML = `
-    <div class="card">
-      <div class="stat-grid">
-        <div class="stat"><div class="n">${pairs.filter(p => p.identical).length}</div><div class="l">동일 조항</div></div>
-        <div class="stat"><div class="n">${pairs.filter(p => !p.identical).length}</div><div class="l">유사 조항</div></div>
-        <div class="stat"><div class="n">${pairs.filter(hasNumDiff).length}</div><div class="l">숫자 다름</div></div>
-      </div>
-      <p class="muted small" style="margin-top:10px">A의 ${a.articles.length}개 조 중 ${matchedA.size}개, B의 ${b.articles.length}개 조 중 ${matchedB.size}개가 상대 규정과 겹칩니다.</p>
-      ${relEdges.length ? `<div style="margin-top:8px">${relEdges.map(e => edgeLine(e)).join('')}</div>` : '<p class="muted small">두 규정 사이의 인용·위임 문언은 없습니다.</p>'}
-    </div>
-    <div class="list" style="margin-top:12px">${pairs.map(pairHtml).join('') || '<div class="pair muted">겹치는 조항이 없습니다.</div>'}</div>`;
-});
-$('#cmpBody').addEventListener('click', e => {
-  const o = e.target.closest('[data-open]');
-  if (o) openRule(o.dataset.open, o.dataset.art || null);
 });
 
 /* ---------- 규정 보기 ---------- */
