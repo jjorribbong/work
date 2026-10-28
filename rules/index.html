@@ -234,6 +234,10 @@
   .law-text { white-space: pre-wrap; font-size: 14px; line-height: 1.7; margin-top: 10px; }
   .addenda { background: #fff; margin-top: 8px; padding: 16px; }
   .addenda summary { font-weight: 700; cursor: pointer; }
+  .legend { margin: 10px 0 0; padding-left: 18px; line-height: 1.6; }
+  .legend li { margin: 2px 0; }
+  .period-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .period-row input { flex: 1; min-width: 0; }
   .attach { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
   .att { display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; color: inherit; text-decoration: none; font-size: 14px; }
   .addenda pre { white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.7; margin-top: 10px; }
@@ -288,16 +292,39 @@
     <!-- 검색 -->
     <section class="page active" id="page-search">
       <div class="card">
-        <div class="search-row">
-          <input type="search" id="q" placeholder="규정명 또는 내용 (예: 학사경고, 장학금)" autocomplete="off" enterkeyhint="search">
+        <div class="seg" id="modeSeg" style="margin-top:0;margin-bottom:10px">
+          <button data-v="word" class="on">낱말 검색</button>
+          <button data-v="period">개정 기간</button>
         </div>
-        <div class="seg" id="scopeSeg">
-          <button data-v="all" class="on">전체</button>
-          <button data-v="title">규정명</button>
-          <button data-v="body">본문</button>
+        <div id="wordBox">
+          <div class="search-row">
+            <input type="search" id="q" placeholder="규정명 또는 내용 (예: 학사경고, 장학금)" autocomplete="off" enterkeyhint="search">
+          </div>
+          <div class="seg" id="scopeSeg">
+            <button data-v="all" class="on">전체</button>
+            <button data-v="title">규정명</button>
+            <button data-v="body">본문</button>
+          </div>
+        </div>
+        <div id="periodBox" class="hidden">
+          <input type="search" id="perRule" list="ruleNames" placeholder="규정명 (비우면 전체 규정)" autocomplete="off">
+          <div class="period-row">
+            <input type="date" id="perFrom" aria-label="시작일">
+            <span>~</span>
+            <input type="date" id="perTo" aria-label="종료일">
+          </div>
+          <div class="chips" id="perChips">
+            <button class="chip" data-months="3">최근 3개월</button>
+            <button class="chip" data-months="6">최근 6개월</button>
+            <button class="chip" data-months="12">최근 1년</button>
+            <button class="chip" data-months="36">최근 3년</button>
+            <button class="chip" data-year="this">올해</button>
+            <button class="chip" data-year="all">전체 기간</button>
+          </div>
         </div>
         <div class="opts">
-          <label><input type="checkbox" id="ignoreSpace" checked> 띄어쓰기 무시</label>
+          <label id="ignoreSpaceLabel"><input type="checkbox" id="ignoreSpace" checked> 띄어쓰기 무시</label>
+          <label id="perEnactedLabel" class="hidden"><input type="checkbox" id="perEnacted"> 개정 표시 없는 조문도(규정 제정일 기준)</label>
           <select id="catFilter"><option value="">전체 분류</option></select>
         </div>
         <div class="chips" id="recentChips"></div>
@@ -557,7 +584,7 @@ function refreshAll() {
   $('#headerSub').textContent = index
     ? `현행 규정 ${index.rules.filter(r => !r.abolished).length}건` + (index.rules.some(r => r.abolished) ? ` (폐지 ${index.rules.filter(r => r.abolished).length})` : '') + ` · 조문 ${index.articles.length}개` + (dataset.fetchedAt ? ` · ${dataset.fetchedAt.slice(0, 10)} 기준` : '')
     : '규정 검색 · 위임조항 · 동일내용 검증';
-  const cats = index ? [...new Set(index.rules.map(r => r.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko')) : [];
+  const cats = index ? [...new Set(index.rules.map(r => r.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko', { numeric: true })) : [];
   $('#catFilter').innerHTML = '<option value="">전체 분류</option>' + cats.map(c => `<option>${esc(c)}</option>`).join('');
   $('#catFilter').classList.toggle('hidden', !cats.length);
   $('#ruleNames').innerHTML = index ? index.rules.map(r => `<option value="${esc(r.title)}">`).join('') : '';
@@ -631,10 +658,89 @@ $('#recentChips').addEventListener('click', e => {
   renderSearch();
 });
 
+/* 개정 기간 검색: 조문별 최종 개정일(조문 끝의 "(변경 2019. 5. 7.)" 같은 표시) 기준 */
+let searchMode = 'word';
+const isoToDot = v => (v || '').replace(/-/g, '.');
+const dateIso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function setPeriod(months, year) {
+  const now = new Date();
+  let from = new Date(now);
+  if (year === 'this') from = new Date(now.getFullYear(), 0, 1);
+  else if (year === 'all') { $('#perFrom').value = ''; $('#perTo').value = ''; renderSearch(); return; }
+  else from.setMonth(from.getMonth() - months);
+  $('#perFrom').value = dateIso(from);
+  $('#perTo').value = dateIso(now);
+  renderSearch();
+}
+segment($('#modeSeg'), v => {
+  searchMode = v;
+  $('#wordBox').classList.toggle('hidden', v !== 'word');
+  $('#periodBox').classList.toggle('hidden', v !== 'period');
+  $('#ignoreSpaceLabel').classList.toggle('hidden', v !== 'word');
+  $('#perEnactedLabel').classList.toggle('hidden', v !== 'period');
+  $('#recentChips').classList.toggle('hidden', v !== 'word');
+  if (v === 'period' && !$('#perFrom').value && !$('#perTo').value) setPeriod(12);
+  else renderSearch();
+});
+['perFrom', 'perTo', 'perEnacted'].forEach(id => $('#' + id).addEventListener('change', renderSearch));
+$('#perRule').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(renderSearch, 180); });
+$('#perChips').addEventListener('click', e => {
+  const c = e.target.closest('.chip');
+  if (c) setPeriod(+c.dataset.months || 0, c.dataset.year);
+});
+
+const REV_BADGE = { 개정: 'b-blue', 신설: 'b-green', 삭제: 'b-red', 제정: 'b-gray' };
+function revHit(x, showRule) {
+  const snip = x.article.text.replace(/\s+/g, ' ').slice(0, 90);
+  return `<div class="hit" data-open="${esc(x.rule.id)}" data-art="${esc(x.article.key)}">
+    <span class="badge ${REV_BADGE[x.kind] || 'b-blue'}">${esc(x.date)} ${esc(x.kind)}${x.estimated ? '(추정)' : ''}</span>
+    ${showRule ? `<b>${esc(x.rule.title)}</b> ` : ''}<b>${esc(x.article.no)}${x.article.title ? '(' + esc(x.article.title) + ')' : ''}</b>
+    <span class="muted">${esc(snip)}${x.article.text.length > 90 ? '…' : ''}</span>
+  </div>`;
+}
+
+function renderPeriod() {
+  const box = $('#searchResults');
+  const name = $('#perRule').value.trim();
+  const rule = name ? E.findRuleByName(index, name) : null;
+  if (name && !rule) { box.innerHTML = '<div class="card empty"><p class="muted">목록에 있는 규정명을 골라 주세요. 비우면 전체 규정에서 찾습니다.</p></div>'; return; }
+  const from = isoToDot($('#perFrom').value), to = isoToDot($('#perTo').value);
+  const list = E.revisedArticles(index, { rule, from, to, category: rule ? '' : $('#catFilter').value, includeEnacted: $('#perEnacted').checked });
+  const range = from || to ? `${from || '처음'} ~ ${to || '현재'}` : '전체 기간';
+  const note = '<p class="muted small" style="margin:4px 4px 10px">조문 끝의 개정 표시("(변경 2019. 5. 7.)", "[전문개정 …]" 등) 중 가장 최근 날짜를 그 조문의 최종 개정일로 봅니다. 개정 표시가 없는 조문은 빠집니다.</p>';
+  if (!list.length) {
+    box.innerHTML = `<div class="card empty"><div class="icon">📅</div><p class="muted">${rule ? `「${esc(rule.title)}」에서 ` : ''}${esc(range)}에 개정된 조문이 없습니다.</p></div>` + note;
+    return;
+  }
+  if (rule) {
+    box.innerHTML = `<div class="result-count">「${esc(rule.title)}」 · ${esc(range)} · 조문 ${list.length}개</div>${note}
+      <div class="list"><div class="item">${list.map(x => revHit(x, false)).join('')}</div></div>`;
+    return;
+  }
+  // 전체 규정: 규정별로 묶고 최근 개정 규정부터
+  const groups = new Map();
+  for (const x of list) {
+    if (!groups.has(x.rule)) groups.set(x.rule, []);
+    groups.get(x.rule).push(x);
+  }
+  box.innerHTML = `<div class="result-count">${esc(range)} · 규정 ${groups.size}건 · 조문 ${list.length}개</div>${note}<div class="list">` +
+    [...groups].slice(0, 300).map(([r, xs]) => {
+      const open = expanded.has('p:' + r.id);
+      const shown = open ? xs : xs.slice(0, 5);
+      return `<div class="item">
+        <div class="t" data-open="${esc(r.id)}">${esc(r.title)} <span class="badge b-gray">${xs.length}개 조</span></div>
+        <div class="m">${esc(r.category || '')} · 최근 개정 ${esc(xs[0].date)}</div>
+        ${shown.map(x => revHit(x, false)).join('')}
+        ${xs.length > 5 && !open ? `<div class="more" data-expand="p:${esc(r.id)}">조문 ${xs.length - 5}개 더 보기</div>` : ''}
+      </div>`;
+    }).join('') + '</div>';
+}
+
 const expanded = new Set();
 function renderSearch() {
   const box = $('#searchResults');
   if (!index) { emptyState(box); return; }
+  if (searchMode === 'period') { renderPeriod(); return; }
   const q = $('#q').value.trim();
   if (!q) {
     const bm = store.get('bookmarks', []).map(id => index.byId.get(id)).filter(Boolean);
@@ -670,6 +776,8 @@ function renderSearch() {
 $('#searchResults').addEventListener('click', e => {
   const ex = e.target.closest('[data-expand]');
   if (ex) { expanded.add(ex.dataset.expand); renderSearch(); return; }
+  const op = e.target.closest('[data-open]');
+  if (op) { openRule(op.dataset.open, op.dataset.art || null); return; }
   const item = e.target.closest('[data-rule]');
   if (!item) return;
   const hit = e.target.closest('[data-art]');
@@ -881,11 +989,12 @@ function renderCheck() {
         <div class="stat ${checkLevel === 'warn' ? 'on' : ''}" data-level="warn"><div class="n" style="color:var(--amber)">${stats.warn}</div><div class="l">주의</div></div>
         <div class="stat ${checkLevel === 'info' ? 'on' : ''}" data-level="info"><div class="n" style="color:var(--blue-l)">${stats.info}</div><div class="l">참고</div></div>
       </div>
-      <p class="muted small" style="margin-top:10px">
-        <b>오류</b> 없는 규정·조항·법령이나 폐지된 규정을 인용 · <b>주의</b> 인용한 법령 조가 규정 개정 뒤에 바뀜, 삭제된 법령 조 인용, 부칙의 인용 문제 등 ·
-        <b>참고</b> 목적 조항의 근거 조항에 위임 문언이 없거나, 위임한 하위 규정을 확인할 수 없음 등. 폐지된 규정은 점검하지 않습니다.<br>
-        요건·절차를 끌어 쓰는 단순 인용("~에 의하여 표창을 받을 때")은 점검하지 않습니다.
-      </p>
+      <ul class="muted small legend">
+        <li><b>오류</b>: 없는 규정·조항·법령이나 폐지된 규정을 인용</li>
+        <li><b>주의</b>: 인용한 법령 조가 규정 개정 뒤에 바뀜, 삭제된 법령 조 인용, 부칙의 인용 문제 등</li>
+        <li><b>참고</b>: 목적 조항의 근거 조항에 위임 문언이 없거나, 위임한 하위 규정을 확인할 수 없음 등</li>
+      </ul>
+      <p class="muted small" style="margin-top:6px">폐지된 규정과, 요건·절차를 끌어 쓰는 단순 인용("~에 의하여 표창을 받을 때")은 점검하지 않습니다.</p>
     </div>
     <div class="result-count">${shown.length}건 ${checkLevel !== 'all' ? '<a class="ref" data-level="all">전체 보기</a>' : ''}</div>
     <div class="list">${shown.slice(0, 500).map((it, i) => `

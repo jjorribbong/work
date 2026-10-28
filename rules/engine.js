@@ -213,6 +213,75 @@
     return out;
   }
 
+  // 조문의 개정 표시: "(변경 2019. 5. 7.)", "(신설:08.01.14, 변경:20.12.18)", "[전문개정 2023. 4. 19.]", "<개정 2020. 1. 1.>"
+  const REV_NOTE_RE = /[(\[<（]([^()\[\]<>（）]{0,200})[)\]>）]/g;
+  const REV_KW_RE = /신설|변경|개정|삭제/g;
+  const REV_KIND = { 신설: '신설', 변경: '개정', 개정: '개정', 삭제: '삭제' };
+
+  function revDates(note) {
+    const found = [];
+    const ok = (y, m, d) => m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1950 && y <= 2100;
+    let rest = note.replace(/(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})\s*일?/g, (all, y, m, d, pos) => {
+      if (ok(+y, +m, +d)) found.push({ pos, end: pos + all.length, date: `${y}.${m.padStart(2, '0')}.${d.padStart(2, '0')}` });
+      return ' '.repeat(all.length);
+    });
+    rest.replace(/(^|[^\d])(\d{2})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})(?!\d)/g, (all, pre, yy, m, d, pos) => {
+      const y = +yy >= 50 ? 1900 + +yy : 2000 + +yy;
+      if (ok(y, +m, +d)) found.push({ pos: pos + pre.length, end: pos + all.length, date: `${y}.${m.padStart(2, '0')}.${d.padStart(2, '0')}` });
+      return all;
+    });
+    return found.sort((a, b) => a.pos - b.pos);
+  }
+
+  /** 조문 본문의 개정 표시 → {date: 최종 날짜(YYYY.MM.DD), kind: 신설|개정|삭제, dates: [모든 날짜]} 또는 null */
+  function articleRevision(text) {
+    let last = null;
+    const all = [];
+    let m;
+    REV_NOTE_RE.lastIndex = 0;
+    while ((m = REV_NOTE_RE.exec(String(text || '')))) {
+      const note = m[1];
+      if (!/신설|변경|개정|삭제/.test(note)) continue;
+      const kws = [];
+      let k;
+      REV_KW_RE.lastIndex = 0;
+      while ((k = REV_KW_RE.exec(note))) kws.push({ pos: k.index, kind: REV_KIND[k[0]] });
+      for (const d of revDates(note)) {
+        // 날짜 바로 뒤에 붙은 낱말("18.01.01삭제", "01.02.09항 변경"), 아니면 앞에서 가장 가까운 낱말이 개정 종류
+        const before = kws.filter(x => x.pos < d.pos).pop();
+        const after = kws.find(x => x.pos >= d.end);
+        const glued = after && after.pos - d.end <= 3 ? after : null;
+        const kind = (glued || before || after || { kind: '개정' }).kind;
+        all.push(d.date);
+        if (!last || d.date >= last.date) last = { date: d.date, kind };
+      }
+    }
+    return last ? Object.assign(last, { dates: [...new Set(all)].sort() }) : null;
+  }
+
+  /**
+   * 기간 안에 개정(신설·삭제 포함)된 조문.
+   * @param opts {from, to: 'YYYY.MM.DD', rule: 규정(없으면 전체), category, includeEnacted: 개정 표시가 없는 조문은 규정 제정일로 봄}
+   * @returns [{rule, article, date, kind, estimated}] 최근 순
+   */
+  function revisedArticles(index, opts) {
+    opts = opts || {};
+    const out = [];
+    const from = opts.from || '0000.00.00', to = opts.to || '9999.99.99';
+    for (const r of opts.rule ? [opts.rule] : index.rules) {
+      if (r.abolished && !opts.rule) continue;
+      if (opts.category && r.category !== opts.category) continue;
+      for (const a of r.articles) {
+        let rev = a.revision;
+        let estimated = false;
+        if (!rev && opts.includeEnacted && r.enacted) { rev = { date: r.enacted, kind: '제정' }; estimated = true; }
+        if (!rev || rev.date < from || rev.date > to) continue;
+        out.push({ rule: r, article: a, date: rev.date, kind: rev.kind, estimated, dates: rev.dates || [rev.date] });
+      }
+    }
+    return out.sort((x, y) => y.date.localeCompare(x.date) || x.rule.title.localeCompare(y.rule.title, 'ko'));
+  }
+
   // 외부 데이터(JSON)를 앱 내부 형식으로 정리한다.
   function normalizeRule(r, i) {
     let rule = r;
@@ -223,7 +292,7 @@
         const m = String(a.no || '').match(/(\d+)\s*조(?:\s*의\s*(\d+))?/);
         key = m ? artKey(+m[1], m[2] ? +m[2] : 0) : `x${j}`;
       }
-      return { key, no: a.no || artLabel(key), title: a.title || '', chapter: a.chapter || '', text: a.text || '' };
+      return { key, no: a.no || artLabel(key), title: a.title || '', chapter: a.chapter || '', text: a.text || '', revision: articleRevision(a.text) };
     });
     // 조문(제N조) 형식이 아닌 규정은 본문 전체를 하나의 단위로 두어 검색·비교되게 한다.
     if (!articles.length && (rule.preamble || r.text)) {
@@ -1229,7 +1298,7 @@
   }
 
   return {
-    conformance, relatedLaws, compareWithLaws,
+    conformance, relatedLaws, compareWithLaws, articleRevision, revisedArticles,
     normTitle, looseRegex, escapeRegex, artKey, artLabel,
     parseRuleText, normalizeRule, buildIndex, findRuleByName, findArticle,
     parseQuery, makeMatchers, search, snippet,
