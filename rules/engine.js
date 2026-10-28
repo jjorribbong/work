@@ -1165,7 +1165,32 @@
   const LIMIT_UNIT = '(개월|년|주|일|시간|학점|세|퍼센트|%|명|회|학기)';
   const LIMIT_RE = new RegExp('(?:(\\d+)\\s*년\\s*)?(\\d+(?:\\.\\d+)?)\\s*' + LIMIT_UNIT +
     '(\\s*(?:\\([^()]{0,30}\\)\\s*)?(?:의\\s*)?(?:범위\\s*(?:안|내)?\\s*(?:에서|의)?\\s*)?(이상|이내|이하|미만|초과|까지|한도|[을를]\\s*넘지|[을를]\\s*초과하지|[을를]\\s*초과할\\s*수\\s*없))?', 'g');
-  const GENERIC_CTX_RE = /다음각호의?어느하나에해당(?:하는|할|하게된)?(?:경우|때|자|사람)?(?:에는|에)?/g;
+  const GENERIC_CTX_RE = /다음각호의?어느하나에해당(?:하는|할|하게된)?(?:경우|때|자|사람)?(?:에는|에)?|특별한사정이없는한|정당한사유가없으면|부득이한사유가있는경우에는/g;
+
+  // 문장의 주어(첫 "…은/는 "). "또는", "있는", "하는" 같은 말의 '는'은 건너뛴다.
+  function subjectOf(text) {
+    const re = /(은|는)\s/g;
+    let m;
+    while ((m = re.exec(text))) {
+      const prev = text[m.index - 1] || '';
+      if (!prev || /[\s또하있없되않한된인다]/.test(prev)) continue;
+      return text.slice(0, m.index);
+    }
+    return '';
+  }
+
+  // 주어 비교: "비정년트랙 전임교원의 임용기간은" ↔ "기간제교원의 임용기간은"처럼 뒷부분이 같아도
+  // 앞부분(누구의·무엇의)이 다르면 다른 기준이다. 공통 꼬리를 뺀 나머지가 양쪽 다 있고 서로 다르면 false.
+  function sameSubject(a, b) {
+    if (!a || !b) return true;
+    let i = 0;
+    while (i < a.length && i < b.length && a[a.length - 1 - i] === b[b.length - 1 - i]) i++;
+    const ra = a.slice(0, a.length - i), rb = b.slice(0, b.length - i);
+    // "위원회는" ↔ "고등교육재정지원위원회는": 회의체 이름이 한쪽만 있으면 다른 기관으로 본다
+    if (/(?:위원회|심의회|협의회|사업단|센터)$/.test(a.slice(a.length - i)) && (ra.length >= 2 || rb.length >= 2) && ra !== rb) return false;
+    if (ra.length < 2 || rb.length < 2) return true;
+    return dice(bigrams(ra), bigrams(rb)) >= 0.4;
+  }
 
   function ctxNorm(s) {
     return String(s || '').replace(/[\s\d.,·:;'"“”‘’()（）「」『』\[\]<>〈〉①-⑳-]/g, '');
@@ -1199,13 +1224,18 @@
       prevEnd = m.index + m[0].length;
       const cut = Math.max(s.lastIndexOf('. '), s.lastIndexOf(', '), s.lastIndexOf('다만'));
       if (cut >= 0 && s.length - cut > 8) s = s.slice(cut + 1);
+      // 주어는 앞 숫자 뒤가 아니라 문장 처음부터 찾는다("○○위원회는 위원장 1명을 포함하여 20명 이내")
+      const sent = line.slice(0, m.index);
+      const sentStart = Math.max(sent.lastIndexOf('. ') + 1, 0);
+      const subj = subjectOf(sent.slice(sentStart).replace(/^\s*(?:[①-⑳]|\d+\.|[가-하]\.)\s*/, ''));
       const ho = s.match(/제\s*(\d+)\s*호(?!.*제\s*\d+\s*호)/);
       const ctx = ctxNorm(s).replace(GENERIC_CTX_RE, '').slice(-24);
-      out.push({ n, unit, dir: /이상/.test(lim) ? 'min' : lim ? 'max' : '', raw: m[0].replace(/\s*\([^()]*\)/, '').trim(), ctx, cb: bigrams(ctx), tail: bigrams(ctx.slice(-10)), ho: ho ? ho[1] : '' });
+      out.push({ n, unit, dir: /이상/.test(lim) ? 'min' : lim ? 'max' : '', raw: m[0].replace(/\s*\([^()]*\)/, '').trim(), ctx, cb: bigrams(ctx), tail: bigrams(ctx.slice(-10)), ho: ho ? ho[1] : '', subj: subj ? ctxNorm(subj).slice(-20) : '' });
     }
     return out;
   }
 
+  const MIN_LINE_SIM = 0.4;
   const limitCache = new WeakMap();
   /** 법령 전체 조문 {name, articles} → 숫자 기준 목록(캐시) */
   function lawLimits(key, L) {
@@ -1247,6 +1277,7 @@
           for (const y of limits) {
             if (y.unit !== x.unit || (x.dir && x.dir !== y.dir)) continue;
             if (x.ho && y.ho && x.ho !== y.ho) continue; // "제7호의 사유로 인한 휴직기간"은 같은 호끼리
+            if (!sameSubject(x.subj, y.subj)) continue;
             // 앞말 전체와 숫자 바로 앞 10자의 유사도를 함께 본다("확정된 날부터 5년" ↔ "안 날부터 3년" 구분)
             let s = 0.5 * dice(x.cb, y.cb) + 0.5 * dice(x.tail, y.tail);
             const ls = dice(lb, y.lb);
@@ -1255,7 +1286,7 @@
               if (dice(tb, y.tb) >= 0.3 && s >= 0.95) s = 0.7 * s + 0.3 * dice(tb, y.tb);
               else if (!(ls >= 0.6 && s >= 0.5)) continue;
             }
-            if (s >= 0.65 || (ls >= 0.6 && s >= 0.45)) cands.push({ y, s: Math.max(s, ls) });
+            if (s >= 0.65 || (ls >= 0.6 && s >= 0.45)) cands.push({ y, s: Math.max(s, ls), ls });
           }
           if (!cands.length) continue;
           cands.sort((a, b) => b.s - a.s);
@@ -1263,9 +1294,12 @@
           const same = top.find(c => c.y.n === x.n);
           // 값이 다른 후보가 비슷한 점수로 여럿이면 어느 기준인지 모호하므로 뺀다
           if (!same && new Set(top.map(c => c.y.n)).size > 1) continue;
-          const { y, s } = same || top[0];
+          const { y, s, ls } = same || top[0];
+          // 값이 다르다고 알릴 때는 문장 전체도 어느 정도 비슷해야 한다(앞말만 우연히 같은 짝 제외)
+          // 조 제목도 조금은 겹쳐야 한다("보수지급일" ↔ "지정외부감사대상 학교법인…" 같은 짝 제외)
+          if (x.n !== y.n && (ls < MIN_LINE_SIM || dice(tb, y.tb) < 0.15)) continue;
           const status = x.n === y.n ? 'same' : y.dir === 'min' && x.n < y.n ? 'below' : y.dir === 'max' && x.n > y.n ? 'above' : 'diff';
-          out.push({ article: art, line, rv: x, lv: y, status, score: s });
+          out.push({ article: art, line, rv: x, lv: y, status, score: s, ls });
         }
       }
     }
