@@ -13,6 +13,7 @@
 실행: 같은 폴더의 '규정업데이트.bat'을 더블클릭 (또는 python update_gui.py)
 """
 import base64
+import shutil
 import datetime as dt
 import json
 import os
@@ -70,10 +71,13 @@ class GitHub:
         self.cfg = cfg
         self.base = cfg['api'].rstrip('/')
 
-    def _req(self, method, path, body=None):
-        url = f"{self.base}/repos/{self.cfg['repo']}/contents/{path}"
-        if method == 'GET':
-            url += f"?ref={self.cfg['branch']}"
+    def _req(self, method, path, body=None, raw_path=False):
+        if raw_path:  # git 데이터 API(/git/...)
+            url = f"{self.base}/repos/{self.cfg['repo']}/{path}"
+        else:
+            url = f"{self.base}/repos/{self.cfg['repo']}/contents/{path}"
+            if method == 'GET':
+                url += f"?ref={self.cfg['branch']}"
         data = json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(url, data=data, method=method, headers={
             'Authorization': f"Bearer {self.cfg['token']}",
@@ -114,6 +118,22 @@ class GitHub:
         if sha:
             body['sha'] = sha
         return self._req('PUT', f"{self.cfg['data_path']}/{name}", body)
+
+    def commit_files(self, files, message):
+        """여러 파일({저장소 경로: bytes})을 커밋 하나로 올린다."""
+        br = self.cfg['branch']
+        ref = self._req('GET', f'git/ref/heads/{br}', raw_path=True)
+        if not ref:
+            raise StepError(f'{br} 브랜치를 찾지 못했습니다.')
+        head = ref['object']['sha']
+        base_tree = self._req('GET', f'git/commits/{head}', raw_path=True)['tree']['sha']
+        tree = []
+        for path, content in files.items():
+            blob = self._req('POST', 'git/blobs', {'content': base64.b64encode(content).decode(), 'encoding': 'base64'}, raw_path=True)
+            tree.append({'path': path, 'mode': '100644', 'type': 'blob', 'sha': blob['sha']})
+        t = self._req('POST', 'git/trees', {'base_tree': base_tree, 'tree': tree}, raw_path=True)
+        c = self._req('POST', 'git/commits', {'message': message, 'tree': t['sha'], 'parents': [head]}, raw_path=True)
+        self._req('PATCH', f'git/refs/heads/{br}', {'sha': c['sha']}, raw_path=True)
 
     def raw(self, path):
         """저장소의 다른 파일(프로그램) 받기"""
@@ -156,8 +176,8 @@ def same_rules(old, new):
     a, r, c = rules_summary(old, new)
     if a or r or c:
         return False
-    oc = {r['title']: r.get('category', '') for r in old.get('rules', [])}
-    return all(oc.get(r['title']) == r.get('category', '') for r in new.get('rules', []))
+    oc = {r['title']: (r.get('category', ''), r.get('attachments')) for r in old.get('rules', [])}
+    return all(oc.get(r['title']) == (r.get('category', ''), r.get('attachments')) for r in new.get('rules', []))
 
 
 def same_laws(old, new):
@@ -204,8 +224,19 @@ def update(cfg, log, stop=None):
                     with open(os.path.join(WORK_DIR, t), 'wb') as f:
                         f.write(content)
             tool_dir = WORK_DIR
+            # 이 업데이트 프로그램 자신도 새 버전이 있으면 바꿔 둔다(다음 실행부터 적용)
+            me = os.path.abspath(__file__)
+            new_me = gh.raw('rules/tools/update_gui.py')
+            with open(me, 'rb') as f:
+                cur = f.read()
+            if new_me and new_me.replace(b'\r\n', b'\n') != cur.replace(b'\r\n', b'\n'):
+                with open(me, 'wb') as f:
+                    f.write(new_me)
+                raise StepError('업데이트 프로그램이 새 버전으로 바뀌었습니다. 이 창을 닫고 규정업데이트.bat을 다시 실행해 주세요.')
             log('  완료')
         except StepError as e:
+            if '새 버전' in str(e):
+                raise
             log(f'  받지 못해 이 폴더의 프로그램을 씁니다: {e}')
     for t in TOOLS:
         if not os.path.exists(os.path.join(tool_dir, t)):
@@ -249,8 +280,11 @@ def update(cfg, log, stop=None):
                 f.write(topics_raw)
         elif os.path.exists(topics_path):
             os.remove(topics_path)
+        text_dir = os.path.join(WORK_DIR, 'lawtext')
+        if os.path.isdir(text_dir):
+            shutil.rmtree(text_dir)
         run_tool([os.path.join(tool_dir, 'law_check.py'), '--oc', cfg['oc'], '--rules', rules_path, '--out', laws_path,
-                  '--topics', topics_path] + list(cfg.get('law_args') or []), log, stop)
+                  '--topics', topics_path, '--text-dir', text_dir] + list(cfg.get('law_args') or []), log, stop)
         with open(laws_path, encoding='utf-8') as f:
             new_laws = json.load(f)
 
@@ -276,6 +310,17 @@ def update(cfg, log, stop=None):
             uploaded.append('changes.json')
             log('  개정 이력을 기록했습니다.')
     if new_laws is not None:
+        # 법령 전체 조문(상위법 비교용): 바뀐 법령 파일만 커밋 하나로 올린다. laws.json보다 먼저 올려야 앱이 없는 파일을 찾지 않는다.
+        old_map = (old_laws or {}).get('laws', {})
+        texts = {}
+        for k, v in new_laws['laws'].items():
+            if v.get('text') and old_map.get(k, {}).get('textHash') != v.get('textHash'):
+                with open(os.path.join(WORK_DIR, v['text'].replace('/', os.sep)), 'rb') as f:
+                    texts[f"{cfg['data_path']}/{v['text']}"] = f.read()
+        if texts:
+            gh.commit_files(texts, f'법령 전체 조문 갱신 ({today}): {len(texts)}개')
+            uploaded.append(f'법령 조문 {len(texts)}개')
+            log(f'  법령 전체 조문 {len(texts)}개를 올렸습니다.')
         if old_laws and same_laws(old_laws, new_laws) and 'rules.json' not in uploaded:
             log('  법령 확인: 바뀐 내용이 없어 올리지 않습니다.')
         else:
