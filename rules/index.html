@@ -231,6 +231,8 @@
   .law-text { white-space: pre-wrap; font-size: 14px; line-height: 1.7; margin-top: 10px; }
   .addenda { background: #fff; margin-top: 8px; padding: 16px; }
   .addenda summary { font-weight: 700; cursor: pointer; }
+  .attach { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .att { display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; color: inherit; text-decoration: none; font-size: 14px; }
   .addenda pre { white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.7; margin-top: 10px; }
   .addenda .unit { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; scroll-margin-top: 70px; }
   .addenda .unit h4 { font-size: 13px; color: var(--sub); }
@@ -1079,6 +1081,23 @@ $('#cmpBody').addEventListener('click', e => {
 });
 
 /* ---------- 규정 보기 ---------- */
+// 별표·별지서식: 받기 주소를 알면 바로 받고, 모르면 규정관리시스템 원문 화면을 연다.
+function attachmentsHtml(rule) {
+  const list = rule.attachments || [];
+  if (!list.length) return '';
+  const direct = list.some(a => a.url);
+  return `<details class="addenda" id="attachments" open><summary>별표·서식 (${list.length})</summary>
+    <div class="attach">${list.map(a => {
+      const href = a.url || rule.url;
+      const icon = /별표/.test(a.name) ? '📊' : '📄';
+      return href
+        ? `<a class="att" href="${esc(href)}" target="_blank" rel="noopener">${icon} ${esc(a.label)} <span class="muted small">${esc((a.name.match(/\.([a-z]+)$/i) || ['', ''])[1].toUpperCase())}${a.url ? '' : ' · 원문에서 받기'}</span></a>`
+        : `<div class="att">${icon} ${esc(a.label)}</div>`;
+    }).join('')}</div>
+    ${direct ? '' : `<p class="muted small" style="margin-top:8px">누르면 규정관리시스템의 이 규정 화면이 열립니다. 아래쪽 별표서식 목록에서 파일을 받으세요. hwp 파일은 휴대폰에 한컴오피스 Viewer 앱이 있어야 열립니다.</p>`}
+  </details>`;
+}
+
 let viewing = null;
 let overlayDepth = 0;
 
@@ -1189,6 +1208,7 @@ function openRule(id, artKey, q) {
       ${rule.addendaUnits && rule.addendaUnits.length ? `<details class="addenda" id="addenda"><summary>부칙 (${rule.addendaUnits.length})</summary>${
         rule.addendaUnits.map(u => `<div class="unit" id="art-${esc(u.key)}"><h4>${esc(u.no)}${u.title ? ' (' + esc(u.title) + ')' : ''}</h4><div class="tags">${articleTags(rule, u)}</div><div class="body">${renderArticleBody(rule, u, matchers)}</div></div>`).join('')
       }</details>` : rule.addenda ? `<details class="addenda"><summary>부칙</summary><pre>${hl(rule.addenda, matchers)}</pre></details>` : ''}
+      ${attachmentsHtml(rule)}
       ${!rule.articles.length ? '<div class="card" style="margin:12px"><p class="muted">조문을 인식하지 못했습니다. 원문 형식을 확인해 주세요.</p></div>' : ''}`;
   }
   $('#vStar').textContent = store.get('bookmarks', []).includes(rule.id) ? '★' : '☆';

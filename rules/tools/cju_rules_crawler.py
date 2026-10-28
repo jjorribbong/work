@@ -252,6 +252,51 @@ def body_score(text):
     return sum(len(l.strip()) for l in (text or '').split('\n') if l.strip() and not HEADING_LINE_RE.match(l))
 
 
+ATTACH_NAME_RE = re.compile(r'\.(hwp|hwpx|pdf|docx?|xlsx?|zip)\s*$', re.I)
+JS_PATH_RE = re.compile(r"""['"]((?:https?://|/)[^'"\s]+)['"]""")
+
+
+def find_attachments(soup, page_url):
+    """별표·서식 파일 링크 → [{'name', 'url'?, 'link'?}].
+    href가 주소면 url로, 자바스크립트(onclick 등)면 원문을 link에 남긴다(받기 주소 형식 확인용)."""
+    out = []
+    for el in soup.find_all(True):
+        name = _clean(el.get_text(' ', strip=True))
+        if not name or len(name) > 120 or not ATTACH_NAME_RE.search(name):
+            continue
+        if el.find(lambda c: c is not el and ATTACH_NAME_RE.search(_clean(c.get_text(' ', strip=True)) or '')):
+            continue  # 안쪽 요소에서 처리
+        a = el if el.name == 'a' else el.find_parent('a') or el
+        if not a.get('href') and not a.get('onclick'):
+            a = next((p for p in [a] + list(a.parents)[:3] if p.get('onclick')), a)
+        href = (a.get('href') or '').strip()
+        js = ' '.join(v for v in (a.get('onclick'), href if href.lower().startswith('javascript') else '') if v).strip()
+        item = {'name': name}
+        if href and not href.lower().startswith(('javascript', '#')):
+            item['url'] = urljoin(page_url, href)
+        elif js:
+            m = JS_PATH_RE.search(js)
+            if m:
+                item['url'] = urljoin(page_url, m.group(1))
+            item['link'] = js[:300]
+        out.append(item)
+    return out
+
+
+def merge_attachments(*lists):
+    seen = {}
+    for lst in lists:
+        for a in lst or []:
+            k = re.sub(r'\s+', '', a['name'])
+            if k not in seen:
+                seen[k] = dict(a)
+            else:
+                for key in ('url', 'link'):
+                    if a.get(key) and not seen[k].get(key):
+                        seen[k][key] = a[key]
+    return list(seen.values())
+
+
 def extract_rule(client, html, url, hint_title='', depth=0, category='', trace=None):
     """규정 보기 페이지 HTML → {title, category, text}.
     본문이 iframe에 있으면 모든 iframe을 따라가, 조 제목만 있는 목차가 아니라
@@ -262,6 +307,7 @@ def extract_rule(client, html, url, hint_title='', depth=0, category='', trace=N
     category = category or o_cat
     hint = hint_title or o_title
     results = []
+    attachments = find_attachments(soup, url)
     if n:
         page_text = html_to_text(BeautifulSoup(html, 'html.parser'))
         text = html_to_text(node)
@@ -279,14 +325,17 @@ def extract_rule(client, html, url, hint_title='', depth=0, category='', trace=N
                 got = extract_rule(client, r.text, r.url, hint, depth + 1, category, trace)
                 if got:
                     results.append(got)
+                    attachments = merge_attachments(attachments, got.get('attachments'))
     if results:
         best = max(results, key=lambda g: (body_score(g['text']), len(g['text'])))
         if not best['title'] and hint:
             best['title'] = hint
+        best['attachments'] = merge_attachments(attachments, best.get('attachments'))
         return best
     got = extract_without_articles(html, hint)
     if got:
         got['category'] = category
+        got['attachments'] = attachments
     return got
 
 
@@ -473,6 +522,8 @@ def finalize(pages):
         })
         if p.get('no_articles'):
             rules[-1]['noArticles'] = True
+        if p.get('attachments'):
+            rules[-1]['attachments'] = p['attachments']
     log(f'  → 규정 페이지 {len(pages)}개 중 중복 제외 {len(rules)}건'
         + (f" (조문 형식이 아닌 규정 {sum(1 for r in rules if r.get('noArticles'))}건 포함)" if any(r.get('noArticles') for r in rules) else ''))
     return rules
@@ -531,6 +582,9 @@ def debug_page(args):
         print(f'규정명: {got["title"] or "(없음)"}  /  분류: {got.get("category") or "(없음)"}  /  조문 글자 수: {body_score(got["text"])}'
               + ('  /  조문 형식 아님' if got.get('no_articles') else ''))
         print('\n'.join([l for l in got['text'].split('\n') if l.strip()][:12]))
+        print(f'--- 별표·서식 {len(got.get("attachments") or [])}개 ---')
+        for a in (got.get('attachments') or [])[:10]:
+            print(f"  {a['name']}  주소: {a.get('url') or '(없음)'}" + (f"  링크: {a['link']}" if a.get('link') else ''))
 
 
 def main():

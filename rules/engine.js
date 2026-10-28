@@ -189,6 +189,30 @@
     return units.filter(u => u.text);
   }
 
+  const ATTACH_RE = /\.(?:hwp|hwpx|pdf|docx?|xlsx?|zip)$/i;
+
+  // 본문 끝의 첨부 목록("별표1.hwp", "2016-별지제1호서식.hwp")과 수집기가 찾은 받기 주소를 합친다.
+  function attachmentList(r) {
+    const out = [];
+    const byName = new Map();
+    const add = (name, url) => {
+      name = String(name || '').trim();
+      if (!name) return;
+      const k = name.replace(/\s+/g, '');
+      const got = byName.get(k);
+      if (got) { if (url && !got.url) got.url = url; return; }
+      const a = { name, label: name.replace(/^\d{4}-/, '').replace(/\.[a-z]+$/i, '').replace(/_/g, ' ').trim() || name, url: url || '' };
+      byName.set(k, a);
+      out.push(a);
+    };
+    for (const a of r.attachments || []) add(a.name, a.url);
+    for (const raw of String(r.text || [r.preamble, r.addenda].join('\n')).split('\n')) {
+      const line = raw.trim();
+      if (ATTACH_RE.test(line) && line.length < 120) add(line);
+    }
+    return out;
+  }
+
   // 외부 데이터(JSON)를 앱 내부 형식으로 정리한다.
   function normalizeRule(r, i) {
     let rule = r;
@@ -217,6 +241,7 @@
       abolished: rule.abolished || '',
       preamble: articles.length === 1 && articles[0].key === 'body' ? '' : rule.preamble || '',
       addenda: rule.addenda || '',
+      attachments: attachmentList(r),
       articles,
     };
   }
