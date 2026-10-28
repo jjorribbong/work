@@ -1297,7 +1297,123 @@
     return { citations, similar };
   }
 
+  /* ---------- 법의 숫자 기준 자동 대조 ---------- */
+  // 법 조문의 "30주 이상", "3개월 이내", "40시간을 초과할 수 없다" 같은 기준을 뽑아,
+  // 앞말(문맥)이 같은 규정 문장의 숫자와 비교한다. 주제를 손으로 정하지 않아도 된다.
+
+  const LIMIT_UNIT = '(개월|년|주|일|시간|학점|세|퍼센트|%|명|회|학기)';
+  const LIMIT_RE = new RegExp('(?:(\\d+)\\s*년\\s*)?(\\d+(?:\\.\\d+)?)\\s*' + LIMIT_UNIT +
+    '(\\s*(?:\\([^()]{0,30}\\)\\s*)?(?:의\\s*)?(?:범위\\s*(?:안|내)?\\s*(?:에서|의)?\\s*)?(이상|이내|이하|미만|초과|까지|한도|[을를]\\s*넘지|[을를]\\s*초과하지|[을를]\\s*초과할\\s*수\\s*없))?', 'g');
+  const GENERIC_CTX_RE = /다음각호의?어느하나에해당(?:하는|할|하게된)?(?:경우|때|자|사람)?(?:에는|에)?/g;
+
+  function ctxNorm(s) {
+    return String(s || '').replace(/[\s\d.,·:;'"“”‘’()（）「」『』\[\]<>〈〉①-⑳-]/g, '');
+  }
+
+  function bigrams(s) {
+    const o = new Set();
+    for (let i = 0; i + 2 <= s.length; i++) o.add(s.slice(i, i + 2));
+    return o;
+  }
+
+  function dice(a, b) {
+    let c = 0;
+    a.forEach(x => { if (b.has(x)) c++; });
+    return a.size + b.size ? 2 * c / (a.size + b.size) : 0;
+  }
+
+  /** 문장 속 숫자 → [{n, unit, dir: min|max|'', raw, ctx(앞말), cb}] — 년은 개월로 맞춘다 */
+  function numberFacts(line) {
+    const out = [];
+    let m, prevEnd = 0;
+    LIMIT_RE.lastIndex = 0;
+    while ((m = LIMIT_RE.exec(line))) {
+      let unit = m[3], n = +m[2];
+      if (m[1] && unit === '개월') n += 12 * +m[1];
+      if (unit === '년') { n *= 12; unit = '개월'; }
+      if (unit === '퍼센트') unit = '%';
+      const lim = m[5] || '';
+      // 앞말: 같은 문장에서 앞 숫자 뒤부터("30주 이상, 매 학기 15주" → "매 학기")
+      let s = line.slice(prevEnd, m.index);
+      prevEnd = m.index + m[0].length;
+      const cut = Math.max(s.lastIndexOf('. '), s.lastIndexOf(', '), s.lastIndexOf('다만'));
+      if (cut >= 0 && s.length - cut > 8) s = s.slice(cut + 1);
+      const ho = s.match(/제\s*(\d+)\s*호(?!.*제\s*\d+\s*호)/);
+      const ctx = ctxNorm(s).replace(GENERIC_CTX_RE, '').slice(-24);
+      out.push({ n, unit, dir: /이상/.test(lim) ? 'min' : lim ? 'max' : '', raw: m[0].replace(/\s*\([^()]*\)/, '').trim(), ctx, cb: bigrams(ctx), tail: bigrams(ctx.slice(-10)), ho: ho ? ho[1] : '' });
+    }
+    return out;
+  }
+
+  const limitCache = new WeakMap();
+  /** 법령 전체 조문 {name, articles} → 숫자 기준 목록(캐시) */
+  function lawLimits(key, L) {
+    if (limitCache.has(L)) return limitCache.get(L);
+    const out = [];
+    for (const [ak, a] of Object.entries(L.articles || {})) {
+      if (!a || a.missing || a.deleted) continue;
+      const tb = bigrams(ctxNorm(a.title || ''));
+      for (const raw of String(a.text || '').split('\n')) {
+        const line = stripNotes(raw).trim();
+        const lb = bigrams(ctxNorm(line));
+        for (const f of numberFacts(line)) {
+          if (f.dir && f.ctx.length >= 4) out.push(Object.assign(f, { key, name: L.name, ak, art: a, line, tb, lb }));
+        }
+      }
+    }
+    limitCache.set(L, out);
+    return out;
+  }
+
+  /**
+   * 규정 조문의 숫자를 법의 숫자 기준과 대조한다.
+   * @param texts Map(법령 키 → {name, articles})
+   * @returns [{article, line, rv, lv, status, score}] status: same | below(법 최소 기준 미달) | above(법 최대 기준 초과) | diff
+   */
+  function limitPairs(rule, texts) {
+    const limits = [];
+    for (const [key, L] of texts) limits.push(...lawLimits(key, L));
+    if (!limits.length) return [];
+    const out = [];
+    for (const art of rule.articles) {
+      const tb = bigrams(ctxNorm(art.title || ''));
+      for (const raw of String(art.text || '').split('\n')) {
+        const line = stripNotes(raw).trim();
+        const lb = bigrams(ctxNorm(line));
+        for (const x of numberFacts(line)) {
+          if (x.ctx.length < 4) continue;
+          const cands = [];
+          for (const y of limits) {
+            if (y.unit !== x.unit || (x.dir && x.dir !== y.dir)) continue;
+            if (x.ho && y.ho && x.ho !== y.ho) continue; // "제7호의 사유로 인한 휴직기간"은 같은 호끼리
+            // 앞말 전체와 숫자 바로 앞 10자의 유사도를 함께 본다("확정된 날부터 5년" ↔ "안 날부터 3년" 구분)
+            let s = 0.5 * dice(x.cb, y.cb) + 0.5 * dice(x.tail, y.tail);
+            const ls = dice(lb, y.lb);
+            if (x.ctx.length < 8 || y.ctx.length < 8) {
+              // 앞말이 짧으면("석사학위과정") 조 제목도 비슷하고 앞말이 거의 같아야 한다
+              if (dice(tb, y.tb) >= 0.3 && s >= 0.95) s = 0.7 * s + 0.3 * dice(tb, y.tb);
+              else if (!(ls >= 0.6 && s >= 0.5)) continue;
+            }
+            if (s >= 0.65 || (ls >= 0.6 && s >= 0.45)) cands.push({ y, s: Math.max(s, ls) });
+          }
+          if (!cands.length) continue;
+          cands.sort((a, b) => b.s - a.s);
+          const top = cands.filter(c => c.s >= cands[0].s - 0.05);
+          const same = top.find(c => c.y.n === x.n);
+          // 값이 다른 후보가 비슷한 점수로 여럿이면 어느 기준인지 모호하므로 뺀다
+          if (!same && new Set(top.map(c => c.y.n)).size > 1) continue;
+          const { y, s } = same || top[0];
+          const status = x.n === y.n ? 'same' : y.dir === 'min' && x.n < y.n ? 'below' : y.dir === 'max' && x.n > y.n ? 'above' : 'diff';
+          out.push({ article: art, line, rv: x, lv: y, status, score: s });
+        }
+      }
+    }
+    const rank = { below: 0, above: 0, diff: 1, same: 2 };
+    return out.sort((a, b) => rank[a.status] - rank[b.status] || b.score - a.score);
+  }
+
   return {
+    limitPairs, lawLimits,
     conformance, relatedLaws, compareWithLaws, articleRevision, revisedArticles,
     normTitle, looseRegex, escapeRegex, artKey, artLabel,
     parseRuleText, normalizeRule, buildIndex, findRuleByName, findArticle,

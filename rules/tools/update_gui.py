@@ -174,7 +174,7 @@ def change_event(old, new, at):
 
 def same_rules(old, new):
     a, r, c = rules_summary(old, new)
-    if a or r or c:
+    if a or r or c or old.get('fileDown') != new.get('fileDown'):
         return False
     oc = {r['title']: (r.get('category', ''), r.get('attachments')) for r in old.get('rules', [])}
     return all(oc.get(r['title']) == (r.get('category', ''), r.get('attachments')) for r in new.get('rules', []))

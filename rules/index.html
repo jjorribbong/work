@@ -366,6 +366,14 @@
           <div id="lawRelated"></div>
         </div>
         <div id="lawResult"></div>
+        <details class="group" id="limitAll" style="margin-top:12px">
+          <summary><span>법 숫자 기준 자동 대조 (규정집 전체)</span></summary>
+          <div style="padding:0 16px 14px">
+            <p class="muted small">모든 규정을 관련 상위 법령의 "30주 이상", "3개월 이내" 같은 숫자 기준과 자동으로 대조합니다. 처음 실행할 때 법령 조문 파일(약 8MB)을 내려받습니다.</p>
+            <button class="btn btn-primary" id="limitAllRun" style="margin-top:10px;width:100%">전체 대조 실행</button>
+          </div>
+          <div id="limitAllBody"></div>
+        </details>
         <details class="group" id="conformAll" style="margin-top:12px">
           <summary><span>주제별 기준 비교 (규정집 전체)</span></summary>
           <div id="conformAllBody" style="padding:0 0 8px"></div>
@@ -592,6 +600,8 @@ function refreshAll() {
   renderList();
   renderRel();
   renderCheck();
+  limitAll = null;
+  $('#limitAllBody').innerHTML = '';
   renderConform();
   $('#dupBody').innerHTML = '';
   renderDataStatus();
@@ -1172,6 +1182,71 @@ function numBadge(n) {
   return `<span class="badge ${n.differ ? 'b-red' : 'b-gray'}">숫자 ${n.differ ? '다름' : '차이'}: 규정 ${esc(n.onlyA.join(', ') || '-')} ↔ 법 ${esc(n.onlyB.join(', ') || '-')}</span>`;
 }
 
+const LIMIT_STATUS = { below: ['법 최소 기준 미달', 'b-red'], above: ['법 최대 기준 초과', 'b-red'], diff: ['법과 다름', 'b-amber'], same: ['같음', 'b-green'] };
+const DIR_LABEL = { min: '최소 기준', max: '최대 기준' };
+
+function limitRow(p, texts, showRule) {
+  const rule = index.byId.get(p.article.ruleId);
+  const L = texts.get(p.lv.key) || {};
+  return `<div class="issue" data-open="${esc(rule.id)}" data-art="${esc(p.article.key)}">
+    <span class="badge ${LIMIT_STATUS[p.status][1]}">${LIMIT_STATUS[p.status][0]}</span> <span class="badge b-gray">유사 ${Math.round(p.score * 100)}%</span>
+    <div class="msg">규정 ${esc(p.rv.raw)} ↔ 법 ${esc(p.lv.raw)} <span class="muted small" style="font-weight:400">(${DIR_LABEL[p.lv.dir] || ''})</span></div>
+    <div class="where">${showRule ? `${esc(rule.title)} ` : ''}${esc(p.article.no)}${p.article.title ? '(' + esc(p.article.title) + ')' : ''} ↔ ${esc(p.lv.name)} ${esc(p.lv.art.no || E.artLabel(p.lv.ak))}${p.lv.art.title ? '(' + esc(p.lv.art.title) + ')' : ''} · ${lawArtLink(p.lv.name, L.url, p.lv.ak)}</div>
+    <div class="quote">${esc(p.line)}</div>
+    <div class="quote" style="border-left-color:var(--green)">${esc(p.lv.line)}</div>
+  </div>`;
+}
+
+/* 규정집 전체: 모든 규정을 관련 법령의 숫자 기준과 대조 */
+let limitAll = null;     // {rows: [{rule, pairs}], texts}
+let limitFilter = 'diff';
+async function runLimitAll() {
+  const box = $('#limitAllBody');
+  const btn = $('#limitAllRun');
+  btn.disabled = true;
+  const an = getChecked().analysis;
+  const plans = index.rules.filter(r => !r.abolished).map(r => ({ rule: r, laws: E.relatedLaws(index, r, an, topicSet).filter(x => x.law && x.law.found) }));
+  const need = new Map();
+  plans.forEach(p => p.laws.forEach(x => need.set(x.key, x)));
+  const texts = new Map();
+  let i = 0;
+  for (const x of need.values()) {
+    box.innerHTML = `<p class="muted small" style="padding:0 16px 14px">법령 조문 받는 중… ${++i}/${need.size}</p>`;
+    const one = await lawTexts([x]);
+    texts.set(x.key, one.get(x.key));
+  }
+  const rows = [];
+  for (let j = 0; j < plans.length; j++) {
+    const p = plans[j];
+    const sub = new Map(p.laws.map(x => [x.key, texts.get(x.key)]));
+    const pairs = E.limitPairs(p.rule, sub);
+    if (pairs.length) rows.push({ rule: p.rule, pairs });
+    if (j % 20 === 0) {
+      box.innerHTML = `<p class="muted small" style="padding:0 16px 14px">대조 중… ${j}/${plans.length}</p>`;
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+  limitAll = { rows, texts };
+  btn.disabled = false;
+  btn.textContent = '다시 실행';
+  renderLimitAll();
+}
+
+function renderLimitAll() {
+  const box = $('#limitAllBody');
+  if (!limitAll) return;
+  const all = limitAll.rows.flatMap(r => r.pairs);
+  const cnt = k => all.filter(p => k === 'out' ? p.status === 'below' || p.status === 'above' : p.status === k).length;
+  const want = p => limitFilter === 'all' || (limitFilter === 'diff' ? p.status !== 'same' : limitFilter === 'out' ? p.status === 'below' || p.status === 'above' : p.status === limitFilter);
+  const rows = limitAll.rows.map(r => ({ rule: r.rule, pairs: r.pairs.filter(want) })).filter(r => r.pairs.length);
+  const chip = (k, label, n) => `<button class="chip ${limitFilter === k ? 'on' : ''}" data-lf="${k}">${label} ${n}</button>`;
+  box.innerHTML = `<div style="padding:0 16px">
+      <div class="chips">${chip('diff', '다른 것만', all.length - cnt('same'))}${chip('out', '법 기준 벗어남', cnt('out'))}${chip('same', '같음', cnt('same'))}${chip('all', '전체', all.length)}</div>
+      <p class="muted small" style="margin:8px 0">규정 ${limitAll.rows.length}건에서 법의 숫자 기준과 짝지은 문장 ${all.length}개. 앞말이 비슷한 문장끼리 자동으로 짝지은 결과라 엉뚱한 짝도 섞일 수 있으니 <b>검토 후보</b>로 봐 주세요.</p>
+    </div>
+    <div class="list">${rows.map(r => r.pairs.map(p => limitRow(p, limitAll.texts, true)).join('')).join('') || '<div class="issue muted">해당하는 문장이 없습니다.</div>'}</div>`;
+}
+
 async function runLawCheck() {
   const rule = lawRule;
   if (!rule) return;
@@ -1184,6 +1259,8 @@ async function runLawCheck() {
   const an = getChecked().analysis;
   const keys = new Set(picked.map(x => x.key));
   const { citations, similar } = E.compareWithLaws(index, rule, an, texts);
+  const limits = E.limitPairs(rule, texts);
+  const nLimit = limits.filter(p => p.status !== 'same').length;
   const issues = getChecked().issues.filter(i => i.rule === rule && /^law-/.test(i.type) && !i.article.addenda);
   const topicRows = [];
   for (const t of E.conformance(index, topicSet.topics)) for (const R of t.refs) {
@@ -1205,7 +1282,7 @@ async function runLawCheck() {
       <div class="stat-grid" style="grid-template-columns:1fr 1fr">
         <div class="stat"><div class="n" style="color:var(--red)">${issues.filter(i => i.level === 'error').length}</div><div class="l">인용 오류</div></div>
         <div class="stat"><div class="n" style="color:var(--amber)">${issues.filter(i => i.level !== 'error').length}</div><div class="l">인용 주의</div></div>
-        <div class="stat"><div class="n" style="color:var(--red)">${nSim + nCite}</div><div class="l">법과 숫자가 다른 조문</div></div>
+        <div class="stat"><div class="n" style="color:var(--red)">${nLimit + nSim + nCite}</div><div class="l">법과 숫자가 다른 곳</div></div>
         <div class="stat"><div class="n" style="color:var(--amber)">${nTopic}</div><div class="l">주제 기준 미달·다름</div></div>
       </div>
       <p class="muted small" style="margin-top:10px">법령 ${picked.length}개와 대조했습니다.${partial.length ? ` ${esc(partial.join(', '))}은(는) 아직 전체 조문이 없어 인용한 조문만 대조했습니다(업데이트 프로그램을 실행하면 전체 조문으로 대조).` : ''}
@@ -1218,6 +1295,8 @@ async function runLawCheck() {
         <div class="where">${esc(it.article.no)}${it.article.title ? '(' + esc(it.article.title) + ')' : ''}</div>
         <div class="det">${esc(it.detail)}</div>
       </div>`).join('') || '<div class="issue muted">인용한 법령·조문에 문제가 없습니다.</div>', issues.length > 0)}
+    ${sec('법 숫자 기준 대조', limits.length, nLimit ? `다름 ${nLimit}` : '', limits.map(p => limitRow(p, texts, false)).join('')
+      || '<div class="issue muted">법의 숫자 기준("○주 이상", "○개월 이내" 등)과 짝지어지는 문장이 없습니다.</div>', nLimit > 0)}
     ${sec('비슷한 법 조문 (문장 대조)', similar.length, nSim ? `숫자 다름 ${nSim}` : '', similar.map(p => {
       const [l, r] = p.identical ? [esc(p.ruleText), esc(p.lawText)] : diffHtml(p.ruleText, p.lawText);
       return `<div class="pair"><div class="hd">${p.identical ? '<span class="badge b-green">법과 동일</span>' : `<span class="badge b-amber">유사 ${Math.round(p.score * 100)}%</span>`} ${numBadge(p.nums)}</div>
@@ -1238,6 +1317,9 @@ async function runLawCheck() {
 
 $('#verify-law').addEventListener('click', e => {
   if (e.target.closest('#lawRun')) { runLawCheck(); return; }
+  if (e.target.closest('#limitAllRun')) { runLimitAll(); return; }
+  const lf = e.target.closest('[data-lf]');
+  if (lf) { limitFilter = lf.dataset.lf; renderLimitAll(); return; }
   const f = e.target.closest('[data-cf]');
   if (f) { conformFilter = conformFilter === f.dataset.cf ? '' : f.dataset.cf; renderConform(); return; }
   const o = e.target.closest('[data-open]');
