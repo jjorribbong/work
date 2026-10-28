@@ -155,6 +155,9 @@
   .issue .where { font-size: 12px; color: var(--sub); margin-top: 4px; }
   .issue .msg { font-size: 14px; font-weight: 700; margin-top: 5px; line-height: 1.45; }
   .issue .det { font-size: 12px; color: var(--sub); margin-top: 4px; line-height: 1.5; }
+  .lawpick { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--border); font-size: 14px; line-height: 1.5; }
+  .lawpick input { margin-top: 4px; }
+  .lawpick.off { opacity: .55; }
   .crow { margin-top: 10px; cursor: pointer; font-size: 13px; }
   .quote { margin-top: 6px; font-size: 12px; background: #f9fafb; border-left: 3px solid var(--border); padding: 6px 8px; line-height: 1.5; }
 
@@ -231,6 +234,8 @@
   .law-text { white-space: pre-wrap; font-size: 14px; line-height: 1.7; margin-top: 10px; }
   .addenda { background: #fff; margin-top: 8px; padding: 16px; }
   .addenda summary { font-weight: 700; cursor: pointer; }
+  .attach { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .att { display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; color: inherit; text-decoration: none; font-size: 14px; }
   .addenda pre { white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.7; margin-top: 10px; }
   .addenda .unit { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; scroll-margin-top: 70px; }
   .addenda .unit h4 { font-size: 13px; color: var(--sub); }
@@ -324,10 +329,21 @@
         <button data-v="check" class="on">정합성 점검</button>
         <button data-v="law">상위법 비교</button>
         <button data-v="dup">동일·유사</button>
-        <button data-v="cmp">두 규정 비교</button>
       </div>
       <div id="verify-check" style="margin-top:12px"></div>
-      <div id="verify-law" class="hidden" style="margin-top:12px"></div>
+      <div id="verify-law" class="hidden" style="margin-top:12px">
+        <div class="card">
+          <h2>규정을 상위 법령과 대조</h2>
+          <p class="muted small">규정명을 입력하면 그 규정이 인용하거나 관련된 상위 법령을 찾습니다. 대조할 법령을 고르고 <b>검증</b>을 누르세요.</p>
+          <input type="text" id="lawRuleInput" list="ruleNames" placeholder="규정명 입력 (예: 학칙, 복무규정)" autocomplete="off" style="margin-top:10px">
+          <div id="lawRelated"></div>
+        </div>
+        <div id="lawResult"></div>
+        <details class="group" id="conformAll" style="margin-top:12px">
+          <summary><span>주제별 기준 비교 (규정집 전체)</span></summary>
+          <div id="conformAllBody" style="padding:0 0 8px"></div>
+        </details>
+      </div>
       <div id="verify-dup" class="hidden" style="margin-top:12px">
         <div class="card">
           <h2>규정 간 동일·유사 조항 찾기</h2>
@@ -341,17 +357,6 @@
           <button class="btn btn-primary" id="dupRun" style="margin-top:12px">분석 실행</button>
         </div>
         <div id="dupBody"></div>
-      </div>
-      <div id="verify-cmp" class="hidden" style="margin-top:12px">
-        <div class="card">
-          <h2>두 규정 비교</h2>
-          <label class="field">규정 A</label>
-          <input type="text" id="cmpA" list="ruleNames" placeholder="규정명 입력" autocomplete="off">
-          <label class="field">규정 B</label>
-          <input type="text" id="cmpB" list="ruleNames" placeholder="규정명 입력" autocomplete="off">
-          <button class="btn btn-primary" id="cmpRun" style="margin-top:12px">비교</button>
-        </div>
-        <div id="cmpBody"></div>
       </div>
     </section>
 
@@ -562,7 +567,6 @@ function refreshAll() {
   renderCheck();
   renderConform();
   $('#dupBody').innerHTML = '';
-  $('#cmpBody').innerHTML = '';
   renderDataStatus();
 }
 
@@ -902,7 +906,7 @@ $('#verify-check').addEventListener('click', e => {
 });
 
 segment($('#verifySeg'), v => {
-  ['check', 'law', 'dup', 'cmp'].forEach(k => $('#verify-' + k).classList.toggle('hidden', k !== v));
+  ['check', 'law', 'dup'].forEach(k => $('#verify-' + k).classList.toggle('hidden', k !== v));
 });
 
 /* ---------- 검증: 상위법 비교 ---------- */
@@ -926,7 +930,8 @@ async function fetchTopics() {
 }
 
 function renderConform() {
-  const box = $('#verify-law');
+  renderLawPick();
+  const box = $('#conformAllBody');
   if (!index) { emptyState(box); return; }
   if (!topicSet) { box.innerHTML = '<div class="card empty"><p class="muted">상위법 기준 목록(data/topics.json)을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.</p></div>'; return; }
   const res = E.conformance(index, topicSet.topics);
@@ -993,7 +998,137 @@ function renderConform() {
     ${topicsHtml || '<div class="card empty"><p class="muted">해당하는 항목이 없습니다.</p></div>'}`;
 }
 
+/* 규정 하나를 골라 관련 상위 법령과 대조 */
+let lawRule = null;        // 고른 규정
+let lawRelated = [];       // 관련 법령 목록
+const lawTextCache = new Map();
+const REASON = { basis: ['근거 법령', 'b-blue'], cite: ['인용', 'b-blue'], topic: ['주제', 'b-amber'], area: ['분야', 'b-gray'] };
+
+function renderLawPick() {
+  const box = $('#lawRelated');
+  if (!index || !topicSet) { box.innerHTML = ''; return; }
+  const rule = E.findRuleByName(index, $('#lawRuleInput').value);
+  if (rule !== lawRule) { lawRule = rule; $('#lawResult').innerHTML = ''; }
+  if (!rule) {
+    box.innerHTML = $('#lawRuleInput').value.trim() ? '<p class="muted small" style="margin-top:8px">목록에 있는 규정명을 골라 주세요.</p>' : '';
+    return;
+  }
+  lawRelated = E.relatedLaws(index, rule, getChecked().analysis, topicSet);
+  const row = (x, i) => {
+    const L = x.law;
+    const usable = L && L.found;
+    const src = !usable ? (L ? '국가법령정보센터에서 찾지 못함' + (L.similar && L.similar.length ? ` (현행: ${L.similar[0]})` : '') : '아직 확인 전 — 업데이트 후 대조 가능')
+      : L.text ? `전체 조문 ${L.articleCount || ''}개` : '인용한 조문만 (업데이트 후 전체 조문)';
+    return `<label class="lawpick ${usable ? '' : 'off'}">
+      <input type="checkbox" data-li="${i}" ${usable ? 'checked' : 'disabled'}>
+      <span><b>${esc(x.name)}</b> ${x.reasons.map(r => `<span class="badge ${REASON[r.kind][1]}">${r.kind === 'topic' || r.kind === 'area' ? esc(REASON[r.kind][0] + ': ' + r.label) : REASON[r.kind][0]}</span>`).join(' ')}
+      ${x.articles.length ? `<br><span class="muted small">${x.articles.map(k => E.artLabel(k)).join(', ')}</span>` : ''}
+      <br><span class="muted small">${esc(src)}</span></span>
+    </label>`;
+  };
+  box.innerHTML = lawRelated.length ? `
+    <div class="result-count" style="margin:12px 0 6px">「${esc(rule.title)}」 관련 상위 법령 ${lawRelated.length}개</div>
+    <div class="lawlist">${lawRelated.map(row).join('')}</div>
+    <button class="btn btn-primary" id="lawRun" style="margin-top:12px;width:100%">검증</button>`
+    : '<p class="muted small" style="margin-top:8px">이 규정이 인용하거나 관련된 상위 법령을 찾지 못했습니다.</p>';
+}
+
+$('#lawRuleInput').addEventListener('input', () => renderLawPick());
+
+async function lawTexts(items) {
+  const out = new Map();
+  for (const x of items) {
+    const L = x.law;
+    if (L.text) {
+      if (!lawTextCache.has(L.text)) {
+        try {
+          const r = await fetch('data/' + L.text);
+          if (r.ok) lawTextCache.set(L.text, await r.json());
+        } catch (e) { /* 아래에서 인용 조문만 씀 */ }
+      }
+      const t = lawTextCache.get(L.text);
+      if (t) { out.set(x.key, { name: L.name, url: L.url, full: true, articles: t.articles }); continue; }
+    }
+    out.set(x.key, { name: L.name, url: L.url, full: false, articles: L.articles || {} });
+  }
+  return out;
+}
+
+function lawArtLink(name, url, key) {
+  return `<a class="ref" href="${esc((url || 'https://www.law.go.kr/법령/' + name.replace(/\s+/g, '')) + '/' + E.artLabel(key))}" target="_blank" rel="noopener">law.go.kr</a>`;
+}
+
+function numBadge(n) {
+  if (!n || (!n.onlyA.length && !n.onlyB.length)) return '';
+  return `<span class="badge ${n.differ ? 'b-red' : 'b-gray'}">숫자 ${n.differ ? '다름' : '차이'}: 규정 ${esc(n.onlyA.join(', ') || '-')} ↔ 법 ${esc(n.onlyB.join(', ') || '-')}</span>`;
+}
+
+async function runLawCheck() {
+  const rule = lawRule;
+  if (!rule) return;
+  const picked = [...$('#lawRelated').querySelectorAll('input[data-li]:checked')].map(c => lawRelated[+c.dataset.li]);
+  if (!picked.length) { toast('대조할 법령을 하나 이상 골라 주세요.'); return; }
+  const box = $('#lawResult');
+  box.innerHTML = '<div class="spinner"></div>';
+  const texts = await lawTexts(picked);
+  if (lawRule !== rule) return;
+  const an = getChecked().analysis;
+  const keys = new Set(picked.map(x => x.key));
+  const { citations, similar } = E.compareWithLaws(index, rule, an, texts);
+  const issues = getChecked().issues.filter(i => i.rule === rule && /^law-/.test(i.type) && !i.article.addenda);
+  const topicRows = [];
+  for (const t of E.conformance(index, topicSet.topics)) for (const R of t.refs) {
+    if (!keys.has(E.normTitle(R.ref.law))) continue;
+    for (const c of R.checks) for (const w of c.rows) if (w.rule === rule) topicRows.push({ t, R, c, w });
+  }
+  const partial = picked.filter(x => !texts.get(x.key).full).map(x => x.name);
+  const nCite = citations.filter(c => c.nums && c.nums.differ).length;
+  const nSim = similar.filter(p => p.numDiff).length;
+  const nTopic = topicRows.filter(r => ['worse', 'diff', 'ref-diff'].includes(r.w.status)).length;
+  const lawSide = (x) => `<div class="side"><span class="lab">${esc(x.lawName)} ${esc(x.lawArt ? (x.lawArt.no || E.artLabel(x.artKey)) : E.artLabel(x.artKey))}${x.lawArt && x.lawArt.title ? '(' + esc(x.lawArt.title) + ')' : ''} ${lawArtLink(x.lawName, texts.get(x.lawKey).url, x.artKey)}</span><br>`;
+  const ruleLab = x => `<span class="lab" data-open="${esc(rule.id)}" data-art="${esc(x.article.key)}">「${esc(rule.title)}」 ${esc(x.article.no)}${x.article.title ? '(' + esc(x.article.title) + ')' : ''}</span>`;
+  const sec = (title, n, warn, body, open) => `<details class="group" ${open ? 'open' : ''}>
+    <summary><span>${title}</span> <span class="sum-badges">${warn ? `<span class="badge b-red">${warn}</span>` : ''}<span class="badge b-gray">${n}</span></span></summary>
+    <div class="list">${body}</div></details>`;
+  box.innerHTML = `
+    <div class="card" style="margin-top:12px">
+      <h2>「${esc(rule.title)}」 상위법 대조 결과</h2>
+      <div class="stat-grid" style="grid-template-columns:1fr 1fr">
+        <div class="stat"><div class="n" style="color:var(--red)">${issues.filter(i => i.level === 'error').length}</div><div class="l">인용 오류</div></div>
+        <div class="stat"><div class="n" style="color:var(--amber)">${issues.filter(i => i.level !== 'error').length}</div><div class="l">인용 주의</div></div>
+        <div class="stat"><div class="n" style="color:var(--red)">${nSim + nCite}</div><div class="l">법과 숫자가 다른 조문</div></div>
+        <div class="stat"><div class="n" style="color:var(--amber)">${nTopic}</div><div class="l">주제 기준 미달·다름</div></div>
+      </div>
+      <p class="muted small" style="margin-top:10px">법령 ${picked.length}개와 대조했습니다.${partial.length ? ` ${esc(partial.join(', '))}은(는) 아직 전체 조문이 없어 인용한 조문만 대조했습니다(업데이트 프로그램을 실행하면 전체 조문으로 대조).` : ''}
+      숫자·문장 차이는 자동으로 찾은 <b>검토 후보</b>이며, 위반인지는 원문을 읽고 판단해 주세요.</p>
+    </div>
+    ${sec('인용 상태', issues.length, issues.filter(i => i.level === 'error').length ? '오류' : '', issues.map(it => `
+      <div class="issue" data-open="${esc(rule.id)}" data-art="${esc(it.article.key)}">
+        <span class="badge ${LEVEL[it.level][1]}">${LEVEL[it.level][0]}</span> <span class="badge b-gray">${ISSUE_TYPE[it.type] || it.type}</span>
+        <div class="msg">${esc(it.message)}</div>
+        <div class="where">${esc(it.article.no)}${it.article.title ? '(' + esc(it.article.title) + ')' : ''}</div>
+        <div class="det">${esc(it.detail)}</div>
+      </div>`).join('') || '<div class="issue muted">인용한 법령·조문에 문제가 없습니다.</div>', issues.length > 0)}
+    ${sec('비슷한 법 조문 (문장 대조)', similar.length, nSim ? `숫자 다름 ${nSim}` : '', similar.map(p => {
+      const [l, r] = p.identical ? [esc(p.ruleText), esc(p.lawText)] : diffHtml(p.ruleText, p.lawText);
+      return `<div class="pair"><div class="hd">${p.identical ? '<span class="badge b-green">법과 동일</span>' : `<span class="badge b-amber">유사 ${Math.round(p.score * 100)}%</span>`} ${numBadge(p.nums)}</div>
+        <div class="side diff">${ruleLab(p)}<br>${l}</div>${lawSide(p).replace('<div class="side">', '<div class="side diff">')}${r}</div></div>`;
+    }).join('') || '<div class="pair muted">문장이 비슷한 법 조문을 찾지 못했습니다.</div>', nSim > 0)}
+    ${sec('인용한 법 조문과 나란히 보기', citations.length, nCite ? `숫자 다름 ${nCite}` : '', citations.map(c => `
+      <div class="pair"><div class="hd">${c.lawText ? numBadge(c.nums) || '<span class="badge b-gray">인용</span>' : '<span class="badge b-red">법 조문 없음</span>'}</div>
+        <div class="side">${ruleLab(c)}<br>${esc(c.ruleText)}</div>
+        ${lawSide(c)}${c.lawText ? esc(c.lawText) : '<span class="muted">현행 법령에서 이 조를 찾지 못했습니다.</span>'}</div></div>`).join('') || '<div class="pair muted">이 규정은 고른 법령의 조를 직접 인용하지 않았습니다.</div>', false)}
+    ${sec('주제 기준 비교', topicRows.length, nTopic ? `미달·다름 ${nTopic}` : '', topicRows.map(({ t, R, c, w }) => `
+      <div class="issue" data-open="${esc(rule.id)}" data-art="${esc(w.article.key)}">
+        <span class="badge ${CONFORM[w.status][1]}">${CONFORM[w.status][0]}</span> <span class="badge b-gray">${esc(t.topic.name)}</span>
+        <div class="msg">${esc(c.check.label)}: 규정 ${esc(w.value ? w.value.text : '법령 준용')} · 법 ${esc(c.law.value ? c.law.value.text : '?')}</div>
+        <div class="where">${esc(w.article.no)} ↔ ${esc(R.ref.law)} ${esc(E.artLabel(R.ref.article))} · ${esc(LAW_KIND[R.ref.kind] || '')}</div>
+        <div class="quote">${esc(w.line)}</div>
+      </div>`).join('') || '<div class="issue muted">이 규정에는 주제 기준(휴가·휴직·정년 등)과 비교할 조문이 없습니다.</div>', nTopic > 0)}`;
+}
+
 $('#verify-law').addEventListener('click', e => {
+  if (e.target.closest('#lawRun')) { runLawCheck(); return; }
   const f = e.target.closest('[data-cf]');
   if (f) { conformFilter = conformFilter === f.dataset.cf ? '' : f.dataset.cf; renderConform(); return; }
   const o = e.target.closest('[data-open]');
@@ -1050,35 +1185,24 @@ $('#dupBody').addEventListener('click', e => {
   if (o) openRule(o.dataset.open, o.dataset.art);
 });
 
-/* ---------- 검증: 두 규정 비교 ---------- */
-$('#cmpRun').addEventListener('click', () => {
-  const box = $('#cmpBody');
-  if (!index) { emptyState(box); return; }
-  const a = E.findRuleByName(index, $('#cmpA').value), b = E.findRuleByName(index, $('#cmpB').value);
-  if (!a || !b) { toast('목록에 있는 규정명을 골라 주세요.'); return; }
-  if (a === b) { toast('서로 다른 두 규정을 골라 주세요.'); return; }
-  const pairs = E.findSimilarPairs(index, { threshold: 0.4, ruleA: a.id, ruleB: b.id })
-    .map(p => p.ruleA === a ? p : Object.assign({}, p, { a: p.b, b: p.a, ruleA: p.ruleB, ruleB: p.ruleA, textA: p.textB, textB: p.textA }));
-  const matchedA = new Set(pairs.map(p => p.a.key)), matchedB = new Set(pairs.map(p => p.b.key));
-  const relEdges = getChecked().analysis.edges.filter(e => (e.from.rule === a && e.to.rule === b) || (e.from.rule === b && e.to.rule === a));
-  box.innerHTML = `
-    <div class="card">
-      <div class="stat-grid">
-        <div class="stat"><div class="n">${pairs.filter(p => p.identical).length}</div><div class="l">동일 조항</div></div>
-        <div class="stat"><div class="n">${pairs.filter(p => !p.identical).length}</div><div class="l">유사 조항</div></div>
-        <div class="stat"><div class="n">${pairs.filter(hasNumDiff).length}</div><div class="l">숫자 다름</div></div>
-      </div>
-      <p class="muted small" style="margin-top:10px">A의 ${a.articles.length}개 조 중 ${matchedA.size}개, B의 ${b.articles.length}개 조 중 ${matchedB.size}개가 상대 규정과 겹칩니다.</p>
-      ${relEdges.length ? `<div style="margin-top:8px">${relEdges.map(e => edgeLine(e)).join('')}</div>` : '<p class="muted small">두 규정 사이의 인용·위임 문언은 없습니다.</p>'}
-    </div>
-    <div class="list" style="margin-top:12px">${pairs.map(pairHtml).join('') || '<div class="pair muted">겹치는 조항이 없습니다.</div>'}</div>`;
-});
-$('#cmpBody').addEventListener('click', e => {
-  const o = e.target.closest('[data-open]');
-  if (o) openRule(o.dataset.open, o.dataset.art || null);
-});
-
 /* ---------- 규정 보기 ---------- */
+// 별표·별지서식: 받기 주소를 알면 바로 받고, 모르면 규정관리시스템 원문 화면을 연다.
+function attachmentsHtml(rule) {
+  const list = rule.attachments || [];
+  if (!list.length) return '';
+  const direct = list.some(a => a.url);
+  return `<details class="addenda" id="attachments" open><summary>별표·서식 (${list.length})</summary>
+    <div class="attach">${list.map(a => {
+      const href = a.url || rule.url;
+      const icon = /별표/.test(a.name) ? '📊' : '📄';
+      return href
+        ? `<a class="att" href="${esc(href)}" target="_blank" rel="noopener">${icon} ${esc(a.label)} <span class="muted small">${esc((a.name.match(/\.([a-z]+)$/i) || ['', ''])[1].toUpperCase())}${a.url ? '' : ' · 원문에서 받기'}</span></a>`
+        : `<div class="att">${icon} ${esc(a.label)}</div>`;
+    }).join('')}</div>
+    ${direct ? '' : `<p class="muted small" style="margin-top:8px">누르면 규정관리시스템의 이 규정 화면이 열립니다. 아래쪽 별표서식 목록에서 파일을 받으세요. hwp 파일은 휴대폰에 한컴오피스 Viewer 앱이 있어야 열립니다.</p>`}
+  </details>`;
+}
+
 let viewing = null;
 let overlayDepth = 0;
 
@@ -1189,6 +1313,7 @@ function openRule(id, artKey, q) {
       ${rule.addendaUnits && rule.addendaUnits.length ? `<details class="addenda" id="addenda"><summary>부칙 (${rule.addendaUnits.length})</summary>${
         rule.addendaUnits.map(u => `<div class="unit" id="art-${esc(u.key)}"><h4>${esc(u.no)}${u.title ? ' (' + esc(u.title) + ')' : ''}</h4><div class="tags">${articleTags(rule, u)}</div><div class="body">${renderArticleBody(rule, u, matchers)}</div></div>`).join('')
       }</details>` : rule.addenda ? `<details class="addenda"><summary>부칙</summary><pre>${hl(rule.addenda, matchers)}</pre></details>` : ''}
+      ${attachmentsHtml(rule)}
       ${!rule.articles.length ? '<div class="card" style="margin:12px"><p class="muted">조문을 인식하지 못했습니다. 원문 형식을 확인해 주세요.</p></div>' : ''}`;
   }
   $('#vStar').textContent = store.get('bookmarks', []).includes(rule.id) ? '★' : '☆';

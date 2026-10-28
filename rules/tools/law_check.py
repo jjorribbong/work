@@ -19,6 +19,7 @@ OC(인증키)는 국가법령정보 공동활용(https://open.law.go.kr)에서 O
 """
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import re
@@ -230,6 +231,12 @@ def add_topic_refs(cites, path):
         return 0
     with open(path, encoding='utf-8') as f:
         topics = json.load(f).get('topics', [])
+    with open(path, encoding='utf-8') as f:
+        areas = json.load(f).get('areas', [])
+    for area in areas:  # 분야별 기본 법령: 조 없이 법령만(전체 조문은 --text-dir로 받음)
+        for name in area.get('laws', []):
+            c = cites.setdefault(norm(name), {'name': name, 'bracket': True, 'articles': set(), 'from': []})
+            c['bracket'] = True
     n = 0
     for t in topics:
         for ref in t.get('refs', []):
@@ -242,7 +249,8 @@ def add_topic_refs(cites, path):
     return n
 
 
-def check(api, cites):
+def check(api, cites, full=False):
+    """full이면 찾은 법령마다 전체 조문을 받아 entry['_all']에 둔다(저장할 때 따로 뺀다)."""
     results = {}
     total = len(cites)
     for i, (n, c) in enumerate(sorted(cites.items(), key=lambda x: (not x[1]['bracket'], x[0])), 1):
@@ -266,12 +274,14 @@ def check(api, cites):
         hit = cur[0]
         entry = {'name': hit['name'], 'found': True, 'type': hit['type'], 'current': hit['current'],
                  'enforced': hit['enforced'], 'url': view_url(hit), 'from': c['from'], 'articles': {}}
-        if c['articles']:
+        if c['articles'] or full:
             try:
                 arts = law_articles(api, hit)
             except RuntimeError as e:
                 log(f'  ! {hit["name"]} 조문을 받지 못함: {e}')
                 arts = None
+            if full and arts:
+                entry['_all'] = arts
             for key in sorted(c['articles'], key=lambda k: [int(x) for x in k.split('-')]):
                 if arts is None:
                     continue
@@ -311,6 +321,31 @@ def extra_articles(rules, results):
     return found
 
 
+def text_file_id(key):
+    return hashlib.sha1(key.encode('utf-8')).hexdigest()[:12]
+
+
+def save_texts(results, text_dir):
+    """법령마다 전체 조문을 text_dir/<id>.json으로 저장하고 laws.json 항목에 파일 경로와 해시를 적는다.
+    앱은 상위법 비교에서 검증할 때만 이 파일을 받는다."""
+    os.makedirs(text_dir, exist_ok=True)
+    n = 0
+    for k, v in results.items():
+        arts = v.pop('_all', None)
+        if not arts:
+            continue
+        body = json.dumps({'name': v['name'], 'url': v.get('url', ''), 'articles': arts},
+                          ensure_ascii=False, indent=0, sort_keys=True).encode('utf-8')
+        fid = text_file_id(k)
+        with open(os.path.join(text_dir, fid + '.json'), 'wb') as f:
+            f.write(body)
+        v['text'] = f'lawtext/{fid}.json'
+        v['textHash'] = hashlib.sha1(body).hexdigest()
+        v['articleCount'] = len(arts)
+        n += 1
+    log(f'법령 전체 조문 {n}개를 {os.path.abspath(text_dir)} 에 저장했습니다.')
+
+
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     ap = argparse.ArgumentParser(description='규정이 인용한 국가 법령을 국가법령정보센터 Open API로 확인')
@@ -318,6 +353,7 @@ def main():
     ap.add_argument('--rules', default=os.path.join(here, '..', 'data', 'rules.json'), help='규정 데이터 (기본: rules/data/rules.json)')
     ap.add_argument('--out', default=os.path.join(here, '..', 'data', 'laws.json'), help='저장할 파일 (기본: rules/data/laws.json)')
     ap.add_argument('--topics', default=os.path.join(here, '..', 'data', 'topics.json'), help='상위법 기준 비교 주제 목록 (기본: rules/data/topics.json, 없으면 건너뜀)')
+    ap.add_argument('--text-dir', help='찾은 법령의 전체 조문을 이 폴더에 법령마다 파일로 저장 (laws.json 기준 상대 경로 lawtext/로 기록)')
     ap.add_argument('--delay', type=float, default=0.3, help='요청 간 대기(초)')
     ap.add_argument('--api', default=API, help=argparse.SUPPRESS)  # 시험용 서버 주소
     ap.add_argument('--debug', metavar='법령명', help='한 법령의 검색·조문 API 응답을 그대로 출력(문제 확인용)')
@@ -350,19 +386,23 @@ def main():
     if nt:
         log(f'상위법 기준 비교에 쓰는 법령 조문 {nt}개를 더합니다.')
     log('국가법령정보센터에서 확인합니다.')
-    results = check(api, cites)
+    results = check(api, cites, full=bool(args.text_dir))
     more = extra_articles(rules, results)
     if more:
         log(f'괄호 없이 인용한 조문 {sum(len(v) for v in more.values())}개를 더 확인합니다.')
         for k, keys in more.items():
             v = results[k]
-            hits = [h for h in search(api, v['name']) if norm(h['name']) == norm(v['name'])]
-            hit = ([h for h in hits if h['current']] or hits or [None])[0]
-            if not hit:
-                continue
-            arts = law_articles(api, hit)
+            arts = v.get('_all')
+            if arts is None:
+                hits = [h for h in search(api, v['name']) if norm(h['name']) == norm(v['name'])]
+                hit = ([h for h in hits if h['current']] or hits or [None])[0]
+                if not hit:
+                    continue
+                arts = law_articles(api, hit)
             for key in keys:
                 v['articles'][key] = arts.get(key) or {'missing': True}
+    if args.text_dir:
+        save_texts(results, args.text_dir)
     data = {
         'source': '국가법령정보센터 Open API (law.go.kr)',
         'checkedAt': dt.datetime.now().astimezone().isoformat(timespec='seconds'),

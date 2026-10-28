@@ -189,6 +189,30 @@
     return units.filter(u => u.text);
   }
 
+  const ATTACH_RE = /\.(?:hwp|hwpx|pdf|docx?|xlsx?|zip)$/i;
+
+  // 본문 끝의 첨부 목록("별표1.hwp", "2016-별지제1호서식.hwp")과 수집기가 찾은 받기 주소를 합친다.
+  function attachmentList(r) {
+    const out = [];
+    const byName = new Map();
+    const add = (name, url) => {
+      name = String(name || '').trim();
+      if (!name) return;
+      const k = name.replace(/\s+/g, '');
+      const got = byName.get(k);
+      if (got) { if (url && !got.url) got.url = url; return; }
+      const a = { name, label: name.replace(/^\d{4}-/, '').replace(/\.[a-z]+$/i, '').replace(/_/g, ' ').trim() || name, url: url || '' };
+      byName.set(k, a);
+      out.push(a);
+    };
+    for (const a of r.attachments || []) add(a.name, a.url);
+    for (const raw of String(r.text || [r.preamble, r.addenda].join('\n')).split('\n')) {
+      const line = raw.trim();
+      if (ATTACH_RE.test(line) && line.length < 120) add(line);
+    }
+    return out;
+  }
+
   // 외부 데이터(JSON)를 앱 내부 형식으로 정리한다.
   function normalizeRule(r, i) {
     let rule = r;
@@ -217,6 +241,7 @@
       abolished: rule.abolished || '',
       preamble: articles.length === 1 && articles[0].key === 'body' ? '' : rule.preamble || '',
       addenda: rule.addenda || '',
+      attachments: attachmentList(r),
       articles,
     };
   }
@@ -1066,8 +1091,145 @@
     return out;
   }
 
+  /* ---------- 규정 ↔ 상위법 조문 대조 ---------- */
+
+  // 개정 표시("(변경 2019. 5. 7.)", "<개정 2020. 1. 1.>", "[본조신설 …]")는 비교에서 뺀다.
+  function stripNotes(text) {
+    return String(text || '')
+      .replace(/<[^<>\n]{0,60}>/g, '')
+      .replace(/\[[^\[\]\n]{0,60}\]/g, '')
+      .replace(/\(\s*(?:조명\s*)?(?:변경|신설|개정|삭제|본조신설|본조전문변경|전문개정|단서조항\s*신설)[^()\n]{0,80}\)/g, '');
+  }
+
+  function lawBody(text) {
+    return stripNotes(text).replace(/^\s*제\s*\d+\s*조(?:\s*의\s*\d+)?\s*(?:\([^)\n]*\))?\s*/, '').trim();
+  }
+
+  /**
+   * 규정과 관련된 상위 법령 목록.
+   * 이유: cite(인용) | basis(목적 조항의 근거) | topic(주제 기준) | area(분야별 기본 법령)
+   * @returns [{key, name, law, reasons: [{kind, label}], articles: [조키]}]
+   */
+  function relatedLaws(index, rule, analysis, catalog) {
+    const keyOf = new Map([...index.laws].map(([k, v]) => [v, k]));
+    const out = new Map();
+    const add = (key, name, kind, label, art) => {
+      if (!out.has(key)) out.set(key, { key, name, law: index.laws.get(key) || null, reasons: [], articles: [] });
+      const it = out.get(key);
+      if (!it.reasons.some(r => r.kind === kind && r.label === label)) it.reasons.push({ kind, label });
+      if (art && !it.articles.includes(art)) it.articles.push(art);
+    };
+    for (const e of analysis.edges) {
+      if (e.from.rule !== rule || e.to.rule || e.from.article.addenda) continue;
+      if (!e.law && e.outside !== 'law') continue;
+      const key = e.law ? keyOf.get(e.law) : normTitle(e.to.name);
+      const name = (e.law && e.law.name) || e.to.name;
+      const purpose = /목적/.test(e.from.article.title) || e.from.article.key === '1';
+      add(key, name, purpose ? 'basis' : 'cite', purpose ? '근거 법령' : '인용', e.to.artKey);
+    }
+    if (catalog) {
+      for (const t of conformance(index, catalog.topics || [])) {
+        for (const R of t.refs) {
+          if (R.checks.some(c => c.rows.some(w => w.rule === rule))) add(normTitle(R.ref.law), R.ref.law, 'topic', t.topic.name, R.ref.article);
+        }
+      }
+      for (const a of catalog.areas || []) {
+        if (new RegExp(a.match).test(rule.title)) for (const name of a.laws) add(normTitle(name), name, 'area', a.name);
+      }
+    }
+    const rank = it => Math.min(...it.reasons.map(r => ({ basis: 0, cite: 1, topic: 2, area: 3 })[r.kind]));
+    return [...out.values()].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'ko'));
+  }
+
+  /**
+   * 규정 조문을 상위 법령 조문과 대조한다.
+   * @param texts Map(법령 키 → {name, articles: {조키: {no, title, text, deleted}}}) — 전체 조문(없으면 laws.json의 인용 조문)
+   * @returns {citations: [...], similar: [...]}
+   *   citations: 규정이 인용한 법 조문과 나란히 보기 {article, lawKey, lawName, lawArt, ruleText, lawText, nums}
+   *   similar: 문장이 비슷한 법 조문 {article, lawKey, lawName, lawArt, ruleText, lawText, score, identical, nums, numDiff}
+   */
+  function compareWithLaws(index, rule, analysis, texts, opts) {
+    opts = Object.assign({ threshold: 0.3, contain: 0.6, perArticle: 2 }, opts);
+    const keyOf = new Map([...index.laws].map(([k, v]) => [v, k]));
+    const nums = (a, b) => {
+      const n = numberConflicts(a, b);
+      return Object.assign(n, { differ: n.onlyA.length > 0 && n.onlyB.length > 0 });
+    };
+    const citations = [];
+    const seen = new Set();
+    for (const e of analysis.edges) {
+      if (e.from.rule !== rule || !e.law || !e.to.artKey || e.from.article.addenda) continue;
+      const key = keyOf.get(e.law);
+      if (!texts.has(key)) continue;
+      const k = `${e.from.article.key}|${key}|${e.to.artKey}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const L = texts.get(key);
+      const lawArt = (L.articles && L.articles[e.to.artKey]) || null;
+      const ruleText = stripNotes(e.from.article.text).trim();
+      const lawText = lawArt && !lawArt.missing ? lawBody(lawArt.text) : '';
+      citations.push({ article: e.from.article, lawKey: key, lawName: L.name || e.law.name, artKey: e.to.artKey, lawArt, ruleText, lawText,
+        phrase: e.phrase, nums: lawText ? nums(ruleText, lawText) : null });
+    }
+
+    // 법 조문(항 단위) 색인
+    const lawItems = [];
+    const posting = new Map();
+    for (const [key, L] of texts) {
+      for (const [ak, la] of Object.entries(L.articles || {})) {
+        if (!la || la.missing || la.deleted) continue;
+        const body = lawBody(la.text);
+        const paras = paragraphs(body);
+        const units = paras.length > 1 ? [body].concat(paras) : paras;
+        for (const p of units) {
+          const it = { key, name: L.name, ak, la, text: p, body: normBody(p) };
+          if (it.body.length < 25) continue;
+          it.sh = shingles(it.body);
+          const idx = lawItems.push(it) - 1;
+          it.sh.forEach(h => { if (!posting.has(h)) posting.set(h, []); posting.get(h).push(idx); });
+        }
+      }
+    }
+    const maxDf = Math.max(30, Math.floor(lawItems.length * 0.05));
+    const similar = [];
+    for (const art of rule.articles) {
+      const clean = stripNotes(art.text);
+      const paras = paragraphs(clean);
+      const units = paras.length > 1 ? [clean].concat(paras) : paras;
+      const best = new Map(); // 법 조문별 가장 비슷한 단위
+      for (const p of units) {
+        const me = { body: normBody(p), text: p.trim() };
+        if (me.body.length < 25) continue;
+        me.sh = shingles(me.body);
+        const counts = new Map();
+        me.sh.forEach(h => {
+          const ps = posting.get(h);
+          if (!ps || ps.length > maxDf) return;
+          for (const j of ps) counts.set(j, (counts.get(j) || 0) + 1);
+        });
+        counts.forEach((c, j) => {
+          if (c < 4) return;
+          const it = lawItems[j];
+          const s = sim(me, it);
+          if (s.jaccard < opts.threshold && s.contain < opts.contain) return;
+          const score = Math.max(s.jaccard, s.contain * 0.9);
+          const k = `${it.key}|${it.ak}`;
+          const prev = best.get(k);
+          if (!prev || prev.score < score) best.set(k, { me, it, s, score });
+        });
+      }
+      [...best.values()].sort((a, b) => b.score - a.score).slice(0, opts.perArticle).forEach(b => {
+        const n = nums(b.me.text, b.it.text);
+        similar.push({ article: art, lawKey: b.it.key, lawName: b.it.name, artKey: b.it.ak, lawArt: b.it.la,
+          ruleText: b.me.text, lawText: b.it.text, score: b.score, identical: b.me.body === b.it.body, nums: n, numDiff: n.differ });
+      });
+    }
+    similar.sort((a, b) => (b.numDiff - a.numDiff) || b.score - a.score);
+    return { citations, similar };
+  }
+
   return {
-    conformance,
+    conformance, relatedLaws, compareWithLaws,
     normTitle, looseRegex, escapeRegex, artKey, artLabel,
     parseRuleText, normalizeRule, buildIndex, findRuleByName, findArticle,
     parseQuery, makeMatchers, search, snippet,
