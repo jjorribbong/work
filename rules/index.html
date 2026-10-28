@@ -239,6 +239,9 @@
   .legend li { margin: 2px 0; }
   .period-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
   .period-row input { flex: 1; min-width: 0; }
+  .att.att-row { display: flex; align-items: center; gap: 10px; }
+  .att-row > a:first-child { flex: 1; color: inherit; text-decoration: none; }
+  .att-alt { flex: none; padding: 2px 8px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; }
   .attach { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
   .att { display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; color: inherit; text-decoration: none; font-size: 14px; }
   .addenda pre { white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.7; margin-top: 10px; }
@@ -1388,36 +1391,27 @@ function attachmentsHtml(rule) {
     <div class="attach">${list.map((a, i) => {
       const icon = /별표/.test(a.name) ? '📊' : '📄';
       const ext = esc((a.name.match(/\.([a-z]+)$/i) || ['', ''])[1].toUpperCase());
-      if (a.down) return `<a class="att" href="#" data-down="${i}">${icon} ${esc(a.label)} <span class="muted small">${ext} · 받기</span></a>`;
+      if (a.down) return `<div class="att att-row"><a href="${esc(attachmentUrl(rule, a))}" target="_blank" rel="noopener">${icon} ${esc(a.label)} <span class="muted small">${ext} · 받기</span></a>${rule.url ? `<a class="muted small att-alt" href="${esc(rule.url)}" target="_blank" rel="noopener">원문</a>` : ''}</div>`;
       const href = a.url || rule.url;
       return href
         ? `<a class="att" href="${esc(href)}" target="_blank" rel="noopener">${icon} ${esc(a.label)} <span class="muted small">${ext}${a.url ? ' · 받기' : ' · 원문에서 받기'}</span></a>`
         : `<div class="att">${icon} ${esc(a.label)}</div>`;
     }).join('')}</div>
-    <p class="muted small" style="margin-top:8px">${direct ? '누르면 규정관리시스템에서 파일을 받습니다.' : '누르면 규정관리시스템의 이 규정 화면이 열립니다. 아래쪽 별표서식 목록에서 파일을 받으세요.'} hwp 파일은 휴대폰에 한컴오피스 Viewer 앱이 있어야 열립니다.</p>
+    <p class="muted small" style="margin-top:8px">${direct ? '누르면 규정관리시스템에서 파일을 받습니다. 받아지지 않으면 오른쪽 <b>원문</b>을 눌러 규정관리시스템 화면의 별표서식 목록에서 받으세요.' : '누르면 규정관리시스템의 이 규정 화면이 열립니다. 아래쪽 별표서식 목록에서 파일을 받으세요.'} hwp 파일은 휴대폰에 한컴오피스 Viewer 앱이 있어야 열립니다.</p>
   </details>`;
 }
 
-// 규정관리시스템의 fileDown(seq, type)과 같이 /lmxsrv/fileDown.srv에 POST로 보내 파일을 받는다.
-function downloadAttachment(rule, a) {
+// 규정관리시스템의 fileDown(seq, type)은 /lmxsrv/fileDown.srv에 FILE_SEQ·FILE_TYPE을 보낸다.
+// 휴대폰(특히 홈 화면에 추가한 앱)은 스크립트로 새 창에 보내는 양식을 막을 수 있어, 같은 값을 주소에 담은 링크로 연다.
+function attachmentUrl(rule, a) {
   const code = (dataset && dataset.fileDown && dataset.fileDown.code) || '';
   const path = (code.match(/action=['"]([^'"]*fileDown[^'"]*)['"]/) || [])[1] || '/lmxsrv/fileDown.srv';
   let origin = 'https://rule.cju.ac.kr';
   try { if (rule.url) origin = new URL(rule.url).origin; } catch (e) { /* 기본 주소 사용 */ }
-  const f = document.createElement('form');
-  f.method = 'post';
-  f.action = new URL(path, origin).href;
-  f.target = '_blank';
-  for (const [k, v] of [['FILE_SEQ', a.down.seq], ['FILE_TYPE', a.down.type]]) {
-    const inp = document.createElement('input');
-    inp.type = 'hidden';
-    inp.name = k;
-    inp.value = v;
-    f.appendChild(inp);
-  }
-  document.body.appendChild(f);
-  f.submit();
-  f.remove();
+  const u = new URL(path, origin);
+  u.searchParams.set('FILE_SEQ', a.down.seq);
+  u.searchParams.set('FILE_TYPE', a.down.type);
+  return u.href;
 }
 
 let viewing = null;
@@ -1581,8 +1575,6 @@ $('#vStar').addEventListener('click', () => {
 $('#vBody').addEventListener('click', e => {
   const lc = e.target.closest('[data-lawchg]');
   if (lc) { const [ei, li] = lc.dataset.lawchg.split(':').map(Number); showLawChange(ei, li); return; }
-  const dn = e.target.closest('[data-down]');
-  if (dn) { e.preventDefault(); const a = viewing && viewing.attachments[+dn.dataset.down]; if (a) downloadAttachment(viewing, a); return; }
   const cg = e.target.closest('[data-chg]');
   if (cg) { const [ei, ri] = cg.dataset.chg.split(':').map(Number); showChange(ei, ri); return; }
   const lw = e.target.closest('[data-law]');
