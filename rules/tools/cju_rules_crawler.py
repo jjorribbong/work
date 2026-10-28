@@ -283,6 +283,35 @@ def find_attachments(soup, page_url):
     return out
 
 
+FILE_DOWN = {}  # 별표 받기 함수(fileDown 등)의 원문 — 받기 주소 형식을 알아내려고 rules.json에 남긴다
+
+
+def capture_file_down(client, soup, page_url, attachments):
+    """첨부 링크가 자바스크립트 함수(fileDown('3169', 'attach'))면 그 함수의 정의를 찾아 둔다."""
+    if FILE_DOWN or not any(a.get('link') for a in attachments):
+        return
+    fn = (re.match(r'\s*(?:javascript:)?\s*([A-Za-z_$][\w$]*)\s*\(', next(a['link'] for a in attachments if a.get('link'))) or [None, ''])[1]
+    if not fn:
+        return
+    pat = re.compile(r'function\s+' + re.escape(fn) + r'\s*\(|' + re.escape(fn) + r'\s*=\s*function')
+    sources = [('inline', sc.string or sc.get_text() or '') for sc in soup.find_all('script') if not sc.get('src')]
+    if client is not None:
+        for sc in soup.find_all('script', src=True):
+            src = urljoin(page_url, sc['src'])
+            if client.same_host(src):
+                r = client.get(src)
+                if r is not None and r.ok:
+                    sources.append((src, r.text))
+    for where, js in sources:
+        m = pat.search(js)
+        if m:
+            FILE_DOWN.update(function=fn, source=where, code=js[max(0, m.start() - 200):m.start() + 1500])
+            forms = [str(f)[:800] for f in soup.find_all('form')]
+            if forms:
+                FILE_DOWN['forms'] = forms[:3]
+            return
+
+
 def merge_attachments(*lists):
     seen = {}
     for lst in lists:
@@ -308,6 +337,7 @@ def extract_rule(client, html, url, hint_title='', depth=0, category='', trace=N
     hint = hint_title or o_title
     results = []
     attachments = find_attachments(soup, url)
+    capture_file_down(client, soup, url, attachments)
     if n:
         page_text = html_to_text(BeautifulSoup(html, 'html.parser'))
         text = html_to_text(node)
@@ -582,6 +612,9 @@ def debug_page(args):
         print(f'규정명: {got["title"] or "(없음)"}  /  분류: {got.get("category") or "(없음)"}  /  조문 글자 수: {body_score(got["text"])}'
               + ('  /  조문 형식 아님' if got.get('no_articles') else ''))
         print('\n'.join([l for l in got['text'].split('\n') if l.strip()][:12]))
+        if FILE_DOWN:
+            print(f"--- 첨부 받기 함수 {FILE_DOWN['function']} ({FILE_DOWN['source']}) ---")
+            print(FILE_DOWN['code'][:800])
         print(f'--- 별표·서식 {len(got.get("attachments") or [])}개 ---')
         for a in (got.get('attachments') or [])[:10]:
             print(f"  {a['name']}  주소: {a.get('url') or '(없음)'}" + (f"  링크: {a['link']}" if a.get('link') else ''))
@@ -623,6 +656,8 @@ def main():
         'fetchedAt': dt.datetime.now().astimezone().isoformat(timespec='seconds'),
         'rules': rules,
     }
+    if FILE_DOWN:
+        data['fileDown'] = FILE_DOWN
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     with open(args.out, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=1)

@@ -213,6 +213,75 @@
     return out;
   }
 
+  // 조문의 개정 표시: "(변경 2019. 5. 7.)", "(신설:08.01.14, 변경:20.12.18)", "[전문개정 2023. 4. 19.]", "<개정 2020. 1. 1.>"
+  const REV_NOTE_RE = /[(\[<（]([^()\[\]<>（）]{0,200})[)\]>）]/g;
+  const REV_KW_RE = /신설|변경|개정|삭제/g;
+  const REV_KIND = { 신설: '신설', 변경: '개정', 개정: '개정', 삭제: '삭제' };
+
+  function revDates(note) {
+    const found = [];
+    const ok = (y, m, d) => m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1950 && y <= 2100;
+    let rest = note.replace(/(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})\s*일?/g, (all, y, m, d, pos) => {
+      if (ok(+y, +m, +d)) found.push({ pos, end: pos + all.length, date: `${y}.${m.padStart(2, '0')}.${d.padStart(2, '0')}` });
+      return ' '.repeat(all.length);
+    });
+    rest.replace(/(^|[^\d])(\d{2})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})(?!\d)/g, (all, pre, yy, m, d, pos) => {
+      const y = +yy >= 50 ? 1900 + +yy : 2000 + +yy;
+      if (ok(y, +m, +d)) found.push({ pos: pos + pre.length, end: pos + all.length, date: `${y}.${m.padStart(2, '0')}.${d.padStart(2, '0')}` });
+      return all;
+    });
+    return found.sort((a, b) => a.pos - b.pos);
+  }
+
+  /** 조문 본문의 개정 표시 → {date: 최종 날짜(YYYY.MM.DD), kind: 신설|개정|삭제, dates: [모든 날짜]} 또는 null */
+  function articleRevision(text) {
+    let last = null;
+    const all = [];
+    let m;
+    REV_NOTE_RE.lastIndex = 0;
+    while ((m = REV_NOTE_RE.exec(String(text || '')))) {
+      const note = m[1];
+      if (!/신설|변경|개정|삭제/.test(note)) continue;
+      const kws = [];
+      let k;
+      REV_KW_RE.lastIndex = 0;
+      while ((k = REV_KW_RE.exec(note))) kws.push({ pos: k.index, kind: REV_KIND[k[0]] });
+      for (const d of revDates(note)) {
+        // 날짜 바로 뒤에 붙은 낱말("18.01.01삭제", "01.02.09항 변경"), 아니면 앞에서 가장 가까운 낱말이 개정 종류
+        const before = kws.filter(x => x.pos < d.pos).pop();
+        const after = kws.find(x => x.pos >= d.end);
+        const glued = after && after.pos - d.end <= 3 ? after : null;
+        const kind = (glued || before || after || { kind: '개정' }).kind;
+        all.push(d.date);
+        if (!last || d.date >= last.date) last = { date: d.date, kind };
+      }
+    }
+    return last ? Object.assign(last, { dates: [...new Set(all)].sort() }) : null;
+  }
+
+  /**
+   * 기간 안에 개정(신설·삭제 포함)된 조문.
+   * @param opts {from, to: 'YYYY.MM.DD', rule: 규정(없으면 전체), category, includeEnacted: 개정 표시가 없는 조문은 규정 제정일로 봄}
+   * @returns [{rule, article, date, kind, estimated}] 최근 순
+   */
+  function revisedArticles(index, opts) {
+    opts = opts || {};
+    const out = [];
+    const from = opts.from || '0000.00.00', to = opts.to || '9999.99.99';
+    for (const r of opts.rule ? [opts.rule] : index.rules) {
+      if (r.abolished && !opts.rule) continue;
+      if (opts.category && r.category !== opts.category) continue;
+      for (const a of r.articles) {
+        let rev = a.revision;
+        let estimated = false;
+        if (!rev && opts.includeEnacted && r.enacted) { rev = { date: r.enacted, kind: '제정' }; estimated = true; }
+        if (!rev || rev.date < from || rev.date > to) continue;
+        out.push({ rule: r, article: a, date: rev.date, kind: rev.kind, estimated, dates: rev.dates || [rev.date] });
+      }
+    }
+    return out.sort((x, y) => y.date.localeCompare(x.date) || x.rule.title.localeCompare(y.rule.title, 'ko'));
+  }
+
   // 외부 데이터(JSON)를 앱 내부 형식으로 정리한다.
   function normalizeRule(r, i) {
     let rule = r;
@@ -223,7 +292,7 @@
         const m = String(a.no || '').match(/(\d+)\s*조(?:\s*의\s*(\d+))?/);
         key = m ? artKey(+m[1], m[2] ? +m[2] : 0) : `x${j}`;
       }
-      return { key, no: a.no || artLabel(key), title: a.title || '', chapter: a.chapter || '', text: a.text || '' };
+      return { key, no: a.no || artLabel(key), title: a.title || '', chapter: a.chapter || '', text: a.text || '', revision: articleRevision(a.text) };
     });
     // 조문(제N조) 형식이 아닌 규정은 본문 전체를 하나의 단위로 두어 검색·비교되게 한다.
     if (!articles.length && (rule.preamble || r.text)) {
@@ -957,140 +1026,6 @@
     return { onlyA: na.filter(t => !sb.has(t)), onlyB: nb.filter(t => !sa.has(t)) };
   }
 
-  /* ---------- 상위법 기준 비교 ---------- */
-
-  const AMOUNT_RE = /(\d+(?:\.\d+)?)\s*(개월|년|주|일|세)/g;
-  const FOLLOWS_RE = /준용|(?:에|을|를)\s*따른다|에\s*의한다|에서\s*정하는\s*바에\s*따/;
-
-  // "1년"·"6개월"·90 → {n, unit, text}. 기간은 개월로 맞춰 비교한다.
-  function amount(n, u) {
-    n = Number(n);
-    if (u === '년') return { n: n * 12, unit: '기간', text: n + '년' };
-    if (u === '개월') return { n, unit: '기간', text: n + '개월' };
-    if (u === '주') return { n: n * 7, unit: '일', text: n + '주', week: true };
-    if (u === '세') return { n, unit: '세', text: n + '세' };
-    return { n, unit: '일', text: n + '일' };
-  }
-
-  function catalogAmount(v, unit) {
-    if (v == null) return null;
-    const m = String(v).match(/^(\d+(?:\.\d+)?)\s*(개월|년|주|일|세)?$/);
-    if (!m) return null;
-    return amount(m[1], m[2] || (unit === '세' ? '세' : unit === '기간' ? '개월' : '일'));
-  }
-
-  function unitOk(a, unit) {
-    return a.unit === unit || (unit === '일' && a.week);
-  }
-
-  /** 줄에서 clause가 처음 나온 곳 뒤의 가장 가까운 숫자, 없으면 앞의 가장 가까운 숫자 */
-  function amountNear(line, clauseRe, unit) {
-    const m = clauseRe.exec(line);
-    if (!m) return null;
-    const all = [];
-    AMOUNT_RE.lastIndex = 0;
-    let t;
-    while ((t = AMOUNT_RE.exec(line))) {
-      const a = amount(t[1], t[2]);
-      if (unitOk(a, unit)) all.push(Object.assign(a, { pos: t.index }));
-    }
-    const after = all.find(a => a.pos >= m.index);
-    const before = all.filter(a => a.pos < m.index).pop();
-    return { match: m, value: after || before || null };
-  }
-
-  // 줄에 다른 대상만 적혀 있으면("교원의 정년은…") 그 대상의 기준과만 비교한다.
-  function lineGroupOk(line, group) {
-    if (group === '공통') return true;
-    const other = group === '교원' ? /직원/ : /교원|교수|강사/;
-    const own = group === '교원' ? /교원|교수|강사/ : /직원/;
-    return !other.test(line) || own.test(line) || /교직원/.test(line);
-  }
-
-  function findAmount(text, check, ruleSide, group) {
-    const re = new RegExp((ruleSide && check.ruleClause) || check.clause);
-    const not = check.not ? new RegExp(check.not) : null;
-    let follows = null;
-    for (const line of String(text || '').split('\n')) {
-      if (not && not.test(line)) continue;
-      if (ruleSide && group && !lineGroupOk(line, group)) continue;
-      const r = amountNear(line, re, check.unit);
-      if (!r) continue;
-      if (r.value) return { value: r.value, line: line.trim() };
-      if (!follows && ruleSide && FOLLOWS_RE.test(line)) follows = line.trim();
-    }
-    return follows ? { follows, line: follows } : null;
-  }
-
-  function wideCandidates(index, check, cand) {
-    const re = new RegExp(check.ruleClause || check.clause);
-    const seen = new Set(cand.map(c => c.article));
-    const out = [];
-    for (const r of index.rules) {
-      if (r.abolished) continue;
-      for (const a of r.articles) if (!a.addenda && !seen.has(a) && re.test(a.text)) out.push({ rule: r, article: a, group: ruleGroup(r.title) });
-    }
-    return out;
-  }
-
-  function ruleGroup(title) {
-    if (/교원|교수|강사|교육공무원/.test(title)) return '교원';
-    if (/직원/.test(title)) return '직원';
-    return '공통';
-  }
-
-  /**
-   * 규정을 상위 법령 기준(topics.json)과 비교한다.
-   * @param topics topics.json의 topics
-   * @returns [{topic, refs: [{ref, law, article, checks: [{check, law: {value, line, source}, rows: [{rule, article, value, line, status}]}]}], candidates}]
-   * status: ok(같음) | worse(법 기준 미달) | better(법보다 유리) | diff(법과 다름) | ref-diff(참고 기준과 다름) | follows(법령 준용)
-   */
-  function conformance(index, topics) {
-    const out = [];
-    for (const topic of topics || []) {
-      const findRe = new RegExp(topic.find);
-      const cand = [];
-      for (const r of index.rules) {
-        if (r.abolished) continue;
-        for (const a of r.articles) {
-          if (a.addenda) continue;
-          if (findRe.test(a.title || '') || findRe.test(a.text)) cand.push({ rule: r, article: a, group: ruleGroup(r.title) });
-        }
-      }
-      const res = { topic, refs: [], candidates: cand };
-      for (const ref of topic.refs || []) {
-        const law = index.laws.get(normTitle(ref.law)) || null;
-        const lawArt = law && law.found && law.articles ? law.articles[ref.article] : null;
-        const lawText = lawArt && !lawArt.missing ? lawArt.text : '';
-        const R = { ref, law, article: lawArt && !lawArt.missing ? lawArt : null, checks: [] };
-        for (const check of ref.checks || []) {
-          const got = lawText ? findAmount(lawText, check, false) : null;
-          const lv = got && got.value
-            ? { value: got.value, line: got.line, source: 'law' }
-            : { value: catalogAmount(check.value, check.unit), line: '', source: 'catalog' };
-          const rows = [];
-          // wide: 조 제목·본문에 주제어가 없어도 규정 쪽 문구만으로 찾는다(예: "자녀 1명에 대하여 3년")
-          const pool = check.wide ? cand.concat(wideCandidates(index, check, cand)) : cand;
-          for (const c of pool) {
-            if (ref.group !== '공통' && c.group !== '공통' && c.group !== ref.group) continue;
-            const f = findAmount(c.article.text, check, true, ref.group);
-            if (!f) continue;
-            let status = 'follows';
-            if (f.value && lv.value) {
-              const d = f.value.n - lv.value.n;
-              status = d === 0 ? 'ok' : ref.kind === 'min' ? (d < 0 ? 'worse' : 'better') : ref.kind === 'eq' ? 'diff' : 'ref-diff';
-            } else if (f.value) status = 'unknown';
-            rows.push({ rule: c.rule, article: c.article, value: f.value || null, line: f.line, status });
-          }
-          R.checks.push({ check, law: lv, rows });
-        }
-        res.refs.push(R);
-      }
-      out.push(res);
-    }
-    return out;
-  }
-
   /* ---------- 규정 ↔ 상위법 조문 대조 ---------- */
 
   // 개정 표시("(변경 2019. 5. 7.)", "<개정 2020. 1. 1.>", "[본조신설 …]")는 비교에서 뺀다.
@@ -1107,7 +1042,7 @@
 
   /**
    * 규정과 관련된 상위 법령 목록.
-   * 이유: cite(인용) | basis(목적 조항의 근거) | topic(주제 기준) | area(분야별 기본 법령)
+   * 이유: cite(인용) | basis(목적 조항의 근거) | area(분야별 기본 법령)
    * @returns [{key, name, law, reasons: [{kind, label}], articles: [조키]}]
    */
   function relatedLaws(index, rule, analysis, catalog) {
@@ -1128,16 +1063,11 @@
       add(key, name, purpose ? 'basis' : 'cite', purpose ? '근거 법령' : '인용', e.to.artKey);
     }
     if (catalog) {
-      for (const t of conformance(index, catalog.topics || [])) {
-        for (const R of t.refs) {
-          if (R.checks.some(c => c.rows.some(w => w.rule === rule))) add(normTitle(R.ref.law), R.ref.law, 'topic', t.topic.name, R.ref.article);
-        }
-      }
       for (const a of catalog.areas || []) {
         if (new RegExp(a.match).test(rule.title)) for (const name of a.laws) add(normTitle(name), name, 'area', a.name);
       }
     }
-    const rank = it => Math.min(...it.reasons.map(r => ({ basis: 0, cite: 1, topic: 2, area: 3 })[r.kind]));
+    const rank = it => Math.min(...it.reasons.map(r => ({ basis: 0, cite: 1, area: 2 })[r.kind]));
     return [...out.values()].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'ko'));
   }
 
@@ -1228,8 +1158,124 @@
     return { citations, similar };
   }
 
+  /* ---------- 법의 숫자 기준 자동 대조 ---------- */
+  // 법 조문의 "30주 이상", "3개월 이내", "40시간을 초과할 수 없다" 같은 기준을 뽑아,
+  // 앞말(문맥)이 같은 규정 문장의 숫자와 비교한다. 주제를 손으로 정하지 않아도 된다.
+
+  const LIMIT_UNIT = '(개월|년|주|일|시간|학점|세|퍼센트|%|명|회|학기)';
+  const LIMIT_RE = new RegExp('(?:(\\d+)\\s*년\\s*)?(\\d+(?:\\.\\d+)?)\\s*' + LIMIT_UNIT +
+    '(\\s*(?:\\([^()]{0,30}\\)\\s*)?(?:의\\s*)?(?:범위\\s*(?:안|내)?\\s*(?:에서|의)?\\s*)?(이상|이내|이하|미만|초과|까지|한도|[을를]\\s*넘지|[을를]\\s*초과하지|[을를]\\s*초과할\\s*수\\s*없))?', 'g');
+  const GENERIC_CTX_RE = /다음각호의?어느하나에해당(?:하는|할|하게된)?(?:경우|때|자|사람)?(?:에는|에)?/g;
+
+  function ctxNorm(s) {
+    return String(s || '').replace(/[\s\d.,·:;'"“”‘’()（）「」『』\[\]<>〈〉①-⑳-]/g, '');
+  }
+
+  function bigrams(s) {
+    const o = new Set();
+    for (let i = 0; i + 2 <= s.length; i++) o.add(s.slice(i, i + 2));
+    return o;
+  }
+
+  function dice(a, b) {
+    let c = 0;
+    a.forEach(x => { if (b.has(x)) c++; });
+    return a.size + b.size ? 2 * c / (a.size + b.size) : 0;
+  }
+
+  /** 문장 속 숫자 → [{n, unit, dir: min|max|'', raw, ctx(앞말), cb}] — 년은 개월로 맞춘다 */
+  function numberFacts(line) {
+    const out = [];
+    let m, prevEnd = 0;
+    LIMIT_RE.lastIndex = 0;
+    while ((m = LIMIT_RE.exec(line))) {
+      let unit = m[3], n = +m[2];
+      if (m[1] && unit === '개월') n += 12 * +m[1];
+      if (unit === '년') { n *= 12; unit = '개월'; }
+      if (unit === '퍼센트') unit = '%';
+      const lim = m[5] || '';
+      // 앞말: 같은 문장에서 앞 숫자 뒤부터("30주 이상, 매 학기 15주" → "매 학기")
+      let s = line.slice(prevEnd, m.index);
+      prevEnd = m.index + m[0].length;
+      const cut = Math.max(s.lastIndexOf('. '), s.lastIndexOf(', '), s.lastIndexOf('다만'));
+      if (cut >= 0 && s.length - cut > 8) s = s.slice(cut + 1);
+      const ho = s.match(/제\s*(\d+)\s*호(?!.*제\s*\d+\s*호)/);
+      const ctx = ctxNorm(s).replace(GENERIC_CTX_RE, '').slice(-24);
+      out.push({ n, unit, dir: /이상/.test(lim) ? 'min' : lim ? 'max' : '', raw: m[0].replace(/\s*\([^()]*\)/, '').trim(), ctx, cb: bigrams(ctx), tail: bigrams(ctx.slice(-10)), ho: ho ? ho[1] : '' });
+    }
+    return out;
+  }
+
+  const limitCache = new WeakMap();
+  /** 법령 전체 조문 {name, articles} → 숫자 기준 목록(캐시) */
+  function lawLimits(key, L) {
+    if (limitCache.has(L)) return limitCache.get(L);
+    const out = [];
+    for (const [ak, a] of Object.entries(L.articles || {})) {
+      if (!a || a.missing || a.deleted) continue;
+      const tb = bigrams(ctxNorm(a.title || ''));
+      for (const raw of String(a.text || '').split('\n')) {
+        const line = stripNotes(raw).trim();
+        const lb = bigrams(ctxNorm(line));
+        for (const f of numberFacts(line)) {
+          if (f.dir && f.ctx.length >= 4) out.push(Object.assign(f, { key, name: L.name, ak, art: a, line, tb, lb }));
+        }
+      }
+    }
+    limitCache.set(L, out);
+    return out;
+  }
+
+  /**
+   * 규정 조문의 숫자를 법의 숫자 기준과 대조한다.
+   * @param texts Map(법령 키 → {name, articles})
+   * @returns [{article, line, rv, lv, status, score}] status: same | below(법 최소 기준 미달) | above(법 최대 기준 초과) | diff
+   */
+  function limitPairs(rule, texts) {
+    const limits = [];
+    for (const [key, L] of texts) limits.push(...lawLimits(key, L));
+    if (!limits.length) return [];
+    const out = [];
+    for (const art of rule.articles) {
+      const tb = bigrams(ctxNorm(art.title || ''));
+      for (const raw of String(art.text || '').split('\n')) {
+        const line = stripNotes(raw).trim();
+        const lb = bigrams(ctxNorm(line));
+        for (const x of numberFacts(line)) {
+          if (x.ctx.length < 4) continue;
+          const cands = [];
+          for (const y of limits) {
+            if (y.unit !== x.unit || (x.dir && x.dir !== y.dir)) continue;
+            if (x.ho && y.ho && x.ho !== y.ho) continue; // "제7호의 사유로 인한 휴직기간"은 같은 호끼리
+            // 앞말 전체와 숫자 바로 앞 10자의 유사도를 함께 본다("확정된 날부터 5년" ↔ "안 날부터 3년" 구분)
+            let s = 0.5 * dice(x.cb, y.cb) + 0.5 * dice(x.tail, y.tail);
+            const ls = dice(lb, y.lb);
+            if (x.ctx.length < 8 || y.ctx.length < 8) {
+              // 앞말이 짧으면("석사학위과정") 조 제목도 비슷하고 앞말이 거의 같아야 한다
+              if (dice(tb, y.tb) >= 0.3 && s >= 0.95) s = 0.7 * s + 0.3 * dice(tb, y.tb);
+              else if (!(ls >= 0.6 && s >= 0.5)) continue;
+            }
+            if (s >= 0.65 || (ls >= 0.6 && s >= 0.45)) cands.push({ y, s: Math.max(s, ls) });
+          }
+          if (!cands.length) continue;
+          cands.sort((a, b) => b.s - a.s);
+          const top = cands.filter(c => c.s >= cands[0].s - 0.05);
+          const same = top.find(c => c.y.n === x.n);
+          // 값이 다른 후보가 비슷한 점수로 여럿이면 어느 기준인지 모호하므로 뺀다
+          if (!same && new Set(top.map(c => c.y.n)).size > 1) continue;
+          const { y, s } = same || top[0];
+          const status = x.n === y.n ? 'same' : y.dir === 'min' && x.n < y.n ? 'below' : y.dir === 'max' && x.n > y.n ? 'above' : 'diff';
+          out.push({ article: art, line, rv: x, lv: y, status, score: s });
+        }
+      }
+    }
+    const rank = { below: 0, above: 0, diff: 1, same: 2 };
+    return out.sort((a, b) => rank[a.status] - rank[b.status] || b.score - a.score);
+  }
+
   return {
-    conformance, relatedLaws, compareWithLaws,
+    limitPairs, lawLimits,
+    relatedLaws, compareWithLaws, articleRevision, revisedArticles,
     normTitle, looseRegex, escapeRegex, artKey, artLabel,
     parseRuleText, normalizeRule, buildIndex, findRuleByName, findArticle,
     parseQuery, makeMatchers, search, snippet,

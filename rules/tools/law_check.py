@@ -225,27 +225,20 @@ def view_url(hit):
     return f"{VIEW}/{'법령' if hit['target'] == 'law' else '행정규칙'}/{hit['name'].replace(' ', '')}"
 
 
-def add_topic_refs(cites, path):
-    """상위법 기준 비교(topics.json)에 쓰는 법령 조문도 받는다. 규정에서 인용하지 않은 법령이어도 넣는다."""
+def add_area_laws(cites, path):
+    """분야별 기본 법령(topics.json의 areas)도 확인 대상에 넣는다. 규정에서 인용하지 않은 법령이어도
+    상위법 비교에서 전체 조문과 대조할 수 있게 한다. 반환: 새로 더한 법령 수"""
     if not path or not os.path.exists(path):
         return 0
     with open(path, encoding='utf-8') as f:
-        topics = json.load(f).get('topics', [])
-    with open(path, encoding='utf-8') as f:
         areas = json.load(f).get('areas', [])
-    for area in areas:  # 분야별 기본 법령: 조 없이 법령만(전체 조문은 --text-dir로 받음)
+    n = 0
+    for area in areas:
         for name in area.get('laws', []):
+            if norm(name) not in cites:
+                n += 1
             c = cites.setdefault(norm(name), {'name': name, 'bracket': True, 'articles': set(), 'from': []})
             c['bracket'] = True
-    n = 0
-    for t in topics:
-        for ref in t.get('refs', []):
-            k = norm(ref['law'])
-            c = cites.setdefault(k, {'name': ref['law'], 'bracket': True, 'articles': set(), 'from': []})
-            c['bracket'] = True
-            if ref['article'] not in c['articles']:
-                c['articles'].add(ref['article'])
-                n += 1
     return n
 
 
@@ -352,7 +345,7 @@ def main():
     ap.add_argument('--oc', default=os.environ.get('LAW_OC'), help='국가법령정보 Open API 인증키(OC). 환경변수 LAW_OC로도 지정 가능')
     ap.add_argument('--rules', default=os.path.join(here, '..', 'data', 'rules.json'), help='규정 데이터 (기본: rules/data/rules.json)')
     ap.add_argument('--out', default=os.path.join(here, '..', 'data', 'laws.json'), help='저장할 파일 (기본: rules/data/laws.json)')
-    ap.add_argument('--topics', default=os.path.join(here, '..', 'data', 'topics.json'), help='상위법 기준 비교 주제 목록 (기본: rules/data/topics.json, 없으면 건너뜀)')
+    ap.add_argument('--topics', default=os.path.join(here, '..', 'data', 'topics.json'), help='분야별 기본 법령 목록 (기본: rules/data/topics.json, 없으면 건너뜀)')
     ap.add_argument('--text-dir', help='찾은 법령의 전체 조문을 이 폴더에 법령마다 파일로 저장 (laws.json 기준 상대 경로 lawtext/로 기록)')
     ap.add_argument('--delay', type=float, default=0.3, help='요청 간 대기(초)')
     ap.add_argument('--api', default=API, help=argparse.SUPPRESS)  # 시험용 서버 주소
@@ -382,9 +375,9 @@ def main():
         rules = json.load(f)['rules']
     cites = collect_citations(rules)
     log(f'규정 {len(rules)}건에서 국가 법령 인용 후보 {len(cites)}개를 찾았습니다.')
-    nt = add_topic_refs(cites, args.topics)
+    nt = add_area_laws(cites, args.topics)
     if nt:
-        log(f'상위법 기준 비교에 쓰는 법령 조문 {nt}개를 더합니다.')
+        log(f'분야별 기본 법령 {nt}개를 더합니다.')
     log('국가법령정보센터에서 확인합니다.')
     results = check(api, cites, full=bool(args.text_dir))
     more = extra_articles(rules, results)

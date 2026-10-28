@@ -158,7 +158,6 @@
   .lawpick { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--border); font-size: 14px; line-height: 1.5; }
   .lawpick input { margin-top: 4px; }
   .lawpick.off { opacity: .55; }
-  .crow { margin-top: 10px; cursor: pointer; font-size: 13px; }
   .quote { margin-top: 6px; font-size: 12px; background: #f9fafb; border-left: 3px solid var(--border); padding: 6px 8px; line-height: 1.5; }
 
   .rel-sec h3 { font-size: 13px; color: var(--sub); margin: 16px 4px 8px; }
@@ -234,6 +233,10 @@
   .law-text { white-space: pre-wrap; font-size: 14px; line-height: 1.7; margin-top: 10px; }
   .addenda { background: #fff; margin-top: 8px; padding: 16px; }
   .addenda summary { font-weight: 700; cursor: pointer; }
+  .legend { margin: 10px 0 0; padding-left: 18px; line-height: 1.6; }
+  .legend li { margin: 2px 0; }
+  .period-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .period-row input { flex: 1; min-width: 0; }
   .attach { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
   .att { display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; color: inherit; text-decoration: none; font-size: 14px; }
   .addenda pre { white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.7; margin-top: 10px; }
@@ -288,16 +291,39 @@
     <!-- 검색 -->
     <section class="page active" id="page-search">
       <div class="card">
-        <div class="search-row">
-          <input type="search" id="q" placeholder="규정명 또는 내용 (예: 학사경고, 장학금)" autocomplete="off" enterkeyhint="search">
+        <div class="seg" id="modeSeg" style="margin-top:0;margin-bottom:10px">
+          <button data-v="word" class="on">낱말 검색</button>
+          <button data-v="period">개정 기간</button>
         </div>
-        <div class="seg" id="scopeSeg">
-          <button data-v="all" class="on">전체</button>
-          <button data-v="title">규정명</button>
-          <button data-v="body">본문</button>
+        <div id="wordBox">
+          <div class="search-row">
+            <input type="search" id="q" placeholder="규정명 또는 내용 (예: 학사경고, 장학금)" autocomplete="off" enterkeyhint="search">
+          </div>
+          <div class="seg" id="scopeSeg">
+            <button data-v="all" class="on">전체</button>
+            <button data-v="title">규정명</button>
+            <button data-v="body">본문</button>
+          </div>
+        </div>
+        <div id="periodBox" class="hidden">
+          <input type="search" id="perRule" list="ruleNames" placeholder="규정명 (비우면 전체 규정)" autocomplete="off">
+          <div class="period-row">
+            <input type="date" id="perFrom" aria-label="시작일">
+            <span>~</span>
+            <input type="date" id="perTo" aria-label="종료일">
+          </div>
+          <div class="chips" id="perChips">
+            <button class="chip" data-months="3">최근 3개월</button>
+            <button class="chip" data-months="6">최근 6개월</button>
+            <button class="chip" data-months="12">최근 1년</button>
+            <button class="chip" data-months="36">최근 3년</button>
+            <button class="chip" data-year="this">올해</button>
+            <button class="chip" data-year="all">전체 기간</button>
+          </div>
         </div>
         <div class="opts">
-          <label><input type="checkbox" id="ignoreSpace" checked> 띄어쓰기 무시</label>
+          <label id="ignoreSpaceLabel"><input type="checkbox" id="ignoreSpace" checked> 띄어쓰기 무시</label>
+          <label id="perEnactedLabel" class="hidden"><input type="checkbox" id="perEnacted"> 개정 표시 없는 조문도(규정 제정일 기준)</label>
           <select id="catFilter"><option value="">전체 분류</option></select>
         </div>
         <div class="chips" id="recentChips"></div>
@@ -339,9 +365,13 @@
           <div id="lawRelated"></div>
         </div>
         <div id="lawResult"></div>
-        <details class="group" id="conformAll" style="margin-top:12px">
-          <summary><span>주제별 기준 비교 (규정집 전체)</span></summary>
-          <div id="conformAllBody" style="padding:0 0 8px"></div>
+        <details class="group" id="limitAll" style="margin-top:12px">
+          <summary><span>법 숫자 기준 자동 대조 (규정집 전체)</span></summary>
+          <div style="padding:0 16px 14px">
+            <p class="muted small">모든 규정을 관련 상위 법령의 "30주 이상", "3개월 이내" 같은 숫자 기준과 자동으로 대조합니다. 처음 실행할 때 법령 조문 파일(약 8MB)을 내려받습니다.</p>
+            <button class="btn btn-primary" id="limitAllRun" style="margin-top:10px;width:100%">전체 대조 실행</button>
+          </div>
+          <div id="limitAllBody"></div>
         </details>
       </div>
       <div id="verify-dup" class="hidden" style="margin-top:12px">
@@ -557,7 +587,7 @@ function refreshAll() {
   $('#headerSub').textContent = index
     ? `현행 규정 ${index.rules.filter(r => !r.abolished).length}건` + (index.rules.some(r => r.abolished) ? ` (폐지 ${index.rules.filter(r => r.abolished).length})` : '') + ` · 조문 ${index.articles.length}개` + (dataset.fetchedAt ? ` · ${dataset.fetchedAt.slice(0, 10)} 기준` : '')
     : '규정 검색 · 위임조항 · 동일내용 검증';
-  const cats = index ? [...new Set(index.rules.map(r => r.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko')) : [];
+  const cats = index ? [...new Set(index.rules.map(r => r.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko', { numeric: true })) : [];
   $('#catFilter').innerHTML = '<option value="">전체 분류</option>' + cats.map(c => `<option>${esc(c)}</option>`).join('');
   $('#catFilter').classList.toggle('hidden', !cats.length);
   $('#ruleNames').innerHTML = index ? index.rules.map(r => `<option value="${esc(r.title)}">`).join('') : '';
@@ -565,7 +595,9 @@ function refreshAll() {
   renderList();
   renderRel();
   renderCheck();
-  renderConform();
+  limitAll = null;
+  $('#limitAllBody').innerHTML = '';
+  renderLawPick();
   $('#dupBody').innerHTML = '';
   renderDataStatus();
 }
@@ -631,10 +663,89 @@ $('#recentChips').addEventListener('click', e => {
   renderSearch();
 });
 
+/* 개정 기간 검색: 조문별 최종 개정일(조문 끝의 "(변경 2019. 5. 7.)" 같은 표시) 기준 */
+let searchMode = 'word';
+const isoToDot = v => (v || '').replace(/-/g, '.');
+const dateIso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function setPeriod(months, year) {
+  const now = new Date();
+  let from = new Date(now);
+  if (year === 'this') from = new Date(now.getFullYear(), 0, 1);
+  else if (year === 'all') { $('#perFrom').value = ''; $('#perTo').value = ''; renderSearch(); return; }
+  else from.setMonth(from.getMonth() - months);
+  $('#perFrom').value = dateIso(from);
+  $('#perTo').value = dateIso(now);
+  renderSearch();
+}
+segment($('#modeSeg'), v => {
+  searchMode = v;
+  $('#wordBox').classList.toggle('hidden', v !== 'word');
+  $('#periodBox').classList.toggle('hidden', v !== 'period');
+  $('#ignoreSpaceLabel').classList.toggle('hidden', v !== 'word');
+  $('#perEnactedLabel').classList.toggle('hidden', v !== 'period');
+  $('#recentChips').classList.toggle('hidden', v !== 'word');
+  if (v === 'period' && !$('#perFrom').value && !$('#perTo').value) setPeriod(12);
+  else renderSearch();
+});
+['perFrom', 'perTo', 'perEnacted'].forEach(id => $('#' + id).addEventListener('change', renderSearch));
+$('#perRule').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(renderSearch, 180); });
+$('#perChips').addEventListener('click', e => {
+  const c = e.target.closest('.chip');
+  if (c) setPeriod(+c.dataset.months || 0, c.dataset.year);
+});
+
+const REV_BADGE = { 개정: 'b-blue', 신설: 'b-green', 삭제: 'b-red', 제정: 'b-gray' };
+function revHit(x, showRule) {
+  const snip = x.article.text.replace(/\s+/g, ' ').slice(0, 90);
+  return `<div class="hit" data-open="${esc(x.rule.id)}" data-art="${esc(x.article.key)}">
+    <span class="badge ${REV_BADGE[x.kind] || 'b-blue'}">${esc(x.date)} ${esc(x.kind)}${x.estimated ? '(추정)' : ''}</span>
+    ${showRule ? `<b>${esc(x.rule.title)}</b> ` : ''}<b>${esc(x.article.no)}${x.article.title ? '(' + esc(x.article.title) + ')' : ''}</b>
+    <span class="muted">${esc(snip)}${x.article.text.length > 90 ? '…' : ''}</span>
+  </div>`;
+}
+
+function renderPeriod() {
+  const box = $('#searchResults');
+  const name = $('#perRule').value.trim();
+  const rule = name ? E.findRuleByName(index, name) : null;
+  if (name && !rule) { box.innerHTML = '<div class="card empty"><p class="muted">목록에 있는 규정명을 골라 주세요. 비우면 전체 규정에서 찾습니다.</p></div>'; return; }
+  const from = isoToDot($('#perFrom').value), to = isoToDot($('#perTo').value);
+  const list = E.revisedArticles(index, { rule, from, to, category: rule ? '' : $('#catFilter').value, includeEnacted: $('#perEnacted').checked });
+  const range = from || to ? `${from || '처음'} ~ ${to || '현재'}` : '전체 기간';
+  const note = '<p class="muted small" style="margin:4px 4px 10px">조문 끝의 개정 표시("(변경 2019. 5. 7.)", "[전문개정 …]" 등) 중 가장 최근 날짜를 그 조문의 최종 개정일로 봅니다. 개정 표시가 없는 조문은 빠집니다.</p>';
+  if (!list.length) {
+    box.innerHTML = `<div class="card empty"><div class="icon">📅</div><p class="muted">${rule ? `「${esc(rule.title)}」에서 ` : ''}${esc(range)}에 개정된 조문이 없습니다.</p></div>` + note;
+    return;
+  }
+  if (rule) {
+    box.innerHTML = `<div class="result-count">「${esc(rule.title)}」 · ${esc(range)} · 조문 ${list.length}개</div>${note}
+      <div class="list"><div class="item">${list.map(x => revHit(x, false)).join('')}</div></div>`;
+    return;
+  }
+  // 전체 규정: 규정별로 묶고 최근 개정 규정부터
+  const groups = new Map();
+  for (const x of list) {
+    if (!groups.has(x.rule)) groups.set(x.rule, []);
+    groups.get(x.rule).push(x);
+  }
+  box.innerHTML = `<div class="result-count">${esc(range)} · 규정 ${groups.size}건 · 조문 ${list.length}개</div>${note}<div class="list">` +
+    [...groups].slice(0, 300).map(([r, xs]) => {
+      const open = expanded.has('p:' + r.id);
+      const shown = open ? xs : xs.slice(0, 5);
+      return `<div class="item">
+        <div class="t" data-open="${esc(r.id)}">${esc(r.title)} <span class="badge b-gray">${xs.length}개 조</span></div>
+        <div class="m">${esc(r.category || '')} · 최근 개정 ${esc(xs[0].date)}</div>
+        ${shown.map(x => revHit(x, false)).join('')}
+        ${xs.length > 5 && !open ? `<div class="more" data-expand="p:${esc(r.id)}">조문 ${xs.length - 5}개 더 보기</div>` : ''}
+      </div>`;
+    }).join('') + '</div>';
+}
+
 const expanded = new Set();
 function renderSearch() {
   const box = $('#searchResults');
   if (!index) { emptyState(box); return; }
+  if (searchMode === 'period') { renderPeriod(); return; }
   const q = $('#q').value.trim();
   if (!q) {
     const bm = store.get('bookmarks', []).map(id => index.byId.get(id)).filter(Boolean);
@@ -670,6 +781,8 @@ function renderSearch() {
 $('#searchResults').addEventListener('click', e => {
   const ex = e.target.closest('[data-expand]');
   if (ex) { expanded.add(ex.dataset.expand); renderSearch(); return; }
+  const op = e.target.closest('[data-open]');
+  if (op) { openRule(op.dataset.open, op.dataset.art || null); return; }
   const item = e.target.closest('[data-rule]');
   if (!item) return;
   const hit = e.target.closest('[data-art]');
@@ -881,11 +994,12 @@ function renderCheck() {
         <div class="stat ${checkLevel === 'warn' ? 'on' : ''}" data-level="warn"><div class="n" style="color:var(--amber)">${stats.warn}</div><div class="l">주의</div></div>
         <div class="stat ${checkLevel === 'info' ? 'on' : ''}" data-level="info"><div class="n" style="color:var(--blue-l)">${stats.info}</div><div class="l">참고</div></div>
       </div>
-      <p class="muted small" style="margin-top:10px">
-        <b>오류</b> 없는 규정·조항·법령이나 폐지된 규정을 인용 · <b>주의</b> 인용한 법령 조가 규정 개정 뒤에 바뀜, 삭제된 법령 조 인용, 부칙의 인용 문제 등 ·
-        <b>참고</b> 목적 조항의 근거 조항에 위임 문언이 없거나, 위임한 하위 규정을 확인할 수 없음 등. 폐지된 규정은 점검하지 않습니다.<br>
-        요건·절차를 끌어 쓰는 단순 인용("~에 의하여 표창을 받을 때")은 점검하지 않습니다.
-      </p>
+      <ul class="muted small legend">
+        <li><b>오류</b>: 없는 규정·조항·법령이나 폐지된 규정을 인용</li>
+        <li><b>주의</b>: 인용한 법령 조가 규정 개정 뒤에 바뀜, 삭제된 법령 조 인용, 부칙의 인용 문제 등</li>
+        <li><b>참고</b>: 목적 조항의 근거 조항에 위임 문언이 없거나, 위임한 하위 규정을 확인할 수 없음 등</li>
+      </ul>
+      <p class="muted small" style="margin-top:6px">폐지된 규정과, 요건·절차를 끌어 쓰는 단순 인용("~에 의하여 표창을 받을 때")은 점검하지 않습니다.</p>
     </div>
     <div class="result-count">${shown.length}건 ${checkLevel !== 'all' ? '<a class="ref" data-level="all">전체 보기</a>' : ''}</div>
     <div class="list">${shown.slice(0, 500).map((it, i) => `
@@ -910,110 +1024,34 @@ segment($('#verifySeg'), v => {
 });
 
 /* ---------- 검증: 상위법 비교 ---------- */
-let topicSet = null; // data/topics.json
-const CONFORM = {
-  worse: ['법 기준 미달', 'b-red'], diff: ['법과 다름', 'b-amber'], 'ref-diff': ['참고 기준과 다름', 'b-blue'],
-  better: ['법보다 유리', 'b-green'], ok: ['일치', 'b-green'], follows: ['법령 준용', 'b-gray'],
-  unknown: ['확인 필요', 'b-gray'], missing: ['규정에 없음', 'b-gray'],
-};
-const LAW_KIND = { min: '법이 정한 최소 기준', eq: '법과 같아야 함', ref: '참고 기준(사립학교에 바로 적용되지 않음)' };
-let conformFilter = '';
+let lawCatalog = null; // data/topics.json — 분야별 기본 법령(areas)
 
-async function fetchTopics() {
+async function fetchLawCatalog() {
   try {
     const r = await fetch('data/topics.json', { cache: 'no-cache' });
     const js = r.ok ? await r.json() : null;
-    return js && Array.isArray(js.topics) ? js : null;
+    return js && Array.isArray(js.areas) ? js : null;
   } catch (e) {
     return null;
   }
-}
-
-function renderConform() {
-  renderLawPick();
-  const box = $('#conformAllBody');
-  if (!index) { emptyState(box); return; }
-  if (!topicSet) { box.innerHTML = '<div class="card empty"><p class="muted">상위법 기준 목록(data/topics.json)을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.</p></div>'; return; }
-  const res = E.conformance(index, topicSet.topics);
-  const count = { worse: 0, diff: 0, missing: 0, ok: 0 };
-  let fromLaw = 0, total = 0;
-  for (const t of res) for (const R of t.refs) for (const c of R.checks) {
-    total++;
-    if (c.law.source === 'law') fromLaw++;
-    if (!c.rows.length) count.missing++;
-    for (const w of c.rows) {
-      if (w.status === 'worse') count.worse++;
-      else if (w.status === 'diff' || w.status === 'ref-diff') count.diff++;
-      else if (w.status === 'ok' || w.status === 'better' || w.status === 'follows') count.ok++;
-    }
-  }
-  const want = st => !conformFilter || (conformFilter === 'diff' ? st === 'diff' || st === 'ref-diff' : conformFilter === 'ok' ? ['ok', 'better', 'follows'].includes(st) : st === conformFilter);
-  const lawLink = R => `<a class="ref" href="${esc(((R.law && R.law.url) || 'https://www.law.go.kr/법령/' + R.ref.law.replace(/\s+/g, '')) + '/' + E.artLabel(R.ref.article))}" target="_blank" rel="noopener">조문 보기</a>`;
-  const checkHtml = (R, c) => {
-    const rows = c.rows.filter(w => want(w.status));
-    if (!c.rows.length && !want('missing')) return '';
-    if (c.rows.length && !rows.length) return '';
-    const v = c.law.value ? c.law.value.text : '?';
-    return `<div class="issue" style="cursor:default">
-      <div class="where">${R.ref.group !== '공통' ? `<span class="badge b-gray">${esc(R.ref.group)}</span> ` : ''}${esc(R.ref.law)} ${esc(E.artLabel(R.ref.article))} · ${esc(LAW_KIND[R.ref.kind] || '')} · ${lawLink(R)}</div>
-      <div class="msg">${esc(c.check.label)}: ${esc(v)} <span class="muted small" style="font-weight:400">${c.law.source === 'law' ? '(현행 조문에서 읽음)' : `(참고값, ${esc(topicSet.asOf || '')} 기준 — 업데이트하면 현행 조문으로 확인)`}</span></div>
-      ${c.law.line ? `<div class="quote">${esc(c.law.line)}</div>` : ''}
-      ${c.rows.length ? rows.map(w => `
-        <div class="crow" data-open="${esc(w.rule.id)}" data-art="${esc(w.article.key)}">
-          <span class="badge ${CONFORM[w.status][1]}">${CONFORM[w.status][0]}</span>
-          <b>${esc(w.rule.title)} ${esc(w.article.no)}</b>${w.value ? ` · ${esc(w.value.text)}` : ''}
-          <div class="quote">${esc(w.line)}</div>
-        </div>`).join('') : `<div class="det"><span class="badge b-gray">규정에 없음</span> 규정 본문에서 이 내용을 찾지 못했습니다. 별표나 다른 문서(지침 등)에 정했을 수 있으니 확인해 주세요.</div>`}
-    </div>`;
-  };
-  const topicsHtml = res.map(t => {
-    const body = t.refs.map(R => R.checks.map(c => checkHtml(R, c)).join('')).join('');
-    if (!body) return '';
-    const st = [];
-    for (const R of t.refs) for (const c of R.checks) { if (!c.rows.length) st.push('missing'); for (const w of c.rows) st.push(w.status); }
-    const badge = ['worse', 'diff', 'ref-diff', 'missing'].filter(k => st.includes(k)).map(k => `<span class="badge ${CONFORM[k][1]}">${CONFORM[k][0]}</span>`).join('')
-      + (st.some(k => ['ok', 'better', 'follows'].includes(k)) ? '<span class="badge b-green">일치</span>' : '');
-    const cand = t.candidates.length ? `<div class="muted small" style="padding:10px 16px;line-height:1.7">관련 조문: ${t.candidates.slice(0, 8).map(c => `<a class="ref" data-open="${esc(c.rule.id)}" data-art="${esc(c.article.key)}">${esc(c.rule.title)} ${esc(c.article.no)}</a>`).join(', ')}${t.candidates.length > 8 ? ` 외 ${t.candidates.length - 8}개` : ''}</div>` : '';
-    return `<details class="group" ${st.includes('worse') || st.includes('diff') ? 'open' : ''}>
-      <summary><span>${esc(t.topic.name)}</span> <span class="sum-badges">${badge}</span></summary>
-      <div class="list">${body}${cand}</div>
-    </details>`;
-  }).join('');
-  box.innerHTML = `
-    <div class="card">
-      <h2>상위법 기준 비교</h2>
-      <div class="stat-grid" style="grid-template-columns:1fr 1fr">
-        <div class="stat ${conformFilter === 'worse' ? 'on' : ''}" data-cf="worse"><div class="n" style="color:var(--red)">${count.worse}</div><div class="l">법 기준 미달</div></div>
-        <div class="stat ${conformFilter === 'diff' ? 'on' : ''}" data-cf="diff"><div class="n" style="color:var(--amber)">${count.diff}</div><div class="l">법과 다름</div></div>
-        <div class="stat ${conformFilter === 'missing' ? 'on' : ''}" data-cf="missing"><div class="n" style="color:var(--sub)">${count.missing}</div><div class="l">규정에 없음</div></div>
-        <div class="stat ${conformFilter === 'ok' ? 'on' : ''}" data-cf="ok"><div class="n" style="color:var(--green)">${count.ok}</div><div class="l">일치·준용</div></div>
-      </div>
-      <p class="muted small" style="margin-top:10px">
-        출산휴가·육아휴직·연차·병가·정년 등 주제별로 규정 조문과 상위 법령 조문에서 같은 내용의 숫자(기간·일수·나이)를 찾아 비교합니다.
-        기준 ${total}개 중 ${fromLaw}개는 국가법령정보센터의 현행 조문에서 읽었고, 나머지는 ${esc(topicSet.asOf || '')} 기준 참고값입니다${fromLaw < total ? ' (업데이트 프로그램을 한 번 실행하면 현행 조문으로 바뀝니다)' : ''}.<br>
-        교원·직원에 따라 적용 법령이 다를 수 있고 문장 속 숫자를 자동으로 읽은 결과이므로, <b>검토 후보</b>로 보고 원문으로 확인해 주세요.
-      </p>
-    </div>
-    ${conformFilter ? `<div class="result-count"><a class="ref" data-cf="">전체 보기</a></div>` : ''}
-    ${topicsHtml || '<div class="card empty"><p class="muted">해당하는 항목이 없습니다.</p></div>'}`;
 }
 
 /* 규정 하나를 골라 관련 상위 법령과 대조 */
 let lawRule = null;        // 고른 규정
 let lawRelated = [];       // 관련 법령 목록
 const lawTextCache = new Map();
-const REASON = { basis: ['근거 법령', 'b-blue'], cite: ['인용', 'b-blue'], topic: ['주제', 'b-amber'], area: ['분야', 'b-gray'] };
+const REASON = { basis: ['근거 법령', 'b-blue'], cite: ['인용', 'b-blue'], area: ['분야', 'b-gray'] };
 
 function renderLawPick() {
   const box = $('#lawRelated');
-  if (!index || !topicSet) { box.innerHTML = ''; return; }
+  if (!index) { box.innerHTML = ''; return; }
   const rule = E.findRuleByName(index, $('#lawRuleInput').value);
   if (rule !== lawRule) { lawRule = rule; $('#lawResult').innerHTML = ''; }
   if (!rule) {
     box.innerHTML = $('#lawRuleInput').value.trim() ? '<p class="muted small" style="margin-top:8px">목록에 있는 규정명을 골라 주세요.</p>' : '';
     return;
   }
-  lawRelated = E.relatedLaws(index, rule, getChecked().analysis, topicSet);
+  lawRelated = E.relatedLaws(index, rule, getChecked().analysis, lawCatalog);
   const row = (x, i) => {
     const L = x.law;
     const usable = L && L.found;
@@ -1021,7 +1059,7 @@ function renderLawPick() {
       : L.text ? `전체 조문 ${L.articleCount || ''}개` : '인용한 조문만 (업데이트 후 전체 조문)';
     return `<label class="lawpick ${usable ? '' : 'off'}">
       <input type="checkbox" data-li="${i}" ${usable ? 'checked' : 'disabled'}>
-      <span><b>${esc(x.name)}</b> ${x.reasons.map(r => `<span class="badge ${REASON[r.kind][1]}">${r.kind === 'topic' || r.kind === 'area' ? esc(REASON[r.kind][0] + ': ' + r.label) : REASON[r.kind][0]}</span>`).join(' ')}
+      <span><b>${esc(x.name)}</b> ${x.reasons.map(r => `<span class="badge ${REASON[r.kind][1]}">${r.kind === 'area' ? esc(REASON[r.kind][0] + ': ' + r.label) : REASON[r.kind][0]}</span>`).join(' ')}
       ${x.articles.length ? `<br><span class="muted small">${x.articles.map(k => E.artLabel(k)).join(', ')}</span>` : ''}
       <br><span class="muted small">${esc(src)}</span></span>
     </label>`;
@@ -1063,6 +1101,71 @@ function numBadge(n) {
   return `<span class="badge ${n.differ ? 'b-red' : 'b-gray'}">숫자 ${n.differ ? '다름' : '차이'}: 규정 ${esc(n.onlyA.join(', ') || '-')} ↔ 법 ${esc(n.onlyB.join(', ') || '-')}</span>`;
 }
 
+const LIMIT_STATUS = { below: ['법 최소 기준 미달', 'b-red'], above: ['법 최대 기준 초과', 'b-red'], diff: ['법과 다름', 'b-amber'], same: ['같음', 'b-green'] };
+const DIR_LABEL = { min: '최소 기준', max: '최대 기준' };
+
+function limitRow(p, texts, showRule) {
+  const rule = index.byId.get(p.article.ruleId);
+  const L = texts.get(p.lv.key) || {};
+  return `<div class="issue" data-open="${esc(rule.id)}" data-art="${esc(p.article.key)}">
+    <span class="badge ${LIMIT_STATUS[p.status][1]}">${LIMIT_STATUS[p.status][0]}</span> <span class="badge b-gray">유사 ${Math.round(p.score * 100)}%</span>
+    <div class="msg">규정 ${esc(p.rv.raw)} ↔ 법 ${esc(p.lv.raw)} <span class="muted small" style="font-weight:400">(${DIR_LABEL[p.lv.dir] || ''})</span></div>
+    <div class="where">${showRule ? `${esc(rule.title)} ` : ''}${esc(p.article.no)}${p.article.title ? '(' + esc(p.article.title) + ')' : ''} ↔ ${esc(p.lv.name)} ${esc(p.lv.art.no || E.artLabel(p.lv.ak))}${p.lv.art.title ? '(' + esc(p.lv.art.title) + ')' : ''} · ${lawArtLink(p.lv.name, L.url, p.lv.ak)}</div>
+    <div class="quote">${esc(p.line)}</div>
+    <div class="quote" style="border-left-color:var(--green)">${esc(p.lv.line)}</div>
+  </div>`;
+}
+
+/* 규정집 전체: 모든 규정을 관련 법령의 숫자 기준과 대조 */
+let limitAll = null;     // {rows: [{rule, pairs}], texts}
+let limitFilter = 'diff';
+async function runLimitAll() {
+  const box = $('#limitAllBody');
+  const btn = $('#limitAllRun');
+  btn.disabled = true;
+  const an = getChecked().analysis;
+  const plans = index.rules.filter(r => !r.abolished).map(r => ({ rule: r, laws: E.relatedLaws(index, r, an, lawCatalog).filter(x => x.law && x.law.found) }));
+  const need = new Map();
+  plans.forEach(p => p.laws.forEach(x => need.set(x.key, x)));
+  const texts = new Map();
+  let i = 0;
+  for (const x of need.values()) {
+    box.innerHTML = `<p class="muted small" style="padding:0 16px 14px">법령 조문 받는 중… ${++i}/${need.size}</p>`;
+    const one = await lawTexts([x]);
+    texts.set(x.key, one.get(x.key));
+  }
+  const rows = [];
+  for (let j = 0; j < plans.length; j++) {
+    const p = plans[j];
+    const sub = new Map(p.laws.map(x => [x.key, texts.get(x.key)]));
+    const pairs = E.limitPairs(p.rule, sub);
+    if (pairs.length) rows.push({ rule: p.rule, pairs });
+    if (j % 20 === 0) {
+      box.innerHTML = `<p class="muted small" style="padding:0 16px 14px">대조 중… ${j}/${plans.length}</p>`;
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+  limitAll = { rows, texts };
+  btn.disabled = false;
+  btn.textContent = '다시 실행';
+  renderLimitAll();
+}
+
+function renderLimitAll() {
+  const box = $('#limitAllBody');
+  if (!limitAll) return;
+  const all = limitAll.rows.flatMap(r => r.pairs);
+  const cnt = k => all.filter(p => k === 'out' ? p.status === 'below' || p.status === 'above' : p.status === k).length;
+  const want = p => limitFilter === 'all' || (limitFilter === 'diff' ? p.status !== 'same' : limitFilter === 'out' ? p.status === 'below' || p.status === 'above' : p.status === limitFilter);
+  const rows = limitAll.rows.map(r => ({ rule: r.rule, pairs: r.pairs.filter(want) })).filter(r => r.pairs.length);
+  const chip = (k, label, n) => `<button class="chip ${limitFilter === k ? 'on' : ''}" data-lf="${k}">${label} ${n}</button>`;
+  box.innerHTML = `<div style="padding:0 16px">
+      <div class="chips">${chip('diff', '다른 것만', all.length - cnt('same'))}${chip('out', '법 기준 벗어남', cnt('out'))}${chip('same', '같음', cnt('same'))}${chip('all', '전체', all.length)}</div>
+      <p class="muted small" style="margin:8px 0">규정 ${limitAll.rows.length}건에서 법의 숫자 기준과 짝지은 문장 ${all.length}개. 앞말이 비슷한 문장끼리 자동으로 짝지은 결과라 엉뚱한 짝도 섞일 수 있으니 <b>검토 후보</b>로 봐 주세요.</p>
+    </div>
+    <div class="list">${rows.map(r => r.pairs.map(p => limitRow(p, limitAll.texts, true)).join('')).join('') || '<div class="issue muted">해당하는 문장이 없습니다.</div>'}</div>`;
+}
+
 async function runLawCheck() {
   const rule = lawRule;
   if (!rule) return;
@@ -1073,18 +1176,13 @@ async function runLawCheck() {
   const texts = await lawTexts(picked);
   if (lawRule !== rule) return;
   const an = getChecked().analysis;
-  const keys = new Set(picked.map(x => x.key));
   const { citations, similar } = E.compareWithLaws(index, rule, an, texts);
+  const limits = E.limitPairs(rule, texts);
+  const nLimit = limits.filter(p => p.status !== 'same').length;
   const issues = getChecked().issues.filter(i => i.rule === rule && /^law-/.test(i.type) && !i.article.addenda);
-  const topicRows = [];
-  for (const t of E.conformance(index, topicSet.topics)) for (const R of t.refs) {
-    if (!keys.has(E.normTitle(R.ref.law))) continue;
-    for (const c of R.checks) for (const w of c.rows) if (w.rule === rule) topicRows.push({ t, R, c, w });
-  }
   const partial = picked.filter(x => !texts.get(x.key).full).map(x => x.name);
   const nCite = citations.filter(c => c.nums && c.nums.differ).length;
   const nSim = similar.filter(p => p.numDiff).length;
-  const nTopic = topicRows.filter(r => ['worse', 'diff', 'ref-diff'].includes(r.w.status)).length;
   const lawSide = (x) => `<div class="side"><span class="lab">${esc(x.lawName)} ${esc(x.lawArt ? (x.lawArt.no || E.artLabel(x.artKey)) : E.artLabel(x.artKey))}${x.lawArt && x.lawArt.title ? '(' + esc(x.lawArt.title) + ')' : ''} ${lawArtLink(x.lawName, texts.get(x.lawKey).url, x.artKey)}</span><br>`;
   const ruleLab = x => `<span class="lab" data-open="${esc(rule.id)}" data-art="${esc(x.article.key)}">「${esc(rule.title)}」 ${esc(x.article.no)}${x.article.title ? '(' + esc(x.article.title) + ')' : ''}</span>`;
   const sec = (title, n, warn, body, open) => `<details class="group" ${open ? 'open' : ''}>
@@ -1096,8 +1194,8 @@ async function runLawCheck() {
       <div class="stat-grid" style="grid-template-columns:1fr 1fr">
         <div class="stat"><div class="n" style="color:var(--red)">${issues.filter(i => i.level === 'error').length}</div><div class="l">인용 오류</div></div>
         <div class="stat"><div class="n" style="color:var(--amber)">${issues.filter(i => i.level !== 'error').length}</div><div class="l">인용 주의</div></div>
-        <div class="stat"><div class="n" style="color:var(--red)">${nSim + nCite}</div><div class="l">법과 숫자가 다른 조문</div></div>
-        <div class="stat"><div class="n" style="color:var(--amber)">${nTopic}</div><div class="l">주제 기준 미달·다름</div></div>
+        <div class="stat"><div class="n" style="color:var(--red)">${nLimit}</div><div class="l">법 숫자 기준과 다름</div></div>
+        <div class="stat"><div class="n" style="color:var(--amber)">${nSim + nCite}</div><div class="l">비슷한 조문 숫자 다름</div></div>
       </div>
       <p class="muted small" style="margin-top:10px">법령 ${picked.length}개와 대조했습니다.${partial.length ? ` ${esc(partial.join(', '))}은(는) 아직 전체 조문이 없어 인용한 조문만 대조했습니다(업데이트 프로그램을 실행하면 전체 조문으로 대조).` : ''}
       숫자·문장 차이는 자동으로 찾은 <b>검토 후보</b>이며, 위반인지는 원문을 읽고 판단해 주세요.</p>
@@ -1109,6 +1207,8 @@ async function runLawCheck() {
         <div class="where">${esc(it.article.no)}${it.article.title ? '(' + esc(it.article.title) + ')' : ''}</div>
         <div class="det">${esc(it.detail)}</div>
       </div>`).join('') || '<div class="issue muted">인용한 법령·조문에 문제가 없습니다.</div>', issues.length > 0)}
+    ${sec('법 숫자 기준 대조', limits.length, nLimit ? `다름 ${nLimit}` : '', limits.map(p => limitRow(p, texts, false)).join('')
+      || '<div class="issue muted">법의 숫자 기준("○주 이상", "○개월 이내" 등)과 짝지어지는 문장이 없습니다.</div>', nLimit > 0)}
     ${sec('비슷한 법 조문 (문장 대조)', similar.length, nSim ? `숫자 다름 ${nSim}` : '', similar.map(p => {
       const [l, r] = p.identical ? [esc(p.ruleText), esc(p.lawText)] : diffHtml(p.ruleText, p.lawText);
       return `<div class="pair"><div class="hd">${p.identical ? '<span class="badge b-green">법과 동일</span>' : `<span class="badge b-amber">유사 ${Math.round(p.score * 100)}%</span>`} ${numBadge(p.nums)}</div>
@@ -1117,20 +1217,14 @@ async function runLawCheck() {
     ${sec('인용한 법 조문과 나란히 보기', citations.length, nCite ? `숫자 다름 ${nCite}` : '', citations.map(c => `
       <div class="pair"><div class="hd">${c.lawText ? numBadge(c.nums) || '<span class="badge b-gray">인용</span>' : '<span class="badge b-red">법 조문 없음</span>'}</div>
         <div class="side">${ruleLab(c)}<br>${esc(c.ruleText)}</div>
-        ${lawSide(c)}${c.lawText ? esc(c.lawText) : '<span class="muted">현행 법령에서 이 조를 찾지 못했습니다.</span>'}</div></div>`).join('') || '<div class="pair muted">이 규정은 고른 법령의 조를 직접 인용하지 않았습니다.</div>', false)}
-    ${sec('주제 기준 비교', topicRows.length, nTopic ? `미달·다름 ${nTopic}` : '', topicRows.map(({ t, R, c, w }) => `
-      <div class="issue" data-open="${esc(rule.id)}" data-art="${esc(w.article.key)}">
-        <span class="badge ${CONFORM[w.status][1]}">${CONFORM[w.status][0]}</span> <span class="badge b-gray">${esc(t.topic.name)}</span>
-        <div class="msg">${esc(c.check.label)}: 규정 ${esc(w.value ? w.value.text : '법령 준용')} · 법 ${esc(c.law.value ? c.law.value.text : '?')}</div>
-        <div class="where">${esc(w.article.no)} ↔ ${esc(R.ref.law)} ${esc(E.artLabel(R.ref.article))} · ${esc(LAW_KIND[R.ref.kind] || '')}</div>
-        <div class="quote">${esc(w.line)}</div>
-      </div>`).join('') || '<div class="issue muted">이 규정에는 주제 기준(휴가·휴직·정년 등)과 비교할 조문이 없습니다.</div>', nTopic > 0)}`;
+        ${lawSide(c)}${c.lawText ? esc(c.lawText) : '<span class="muted">현행 법령에서 이 조를 찾지 못했습니다.</span>'}</div></div>`).join('') || '<div class="pair muted">이 규정은 고른 법령의 조를 직접 인용하지 않았습니다.</div>', false)}`;
 }
 
 $('#verify-law').addEventListener('click', e => {
   if (e.target.closest('#lawRun')) { runLawCheck(); return; }
-  const f = e.target.closest('[data-cf]');
-  if (f) { conformFilter = conformFilter === f.dataset.cf ? '' : f.dataset.cf; renderConform(); return; }
+  if (e.target.closest('#limitAllRun')) { runLimitAll(); return; }
+  const lf = e.target.closest('[data-lf]');
+  if (lf) { limitFilter = lf.dataset.lf; renderLimitAll(); return; }
   const o = e.target.closest('[data-open]');
   if (o) openRule(o.dataset.open, o.dataset.art);
 });
@@ -1667,7 +1761,7 @@ $('#btnPaste').addEventListener('click', () => {
 /* ---------- 시작 ---------- */
 (async function init() {
   renderRecent();
-  fetchTopics().then(t => { topicSet = t; renderConform(); });
+  fetchLawCatalog().then(t => { lawCatalog = t; renderLawPick(); });
   let ds = null;
   try { ds = await idb.get('dataset'); } catch (e) { /* IndexedDB 사용 불가 */ }
   if (ds && ds.rules && ds.rules.length) {
