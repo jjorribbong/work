@@ -1,6 +1,6 @@
 {
  "source": "https://rule.cju.ac.kr/lmxsrv/main/main.srv",
- "fetchedAt": "2026-10-28T16:00:18+09:00",
+ "fetchedAt": "2026-10-28T18:37:05+09:00",
  "rules": [
   {
    "id": "seq199",
@@ -4076,5 +4076,10 @@
     }
    ]
   }
- ]
+ ],
+ "fileDown": {
+  "function": "fileDown",
+  "source": "https://rule.cju.ac.kr/lmxmng/javascript/link.js",
+  "code": "= '' && newName != null)\r\n\t{\t\t\r\n\t\t$(\"#form\").attr(\"action\", \"/lmxmng/law/lawDetailAttachUpdate.srv\");\r\n\t\t$(\"#SEQ_ATTACH\").val(aseq);\r\n\t\t$(\"#ATTACH_NAME\").val(newName);\r\n\t\t$(\"#form\").submit();\r\n\t}\r\n}\r\nfunction fileDown(seq, type)\r\n{\r\n\tvar tag = \r\n\t\t\"<iframe name='fileIFrame' id='fileIFrame' style='display: none;'></iframe>\" + \r\n\t\t\"<form id='fileForm' action='/lmxsrv/fileDown.srv' method='post' target='fileIFrame'>\"+\r\n\t\t\"\t<input type='hidden' id='FILE_SEQ' name='FILE_SEQ'/>\"+\r\n\t\t\"\t<input type='hidden' id='FILE_TYPE' name='FILE_TYPE'/>\"+\t\t\r\n\t\t\"</form>\";\r\n\t\r\n\tif($(\"#fileIFrame\").attr(\"name\") == null)\r\n\t\t$(\"body\").append(tag);\r\n\t\r\n\t$(\"#FILE_SEQ\").val(seq);\r\n\t$(\"#FILE_TYPE\").val(type);\r\n\t$(\"#fileForm\").submit();\r\n}\r\nfunction fullPopup(url, title)\r\n{\r\n\t var width = screen.width;\r\n\t var height = screen.height-12;\r\n\t    \r\n\t var winproperty = \"'toolbar=0,location=0,directories=0,status=0,menubar=0,scrollbars=1,resizable=1,channelmode=1,\" +\r\n\t \"width=\" + width + \",height=\" + height + \"'\";\t \r\n\t \r\n\t window.open(url, title, winproperty);\r\n}\r\nfunction lawFullChangeHistory(seq)\r\n{\r\n\tvar hseq = $(\"#histroySeq\").val();\r\n\tif(hseq != 0)\r\n\t\tlocation.href = \"/lmxsrv/law/lawFullView.srv?SEQ=\"+seq+\"&SEQ_HISTORY=\"+hseq;\r\n}\r\n/**\r\n * 서비스단 규정 상세보기 연혁선택\r\n * @param seq\r\n * @return\r\n */\r\nfunction lawChangeHistory(seq)\r\n{\r\n\tvar hseq = $(\"#histroySeq\").val();\r\n\tif(hseq != 0)\r\n\t{\r\n\t\t/*\r\n\t\t$(\"#lawDetailTitle\").attr(\"src\", \"/lmxsrv/law/lawFullLawTitle.srv?SEQ=\"+seq+\"&SEQ_HISTORY=\"+hseq);\r\n\t\t$(\"#lawDetailContent\").attr(\"src\", \"/lmxsrv/law/lawFullContent.srv?SEQ=\"+seq+\"&SEQ_HISTORY=\"+hseq);\r\n\t\t*/\r\n\t\tlocation.href = \"/lmxsrv/law/lawDetail.srv?SEQ=\"+seq+\"&SEQ_HISTORY=\"+hseq;\r\n\t}\r\n}\r\n/**\r\n * 조문삭제\r\n * @param seq\r"
+ }
 }
