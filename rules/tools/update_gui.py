@@ -271,7 +271,7 @@ def update(cfg, log, stop=None):
         log('■ 국가법령정보센터에서 인용 법령을 확인하는 중… (3분 정도 걸립니다)')
         laws_path = os.path.join(WORK_DIR, 'laws.json')
         topics_path = os.path.join(WORK_DIR, 'topics.json')
-        try:  # 상위법 기준 비교 주제 목록(저장소의 data/topics.json)
+        try:  # 분야별 기본 법령 목록(저장소의 data/topics.json)
             _, topics_raw = gh.read('topics.json')
         except StepError:
             topics_raw = None
