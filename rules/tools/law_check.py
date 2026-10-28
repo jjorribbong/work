@@ -151,6 +151,7 @@ def _search_once(api, query):
                 'type': first(d, '법령구분명', '행정규칙종류', '법령종류'),
                 'current': first(d, '현행연혁코드', '현행연혁구분') in ('', '현행'),
                 'enforced': first(d, '시행일자'),
+                'promulgated': first(d, '공포일자'),
             })
         if any(norm(o['name']) == norm(query) for o in out):
             break
@@ -266,7 +267,7 @@ def check(api, cites, full=False):
             continue
         hit = cur[0]
         entry = {'name': hit['name'], 'found': True, 'type': hit['type'], 'current': hit['current'],
-                 'enforced': hit['enforced'], 'url': view_url(hit), 'from': c['from'], 'articles': {}}
+                 'enforced': hit['enforced'], 'promulgated': hit.get('promulgated', ''), 'url': view_url(hit), 'from': c['from'], 'articles': {}}
         if c['articles'] or full:
             try:
                 arts = law_articles(api, hit)
