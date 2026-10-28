@@ -195,17 +195,21 @@
   function attachmentList(r) {
     const out = [];
     const byName = new Map();
-    const add = (name, url) => {
+    const add = (name, url, down) => {
       name = String(name || '').trim();
       if (!name) return;
       const k = name.replace(/\s+/g, '');
       const got = byName.get(k);
-      if (got) { if (url && !got.url) got.url = url; return; }
-      const a = { name, label: name.replace(/^\d{4}-/, '').replace(/\.[a-z]+$/i, '').replace(/_/g, ' ').trim() || name, url: url || '' };
+      if (got) { if (url && !got.url) got.url = url; if (down && !got.down) got.down = down; return; }
+      const a = { name, label: name.replace(/^\d{4}-/, '').replace(/\.[a-z]+$/i, '').replace(/_/g, ' ').trim() || name, url: url || '', down: down || null };
       byName.set(k, a);
       out.push(a);
     };
-    for (const a of r.attachments || []) add(a.name, a.url);
+    for (const a of r.attachments || []) {
+      // 규정관리시스템의 받기 함수 fileDown('3169', 'attach') → 파일 번호·종류
+      const m = String(a.link || '').match(/\(\s*['"]?(\d+)['"]?\s*,\s*['"](\w+)['"]\s*\)/);
+      add(a.name, a.url, a.down || (m ? { seq: m[1], type: m[2] } : null));
+    }
     for (const raw of String(r.text || [r.preamble, r.addenda].join('\n')).split('\n')) {
       const line = raw.trim();
       if (ATTACH_RE.test(line) && line.length < 120) add(line);

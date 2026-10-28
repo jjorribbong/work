@@ -229,6 +229,8 @@
   .chg-ev + .chg-ev { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
   .lab-old { font-size: 12px; font-weight: 700; color: var(--red); }
   .lab-new { font-size: 12px; font-weight: 700; color: var(--green); }
+  .lawchg-banner { margin-top: 8px; background: var(--amber-bg); color: var(--amber); font-size: 13px; padding: 8px 10px; border-radius: 8px; line-height: 1.5; cursor: pointer; }
+  .lawchg-banner div + div { margin-top: 4px; }
   .abolished-banner { margin-top: 8px; background: var(--red-bg); color: var(--red); font-size: 13px; font-weight: 700; padding: 8px 10px; border-radius: 8px; }
   .law-text { white-space: pre-wrap; font-size: 14px; line-height: 1.7; margin-top: 10px; }
   .addenda { background: #fff; margin-top: 8px; padding: 16px; }
@@ -814,7 +816,7 @@ function renderList() {
   });
   const keys = [...groups.keys()].sort((a, b) => a.localeCompare(b, 'ko', { numeric: true }));
   const gone = rules.filter(r => r.abolished).sort((a, b) => b.abolished.localeCompare(a.abolished));
-  let html = f ? '' : recentChangesHtml();
+  let html = f ? '' : lawChangesHtml() + recentChangesHtml();
   if (bm.length && !f) html += `<details class="group" open><summary>⭐ 즐겨찾기 <span class="badge b-gray">${bm.length}</span></summary><div class="list">${bm.map(ruleItem).join('')}</div></details>`;
   html += keys.map(k => {
     const list = groups.get(k).sort((a, b) => (a.code || '').localeCompare(b.code || '', 'ko', { numeric: true }) || a.title.localeCompare(b.title, 'ko'));
@@ -826,6 +828,101 @@ function renderList() {
 const KIND = { added: ['신규', 'b-green'], removed: ['삭제', 'b-red'], changed: ['변경', 'b-blue'] };
 
 // 규정목록 맨 위 '최근 개정': 업데이트 때마다 바뀐 규정 (최근 3회)
+/* ---------- 상위법 개정 알림 (업데이트 프로그램이 만든 data/lawchanges.json) ---------- */
+let lawChanges = null;
+const LAW_ST = { modified: ['개정', 'b-blue'], added: ['신설', 'b-green'], removed: ['삭제', 'b-red'], deleted: ['삭제', 'b-red'] };
+const ymd = v => /^\d{8}$/.test(v || '') ? `${v.slice(0, 4)}.${v.slice(4, 6)}.${v.slice(6, 8)}` : (v || '');
+
+async function fetchLawChanges() {
+  try {
+    const r = await fetch('data/lawchanges.json', { cache: 'no-cache' });
+    const js = r.ok ? await r.json() : null;
+    return js && Array.isArray(js.events) ? js : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// 개정된 법령을 인용한 우리 규정: [{rule, cites: [{article, artKey, changed}]}]
+function affectedRules(lawKey, changedKeys) {
+  if (!index) return [];
+  const law = index.laws.get(lawKey);
+  if (!law) return [];
+  const out = new Map();
+  for (const e of getChecked().analysis.edges) {
+    if (e.law !== law || e.from.rule.abolished || e.from.article.addenda) continue;
+    const r = e.from.rule;
+    if (!out.has(r)) out.set(r, []);
+    const list = out.get(r);
+    if (!list.some(c => c.article === e.from.article && c.artKey === e.to.artKey)) {
+      list.push({ article: e.from.article, artKey: e.to.artKey, changed: !!e.to.artKey && changedKeys.has(e.to.artKey) });
+    }
+  }
+  return [...out].map(([rule, cites]) => ({ rule, cites, hit: cites.some(c => c.changed) }))
+    .sort((a, b) => b.hit - a.hit || a.rule.title.localeCompare(b.rule.title, 'ko'));
+}
+
+function lawChangesSeen() {
+  return store.get('lawChangesSeen', '');
+}
+
+function lawChangesHtml() {
+  const ev = lawChanges && lawChanges.events;
+  if (!ev || !ev.length) return '';
+  const seen = lawChangesSeen();
+  return `<div class="card" id="lawChangesCard"><h2>상위법 개정 알림</h2>
+    <p class="muted small" style="margin-bottom:6px">우리 규정이 인용하거나 관련된 법령의 조문이 바뀌면 업데이트할 때 기록합니다.</p>
+    ${ev.slice(0, 3).map((e, ei) => `
+    <div class="chg-ev">
+      <div class="m small muted">${esc(String(e.at).slice(0, 10))} 확인 ${String(e.at) > seen ? '<span class="badge b-red">새 개정</span>' : ''}</div>
+      <div class="chips">${e.laws.map((l, li) => {
+        const hits = affectedRules(l.key, new Set(l.articles.map(a => a.key))).filter(x => x.hit).length;
+        return `<button class="chip" data-lawchg="${ei}:${li}">${esc(l.name)} · ${l.articles.length}개 조${hits ? ` <span class="badge b-red">인용 조 개정 ${hits}</span>` : ''}</button>`;
+      }).join('')}</div>
+    </div>`).join('')}</div>`;
+}
+
+function showLawChange(ei, li) {
+  const e = lawChanges.events[ei];
+  const l = e.laws[li];
+  if (String(e.at) > lawChangesSeen()) store.set('lawChangesSeen', String(lawChanges.events[0].at));
+  const changed = new Set(l.articles.map(a => a.key));
+  const aff = affectedRules(l.key, changed);
+  const affHtml = aff.length ? aff.map(x => `
+    <div class="issue" data-open="${esc(x.rule.id)}" data-art="${esc((x.cites.find(c => c.changed) || x.cites[0]).article.key)}">
+      ${x.hit ? '<span class="badge b-red">인용한 조가 개정됨</span>' : '<span class="badge b-gray">인용</span>'} <b>${esc(x.rule.title)}</b>
+      <div class="where">${x.cites.map(c => `${esc(c.article.no)} → ${c.artKey ? esc(E.artLabel(c.artKey)) : '법령 전체'}${c.changed ? ' (개정)' : ''}`).join(' · ')}</div>
+    </div>`).join('') : '<div class="issue muted">이 법령을 직접 인용한 현행 규정이 없습니다(분야별 기본 법령으로 관련).</div>';
+  const rows = l.articles.map(a => {
+    const [old, neu] = a.status === 'modified' ? diffHtml(a.before, a.after) : [esc(a.before), esc(a.after)];
+    return `<div class="pair">
+      <div class="hd"><span class="badge ${(LAW_ST[a.status] || LAW_ST.modified)[1]}">${(LAW_ST[a.status] || LAW_ST.modified)[0]}</span> <b>${esc(a.no)}${a.title ? '(' + esc(a.title) + ')' : ''}</b> ${lawArtLink(l.name, l.url, a.key)}</div>
+      ${a.trimmed ? '<div class="side muted small">바뀐 조가 많아 본문은 생략했습니다. law.go.kr에서 확인해 주세요.</div>' : `
+      ${a.status !== 'added' ? `<div class="side diff"><span class="lab-old">개정 전</span><br>${old}</div>` : ''}
+      ${a.status !== 'removed' ? `<div class="side diff"><span class="lab-new">개정 후</span><br>${neu}</div>` : ''}`}
+    </div>`;
+  }).join('');
+  showSheet(`${l.name} 개정`, `
+    <p class="muted small" style="margin-bottom:8px">${esc(String(e.at).slice(0, 10))} 업데이트에서 확인 · 시행일 ${esc(ymd(l.prevEnforced) || '?')} → ${esc(ymd(l.enforced) || '?')}${l.promulgated ? ` · 공포 ${esc(ymd(l.promulgated))}` : ''} · 바뀐 조 ${l.articles.length}개</p>
+    <h3 style="margin:10px 0 6px">영향 받는 우리 규정 (${aff.length})</h3>
+    <div class="list">${affHtml}</div>
+    <h3 style="margin:14px 0 6px">바뀐 조문 (신구대비)</h3>
+    <div class="list">${rows}</div>`);
+}
+
+// 규정 보기 머리말: 이 규정이 인용한 법령이 최근(최근 3회 업데이트) 개정되었으면 알린다
+function lawChangeNotice(rule) {
+  const ev = lawChanges && lawChanges.events;
+  if (!ev || !index) return '';
+  const notes = [];
+  ev.slice(0, 3).forEach((e, ei) => e.laws.forEach((l, li) => {
+    const x = affectedRules(l.key, new Set(l.articles.map(a => a.key))).find(a => a.rule === rule);
+    if (x) notes.push({ ei, li, l, e, hit: x.hit, arts: x.cites.filter(c => c.changed).map(c => E.artLabel(c.artKey)) });
+  }));
+  if (!notes.length) return '';
+  return `<div class="lawchg-banner">${notes.map(n => `<div data-lawchg="${n.ei}:${n.li}">⚖ 인용한 「${esc(n.l.name)}」이(가) 개정되었습니다${n.hit ? ` — <b>${esc([...new Set(n.arts)].join(', '))} 바뀜</b>` : ''} (${esc(String(n.e.at).slice(0, 10))} 확인) ›</div>`).join('')}</div>`;
+}
+
 function recentChangesHtml() {
   const ev = dataset && dataset.changes && dataset.changes.events;
   if (!ev || !ev.length) return '';
@@ -876,6 +973,8 @@ function latestChangeOf(title) {
 }
 
 $('#listBody').addEventListener('click', e => {
+  const lc = e.target.closest('[data-lawchg]');
+  if (lc) { const [ei, li] = lc.dataset.lawchg.split(':').map(Number); showLawChange(ei, li); renderList(); return; }
   const c = e.target.closest('[data-chg]');
   if (c) { const [ei, ri] = c.dataset.chg.split(':').map(Number); showChange(ei, ri); return; }
   const item = e.target.closest('[data-rule]');
@@ -1284,17 +1383,41 @@ $('#dupBody').addEventListener('click', e => {
 function attachmentsHtml(rule) {
   const list = rule.attachments || [];
   if (!list.length) return '';
-  const direct = list.some(a => a.url);
+  const direct = list.some(a => a.url || a.down);
   return `<details class="addenda" id="attachments" open><summary>별표·서식 (${list.length})</summary>
-    <div class="attach">${list.map(a => {
-      const href = a.url || rule.url;
+    <div class="attach">${list.map((a, i) => {
       const icon = /별표/.test(a.name) ? '📊' : '📄';
+      const ext = esc((a.name.match(/\.([a-z]+)$/i) || ['', ''])[1].toUpperCase());
+      if (a.down) return `<a class="att" href="#" data-down="${i}">${icon} ${esc(a.label)} <span class="muted small">${ext} · 받기</span></a>`;
+      const href = a.url || rule.url;
       return href
-        ? `<a class="att" href="${esc(href)}" target="_blank" rel="noopener">${icon} ${esc(a.label)} <span class="muted small">${esc((a.name.match(/\.([a-z]+)$/i) || ['', ''])[1].toUpperCase())}${a.url ? '' : ' · 원문에서 받기'}</span></a>`
+        ? `<a class="att" href="${esc(href)}" target="_blank" rel="noopener">${icon} ${esc(a.label)} <span class="muted small">${ext}${a.url ? ' · 받기' : ' · 원문에서 받기'}</span></a>`
         : `<div class="att">${icon} ${esc(a.label)}</div>`;
     }).join('')}</div>
-    ${direct ? '' : `<p class="muted small" style="margin-top:8px">누르면 규정관리시스템의 이 규정 화면이 열립니다. 아래쪽 별표서식 목록에서 파일을 받으세요. hwp 파일은 휴대폰에 한컴오피스 Viewer 앱이 있어야 열립니다.</p>`}
+    <p class="muted small" style="margin-top:8px">${direct ? '누르면 규정관리시스템에서 파일을 받습니다.' : '누르면 규정관리시스템의 이 규정 화면이 열립니다. 아래쪽 별표서식 목록에서 파일을 받으세요.'} hwp 파일은 휴대폰에 한컴오피스 Viewer 앱이 있어야 열립니다.</p>
   </details>`;
+}
+
+// 규정관리시스템의 fileDown(seq, type)과 같이 /lmxsrv/fileDown.srv에 POST로 보내 파일을 받는다.
+function downloadAttachment(rule, a) {
+  const code = (dataset && dataset.fileDown && dataset.fileDown.code) || '';
+  const path = (code.match(/action=['"]([^'"]*fileDown[^'"]*)['"]/) || [])[1] || '/lmxsrv/fileDown.srv';
+  let origin = 'https://rule.cju.ac.kr';
+  try { if (rule.url) origin = new URL(rule.url).origin; } catch (e) { /* 기본 주소 사용 */ }
+  const f = document.createElement('form');
+  f.method = 'post';
+  f.action = new URL(path, origin).href;
+  f.target = '_blank';
+  for (const [k, v] of [['FILE_SEQ', a.down.seq], ['FILE_TYPE', a.down.type]]) {
+    const inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.name = k;
+    inp.value = v;
+    f.appendChild(inp);
+  }
+  document.body.appendChild(f);
+  f.submit();
+  f.remove();
 }
 
 let viewing = null;
@@ -1379,6 +1502,7 @@ function openRule(id, artKey, q) {
     $('#vBody').innerHTML = `
       <div class="vhead">
         <div class="t">${esc(rule.title)}</div>
+        ${lawChangeNotice(rule)}
         ${rule.abolished ? `<div class="abolished-banner">${esc(rule.abolished)}에 폐지된 규정입니다. 현행 규정이 아니므로 정합성 점검·중복 비교에서 뺍니다.</div>` : ''}
         <div class="m">${[rule.category, rule.code, rule.enacted && `제정 ${rule.enacted}`, rule.revised && `개정 ${rule.revised}`].filter(Boolean).map(esc).join(' · ')}</div>
         <div class="chips">
@@ -1455,6 +1579,10 @@ $('#vStar').addEventListener('click', () => {
 });
 
 $('#vBody').addEventListener('click', e => {
+  const lc = e.target.closest('[data-lawchg]');
+  if (lc) { const [ei, li] = lc.dataset.lawchg.split(':').map(Number); showLawChange(ei, li); return; }
+  const dn = e.target.closest('[data-down]');
+  if (dn) { e.preventDefault(); const a = viewing && viewing.attachments[+dn.dataset.down]; if (a) downloadAttachment(viewing, a); return; }
   const cg = e.target.closest('[data-chg]');
   if (cg) { const [ei, ri] = cg.dataset.chg.split(':').map(Number); showChange(ei, ri); return; }
   const lw = e.target.closest('[data-law]');
@@ -1762,6 +1890,13 @@ $('#btnPaste').addEventListener('click', () => {
 (async function init() {
   renderRecent();
   fetchLawCatalog().then(t => { lawCatalog = t; renderLawPick(); });
+  fetchLawChanges().then(lc => {
+    lawChanges = lc;
+    if (!lc || !lc.events.length) return;
+    renderList();
+    const fresh = lc.events.filter(e => String(e.at) > lawChangesSeen());
+    if (fresh.length) toast(`상위법 개정 ${fresh.reduce((n, e) => n + e.laws.length, 0)}건이 있습니다. 규정목록 맨 위에서 확인하세요.`);
+  });
   let ds = null;
   try { ds = await idb.get('dataset'); } catch (e) { /* IndexedDB 사용 불가 */ }
   if (ds && ds.rules && ds.rules.length) {

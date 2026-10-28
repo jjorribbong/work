@@ -18,6 +18,7 @@ import datetime as dt
 import json
 import os
 import queue
+import re
 import subprocess
 import sys
 import threading
@@ -180,6 +181,53 @@ def same_rules(old, new):
     return all(oc.get(r['title']) == (r.get('category', ''), r.get('attachments')) for r in new.get('rules', []))
 
 
+def _art_sort(k):
+    return [int(x) if x.isdigit() else 0 for x in str(k).split('-')]
+
+
+def law_text_diff(old_arts, new_arts):
+    """법령 전체 조문 두 판 → 바뀐 조 [{key, no, title, status, before, after}]"""
+    norm_t = lambda t: re.sub(r'\s+', ' ', t or '').strip()
+    rows = []
+    for k in sorted(set(old_arts) | set(new_arts), key=_art_sort):
+        a, b = old_arts.get(k), new_arts.get(k)
+        if a and b and norm_t(a.get('text')) == norm_t(b.get('text')):
+            continue
+        cur = b or a
+        status = 'added' if not a else 'removed' if not b else 'deleted' if b.get('deleted') and not a.get('deleted') else 'modified'
+        rows.append({'key': k, 'no': cur.get('no', ''), 'title': cur.get('title', ''), 'status': status,
+                     'before': (a or {}).get('text', ''), 'after': (b or {}).get('text', '')})
+    return rows
+
+
+def law_change_event(old_laws, new_laws, old_text, new_text, at):
+    """상위법 개정 알림: 전체 조문 해시가 바뀐 법령마다 바뀐 조를 기록한다.
+    old_text/new_text: 법령 항목 → 조문 dict(없으면 None)"""
+    old_map = (old_laws or {}).get('laws', {})
+    laws = []
+    for k, v in new_laws.get('laws', {}).items():
+        o = old_map.get(k)
+        if not o or not o.get('textHash') or not v.get('textHash') or o['textHash'] == v['textHash']:
+            continue
+        before, after = old_text(o), new_text(v)
+        if before is None or after is None:
+            continue
+        rows = law_text_diff(before, after)
+        if not rows:
+            continue
+        # 크게 바뀐 법령(전부개정 등)은 우리 규정이 인용한 조와 앞의 40개 조만 본문을 남긴다(파일 크기)
+        cited = set(v.get('articles') or [])
+        if len(rows) > 40:
+            for i, r in enumerate(rows):
+                if i >= 40 and r['key'] not in cited:
+                    r['before'] = r['after'] = ''
+                    r['trimmed'] = True
+        laws.append({'key': k, 'name': v['name'], 'type': v.get('type', ''), 'url': v.get('url', ''),
+                     'enforced': v.get('enforced', ''), 'prevEnforced': o.get('enforced', ''),
+                     'promulgated': v.get('promulgated', ''), 'from': v.get('from', []), 'articles': rows})
+    return {'at': at, 'laws': laws} if laws else None
+
+
 def same_laws(old, new):
     return (old or {}).get('laws') == new.get('laws')
 
@@ -267,6 +315,7 @@ def update(cfg, log, stop=None):
 
     # 3) 법령 확인
     new_laws = None
+    law_event = None
     if cfg.get('check_laws'):
         log('■ 국가법령정보센터에서 인용 법령을 확인하는 중… (3분 정도 걸립니다)')
         laws_path = os.path.join(WORK_DIR, 'laws.json')
@@ -317,10 +366,33 @@ def update(cfg, log, stop=None):
             if v.get('text') and old_map.get(k, {}).get('textHash') != v.get('textHash'):
                 with open(os.path.join(WORK_DIR, v['text'].replace('/', os.sep)), 'rb') as f:
                     texts[f"{cfg['data_path']}/{v['text']}"] = f.read()
+        # 상위법 개정 알림: 올리기 전에 저장소의 이전 조문과 비교해 바뀐 조를 기록한다
+        def old_text(o):
+            try:
+                _, raw = gh.read(o['text'])
+                return json.loads(raw)['articles'] if raw else None
+            except (StepError, ValueError, KeyError):
+                return None
+
+        def new_text(v):
+            try:
+                with open(os.path.join(WORK_DIR, v['text'].replace('/', os.sep)), encoding='utf-8') as f:
+                    return json.load(f)['articles']
+            except (OSError, ValueError, KeyError):
+                return None
+        law_event = law_change_event(old_laws, new_laws, old_text, new_text, new_laws.get('checkedAt') or today)
+        if law_event:
+            lc_sha, lc_raw = gh.read('lawchanges.json')
+            hist = json.loads(lc_raw) if lc_raw else {'events': []}
+            hist['events'] = ([law_event] + hist.get('events', []))[:MAX_EVENTS]
+            names = ', '.join(x['name'] for x in law_event['laws'][:5]) + (f" 외 {len(law_event['laws']) - 5}개" if len(law_event['laws']) > 5 else '')
+            texts[f"{cfg['data_path']}/lawchanges.json"] = json.dumps(hist, ensure_ascii=False, indent=1).encode('utf-8')
+            log(f"  상위법 개정 {len(law_event['laws'])}개를 찾았습니다: {names}")
         if texts:
-            gh.commit_files(texts, f'법령 전체 조문 갱신 ({today}): {len(texts)}개')
-            uploaded.append(f'법령 조문 {len(texts)}개')
-            log(f'  법령 전체 조문 {len(texts)}개를 올렸습니다.')
+            n_text = len(texts) - (1 if law_event else 0)
+            gh.commit_files(texts, f'법령 전체 조문 갱신 ({today}): {n_text}개' + (f", 상위법 개정 {len(law_event['laws'])}개" if law_event else ''))
+            uploaded.append(f'법령 조문 {n_text}개' + (' + 상위법 개정 알림' if law_event else ''))
+            log(f'  법령 전체 조문 {n_text}개를 올렸습니다.')
         if old_laws and same_laws(old_laws, new_laws) and 'rules.json' not in uploaded:
             log('  법령 확인: 바뀐 내용이 없어 올리지 않습니다.')
         else:
@@ -336,6 +408,8 @@ def update(cfg, log, stop=None):
     if new_laws is not None:
         nf = sum(1 for v in new_laws['laws'].values() if not v['found'])
         lines.append(f"법령 {len(new_laws['laws'])}개 확인 (찾지 못한 법령 {nf}개)")
+        if law_event:
+            lines.append('상위법 개정: ' + ', '.join(f"{x['name']}({len(x['articles'])}개 조)" for x in law_event['laws']))
     lines.append('업로드: ' + (', '.join(uploaded) if uploaded else '바뀐 내용 없음'))
     if uploaded:
         lines.append('1~2분 뒤 앱을 열면 새 데이터로 바뀝니다.')
