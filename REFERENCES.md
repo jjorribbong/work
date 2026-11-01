@@ -3,7 +3,7 @@
 솜씨쟁이 홈페이지 개선에 참고할 만한 도예공방·공예 스튜디오 웹사이트 레퍼런스입니다.
 아래 예약 작업(Routine)이 주기적으로 웹 검색을 수행해 이 목록을 갱신합니다.
 
-마지막 업데이트: 2026-10-01
+마지막 업데이트: 2026-11-01
 
 ## 실제 운영 중인 사이트
 
@@ -17,6 +17,7 @@
 - [Claymade Ceramics & Pottery Studio Web Design — Dragonfly Ave](https://dragonflyave.com/claymade-ceramics-pottery-studio-web-design/) — 미니멀 + 중성적 색감 + 수공예 사진을 강조한 도자기 스튜디오 웹디자인 사례 연구. 스케치 일러스트 요소를 쓴 점이 특징.
 - [Format: 10 Incredible Ceramics and Pottery Portfolio Examples](https://www.format.com/magazine/ceramics-portfolio-roundup) — 도예 작가/스튜디오 포트폴리오 10선. 갤러리 그리드와 여백 활용 비교에 유용.
 - [Starter Story: 23 Best Ceramic Store Web Designs (2026)](https://www.starterstory.com/pottery-business-web-designs) — 실제 운영 중인 도자기 쇼핑몰/스튜디오 사이트 23곳을 모은 2026년 큐레이션. 체험형이 아닌 판매형 사이트가 많아 향후 온라인 굿즈 판매를 고려할 때 참고할 만함.
+- [Colorlib: 29 Best Workshop & Classes Website Examples (2026)](https://colorlib.com/wp/workshop-website-examples/) — 원데이클래스·공방형 워크숍 사이트 29곳 모음. 체험프로그램/정기수강처럼 "수업 소개 + 예약 유도" 구조를 가진 사이트 레이아웃 비교에 Starter Story보다 더 직접적으로 맞음.
 - [99designs: Pottery Designs — 53+ Ideas & Inspiration](https://99designs.com/inspiration/designs/pottery) — 도자기/공방 로고·브랜드 마크 디자인 53선. 로고나 명함 등 브랜드 아이덴티티를 따로 정비할 때 참고.
 - [Awwwards: Best Minimal Websites](https://www.awwwards.com/websites/minimal/) — 업종을 가리지 않은 미니멀 웹디자인 수상작 모음. 솜씨쟁이처럼 여백과 타이포로 승부하는 사이트의 레이아웃·인터랙션 트렌드를 폭넓게 참고하기 좋음.
 - [Dribbble - Pottery Website 태그](https://dribbble.com/tags/pottery-website) — 도자기/공예 테마 웹 UI 시안 모음. 색감·타이포 트렌드 파악용.
