@@ -133,7 +133,8 @@ function queue(outDir) {
     stale: q.filter(x => x.status === 'stale').length, resolved: resolved.length, unchanged: list.length - q.length }, resolved, items: q };
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(path.join(outDir, 'queue.json'), JSON.stringify(res, null, 1));
-  let txt = `검토 대기열 (${basis})\n새 후보 ${res.counts.new} · 재검토 ${res.counts.stale} · 해결됨 ${res.counts.resolved} · 변경 없음 ${res.counts.unchanged}\n`;
+  let txt = `검토 대기열 (${basis})\n새 후보 ${res.counts.new} · 재검토 ${res.counts.stale} · 해결됨 ${res.counts.resolved} · 변경 없음 ${res.counts.unchanged}\n`
+    + `\n[문체 규칙 — 반드시 지킴] summary는 제목처럼 짧은 명사형 문구로 씁니다. reason·suggestion은 모든 문장을 '~합니다/~입니다/~있습니다/~됩니다' 존댓말로 끝냅니다. '~한다', '~이다', '~있다' 같은 반말이나 '수정.', '추가.', '바로잡음.' 같은 개조식 끝맺음은 쓰지 않습니다(예: '…로 수정합니다.', '…를 추가합니다.').\n`;
   q.forEach((x, i) => {
     txt += `\n===== #${i} [${x.status}] [${x.cat}] ${x.rule} ${x.art}\nKEY ${x.key}\nMSG ${x.msg}` +
       (x.detail ? `\nDETAIL ${x.detail}` : '') + (x.phrase ? `\nPHRASE ${x.phrase}` : '') + (x.focus ? `\nFOCUS ${x.focus}` : '') +
