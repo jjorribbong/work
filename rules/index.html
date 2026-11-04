@@ -1103,7 +1103,7 @@ function reviewHtml(key, hash) {
   return `<div class="review${stale ? ' stale' : ''}">${stale ? '<div class="small" style="margin-bottom:4px"><span class="badge b-gray">재검토 대기</span> 검토한 뒤 원문이 바뀌었습니다. 다음 자동 검토(매일 새벽)에서 다시 판단합니다.</div>' : ''}<span class="badge ${cls}">${label}</span> ${esc(v.summary || '')}
     ${v.reason ? `<div class="muted small" style="margin-top:4px">${esc(v.reason)}</div>` : ''}
     ${v.suggestion ? `<div class="small" style="margin-top:4px"><b>제안</b> ${esc(v.suggestion)}</div>` : ''}
-    <div class="muted small" style="margin-top:4px">${esc(reviews.reviewer || 'Claude')} · ${esc(v.at || reviews.reviewedAt || '')}</div></div>`;
+    <div class="muted small" style="margin-top:4px">검토일자 ${esc(v.at || reviews.reviewedAt || '')}</div></div>`;
 }
 
 // 전체 검토 의견(키 manual|…): 규정 전체를 읽고 찾은 의견. 규정·조로 찾는다.
