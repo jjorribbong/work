@@ -373,9 +373,9 @@
         </div>
         <div id="lawResult"></div>
         <details class="group" id="limitAll" style="margin-top:12px">
-          <summary><span>규정집 전체 자동 대조 (내용 분석·숫자 기준)</span></summary>
+          <summary><span id="limitAllTitle">상위법 전체 자동 대조 (규정집 전체)</span></summary>
           <div style="padding:0 16px 14px">
-            <p class="muted small">모든 규정을 관련 상위 법령과 자동으로 대조합니다. 의무·허용·기산점·요건(호) 같은 내용 차이와 "30주 이상", "3개월 이내" 같은 숫자 기준을 봅니다. 처음 실행할 때 법령 조문 파일(약 8MB)을 내려받습니다.</p>
+            <p class="muted small" id="limitAllDesc">위에서 규정을 고르면 그 규정을 관련 상위 법령 전체와, 고르지 않으면 모든 규정을 자동으로 대조합니다. 의무·허용·기산점·요건(호) 같은 내용 차이와 "30주 이상", "3개월 이내" 같은 숫자 기준을 봅니다. 규정집 전체를 처음 대조할 때는 법령 조문 파일(약 8MB)을 내려받습니다.</p>
             <button class="btn btn-primary" id="limitAllRun" style="margin-top:10px;width:100%">전체 대조 실행</button>
           </div>
           <div id="limitAllBody"></div>
@@ -1268,7 +1268,12 @@ function renderLawPick() {
   const box = $('#lawRelated');
   if (!index) { box.innerHTML = ''; return; }
   const rule = E.findRuleByName(index, $('#lawRuleInput').value);
-  if (rule !== lawRule) { lawRule = rule; $('#lawResult').innerHTML = ''; }
+  if (rule !== lawRule) {
+    lawRule = rule; $('#lawResult').innerHTML = '';
+    limitAll = null; $('#limitAllBody').innerHTML = '';
+    const btn = $('#limitAllRun'); btn.disabled = false; btn.textContent = '전체 대조 실행';
+    $('#limitAllTitle').textContent = rule ? `「${rule.title}」 상위법 전체 자동 대조` : '상위법 전체 자동 대조 (규정집 전체)';
+  }
   if (!rule) {
     box.innerHTML = $('#lawRuleInput').value.trim() ? '<p class="muted small" style="margin-top:8px">목록에 있는 규정명을 골라 주세요.</p>' : '';
     return;
@@ -1361,7 +1366,8 @@ async function runLimitAll() {
   const btn = $('#limitAllRun');
   btn.disabled = true;
   const an = getChecked().analysis;
-  const plans = index.rules.filter(r => !r.abolished).map(r => ({ rule: r, laws: E.relatedLaws(index, r, an, lawCatalog).filter(x => x.law && x.law.found) }));
+  const scope = lawRule ? [lawRule] : index.rules.filter(r => !r.abolished);
+  const plans = scope.map(r => ({ rule: r, laws: E.relatedLaws(index, r, an, lawCatalog).filter(x => x.law && x.law.found) }));
   const need = new Map();
   plans.forEach(p => p.laws.forEach(x => need.set(x.key, x)));
   const texts = new Map();
@@ -1383,7 +1389,7 @@ async function runLimitAll() {
       await new Promise(r => setTimeout(r, 0));
     }
   }
-  limitAll = { rows, texts };
+  limitAll = { rows, texts, rule: lawRule };
   btn.disabled = false;
   btn.textContent = '다시 실행';
   renderLimitAll();
@@ -1398,7 +1404,16 @@ function renderLimitAll() {
   const want = p => limitFilter === 'all' || (limitFilter === 'diff' ? p.status !== 'same' : limitFilter === 'out' ? p.status === 'below' || p.status === 'above' : p.status === limitFilter);
   const rows = limitAll.rows.map(r => ({ rule: r.rule, pairs: limitFilter === 'content' ? [] : r.pairs.filter(want) })).filter(r => r.pairs.length);
   const chip = (k, label, n) => `<button class="chip ${limitFilter === k ? 'on' : ''}" data-lf="${k}">${label} ${n}</button>`;
-  box.innerHTML = `<div style="padding:0 16px">
+  // 규정 하나를 대조할 때는 그 규정의 전체 검토 의견(상위법 대조 결과)을 먼저 보여준다
+  const mr = limitAll.rule ? manualReviews(limitAll.rule) : [];
+  const manualBox = mr.length ? `<div style="padding:0 16px"><div class="result-count" style="margin:4px 0 6px">전체 검토 의견 ${mr.length}건</div></div>
+    <div class="list" style="margin-bottom:12px">${mr.map(([k, v]) => {
+      const art = limitAll.rule.articles.find(a => a.key === String(v.ref.art));
+      return `<div class="issue" data-open="${esc(limitAll.rule.id)}" data-art="${esc(String(v.ref.art))}">
+        <div class="where">${esc(v.article)}${v.ref.law ? ` ↔ 「${esc(v.ref.law)}」 ${esc(E.artLabel(v.ref.lawArt))}` : ''}</div>
+        ${manualReviewHtml(limitAll.rule, art, k, v)}</div>`;
+    }).join('')}</div>` : '';
+  box.innerHTML = manualBox + `<div style="padding:0 16px">
       <div class="chips">${chip('content', '내용 분석', contentAll.length)}${chip('diff', '숫자 다름', all.length - cnt('same'))}${chip('out', '법 기준 벗어남', cnt('out'))}${chip('same', '숫자 같음', cnt('same'))}${chip('all', '숫자 전체', all.length)}</div>
       <p class="muted small" style="margin:8px 0">${limitFilter === 'content'
         ? `법 조문과 비슷한 규정 문장에서 의무("하여야")를 재량("할 수 있다")으로 바꾼 곳, 금지를 허용으로 바꾼 곳, 기간을 세는 기준이 다른 곳, 법이 정한 요건(호)이 빠진 곳 ${contentAll.length}개.`
