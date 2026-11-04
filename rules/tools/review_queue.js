@@ -10,6 +10,10 @@
  *   node review_queue.js apply 판정.json         판정을 reviews.json에 반영(지문·검토일 기록, 해결된 항목 삭제)
  *   node review_queue.js rehash                  지문이 없는 기존 의견에 지금 원문의 지문을 기록
  *
+ * 전체 검토 의견(키가 manual|로 시작): 자동 점검 후보가 아니라 규정 전체를 읽고 찾은 의견이다.
+ * 판정에 ref: {rule: 규정명, art: 조 키(예: "37", "41-2"), law: 법령명(없으면 생략), lawArt: 법령 조 키} 를 함께 준다.
+ * 해결됨으로 지우지 않고, 규정 조문이나 대상 법령 조문이 바뀌면 재검토 대기열에 다시 넣는다.
+ *
  * 판정.json: { "키": { "verdict": "outdated|check|ok|violation", "summary": "…", "reason": "…", "suggestion": "…" }, … }
  */
 const fs = require('fs');
@@ -73,6 +77,27 @@ function candidates() {
   return { list: out.filter(c => !seen.has(c.key) && seen.add(c.key)), basis: `규정 ${String(rulesData.fetchedAt || '').slice(0, 10)} 수집본, 법령 ${String(lawsData.checkedAt || '').slice(0, 10)} 확인본` };
 }
 
+// 전체 검토 의견의 원문: 규정 조문 + (있으면) 법령 조문(전체 조문 파일 우선)
+function manualContext(ctx, ref) {
+  const rule = E.findRuleByName(ctx.index, ref.rule);
+  const art = rule && rule.articles.find(a => a.key === String(ref.art));
+  let lawText = '';
+  if (ref.law) {
+    const k = E.normTitle(ref.law);
+    const L = ctx.laws[k];
+    if (L && L.text && fs.existsSync(path.join(DATA, L.text))) {
+      const a = JSON.parse(fs.readFileSync(path.join(DATA, L.text), 'utf8')).articles[ref.lawArt];
+      lawText = a ? a.text : '';
+    } else if (L && L.articles && L.articles[ref.lawArt]) lawText = L.articles[ref.lawArt].text || '';
+  }
+  return { rule, art, lawText, hash: E.reviewHash(art ? art.text : '', lawText) };
+}
+
+function manualCtx() {
+  const L = read('laws.json').laws;
+  return { index: E.buildIndex(read('rules.json').rules, L), laws: L };
+}
+
 function loadReviews() {
   const f = path.join(DATA, 'reviews.json');
   return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : { items: {} };
@@ -92,7 +117,17 @@ function queue(outDir) {
     if (!old) q.push(Object.assign({ status: 'new' }, c));
     else if (old.hash && old.hash !== c.hash) q.push(Object.assign({ status: 'stale', previous: { verdict: old.verdict, summary: old.summary, reason: old.reason, at: old.at } }, c));
   }
-  const resolved = Object.keys(rv.items).filter(k => !now.has(k));
+  const mctx = manualCtx();
+  for (const [key, it] of Object.entries(rv.items)) {
+    if (!key.startsWith('manual|') || !it.ref) continue;
+    const m = manualContext(mctx, it.ref);
+    if (it.hash && it.hash !== m.hash) {
+      q.push({ status: 'stale', key, hash: m.hash, cat: 'manual', rule: it.rule, art: it.article, msg: `전체 검토 의견 재검토: ${it.summary}`,
+        previous: { verdict: it.verdict, summary: it.summary, reason: it.reason, at: it.at }, ref: it.ref,
+        ruleText: m.art ? m.art.text : '(이 조문이 없어졌습니다)', target: it.ref.law ? `「${it.ref.law}」 ${E.artLabel(it.ref.lawArt)}` : '', targetText: m.lawText });
+    }
+  }
+  const resolved = Object.keys(rv.items).filter(k => !now.has(k) && !k.startsWith('manual|'));
   const res = { createdAt: new Date().toISOString(), basis, counts: { candidates: list.length, new: q.filter(x => x.status === 'new').length,
     stale: q.filter(x => x.status === 'stale').length, resolved: resolved.length, unchanged: list.length - q.length }, resolved, items: q };
   fs.mkdirSync(outDir, { recursive: true });
@@ -114,18 +149,25 @@ function apply(file) {
   const byKey = new Map(list.map(c => [c.key, c]));
   const rv = loadReviews();
   const at = todayKst();
+  const mctx = manualCtx();
   let n = 0;
   for (const [key, v] of Object.entries(verdicts)) {
-    const c = byKey.get(key);
+    let c = byKey.get(key);
+    if (!c && key.startsWith('manual|')) {
+      const ref = v.ref || (rv.items[key] && rv.items[key].ref);
+      const m = ref ? manualContext(mctx, ref) : null;
+      if (!m || !m.art) { console.error('전체 검토 의견의 규정·조를 찾지 못해 건너뜀:', key); continue; }
+      c = { rule: m.rule.title, art: `${m.art.no}${m.art.title ? '(' + m.art.title + ')' : ''}`, cat: 'manual', hash: m.hash, ref };
+    }
     if (!c) { console.error('후보에 없는 키라 건너뜀:', key); continue; }
     if (!['outdated', 'check', 'ok', 'violation'].includes(v.verdict)) { console.error('알 수 없는 판정이라 건너뜀:', key, v.verdict); continue; }
     rv.items[key] = Object.fromEntries(Object.entries({ verdict: v.verdict, summary: v.summary, reason: v.reason, suggestion: v.suggestion,
-      rule: c.rule, article: c.art, kind: c.cat, hash: c.hash, at }).filter(([, x]) => x));
+      rule: c.rule, article: c.art, kind: c.cat, hash: c.hash, ref: c.ref, at }).filter(([, x]) => x));
     n++;
   }
   // 더는 후보가 아닌(규정·법 개정으로 해결된) 항목은 지운다
   const now = new Set(list.map(c => c.key));
-  const removed = Object.keys(rv.items).filter(k => !now.has(k));
+  const removed = Object.keys(rv.items).filter(k => !now.has(k) && !k.startsWith('manual|'));
   removed.forEach(k => delete rv.items[k]);
   rv.reviewedAt = at;
   rv.basis = basis;

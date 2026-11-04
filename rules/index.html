@@ -1106,6 +1106,38 @@ function reviewHtml(key, hash) {
     <div class="muted small" style="margin-top:4px">${esc(reviews.reviewer || 'Claude')} · ${esc(v.at || reviews.reviewedAt || '')}</div></div>`;
 }
 
+// 전체 검토 의견(키 manual|…): 규정 전체를 읽고 찾은 의견. 규정·조로 찾는다.
+function manualReviews(rule, art) {
+  if (!reviews) return [];
+  const t = E.normTitle(rule.title);
+  return Object.entries(reviews.items).filter(([k, v]) => k.startsWith('manual|') && v.ref
+    && E.normTitle(v.ref.rule) === t && (!art || String(v.ref.art) === art.key));
+}
+function manualReviewHtml(rule, art, key, v) {
+  // 앱에는 법령 전체 조문이 없을 수 있어 규정 조문 지문만 비교한다(법령 쪽 변경은 매일 자동 검토가 처리)
+  const cur = art ? E.textHash(art.text) : '';
+  const hash = v.hash && cur && v.hash.split('.')[0] !== cur ? cur + '.x' : v.hash;
+  return reviewHtml(key, hash);
+}
+function manualListHtml() {
+  const all = reviews ? Object.entries(reviews.items).filter(([k, v]) => k.startsWith('manual|') && v.ref) : [];
+  if (!all.length) return '';
+  const order = { violation: 0, outdated: 1, check: 2, ok: 3 };
+  all.sort((a, b) => (order[a[1].verdict] - order[b[1].verdict]) || a[1].rule.localeCompare(b[1].rule, 'ko'));
+  const cnt = k => all.filter(([, v]) => v.verdict === k).length;
+  return `<details class="group" id="manualAll" style="margin-bottom:12px">
+    <summary><span>전체 검토 결과 (Claude)</span> <span class="sum-badges">${cnt('violation') + cnt('outdated') ? `<span class="badge b-red">개정 필요 ${cnt('violation') + cnt('outdated')}</span>` : ''}${cnt('check') ? `<span class="badge b-blue">확인 ${cnt('check')}</span>` : ''}<span class="badge b-gray">${all.length}</span></span></summary>
+    <p class="muted small" style="padding:0 16px">자동 점검과 별도로 규정 전문을 읽고 상위 법령과 대조해 찾은 의견입니다${reviews.fullReview ? ` (${esc(reviews.fullReview)})` : ''}. 누르면 해당 조문으로 갑니다.</p>
+    <div class="list">${all.map(([k, v]) => {
+      const rule = E.findRuleByName(index, v.ref.rule);
+      const art = rule && rule.articles.find(a => a.key === String(v.ref.art));
+      return `<div class="issue" ${rule ? `data-open="${esc(rule.id)}" data-art="${esc(String(v.ref.art))}"` : ''}>
+        <div class="where">${esc(v.rule)} ${esc(v.article)}${v.ref.law ? ` ↔ 「${esc(v.ref.law)}」 ${esc(E.artLabel(v.ref.lawArt))}` : ''}</div>
+        ${rule ? manualReviewHtml(rule, art, k, v) : reviewHtml(k)}
+      </div>`;
+    }).join('')}</div></details>`;
+}
+
 const ISSUE_TYPE = {
   'missing-rule': '없는 규정 인용', 'missing-article': '없는 조항 인용', 'internal-missing': '내부 조항 오류',
   'abolished-ref': '폐지 규정 인용', 'law-amended': '상위법 개정 확인', 'law-missing': '법령 없음', 'law-article-missing': '법령 조항 없음', 'law-article-deleted': '삭제된 법령 조항', 'law-not-current': '현행 아닌 법령',
@@ -1135,6 +1167,7 @@ function renderCheck() {
       <p class="muted small" style="margin-top:6px">폐지된 규정과, 요건·절차를 끌어 쓰는 단순 인용("~에 의하여 표창을 받을 때")은 점검하지 않습니다.</p>
     </div>
     <div class="result-count">${shown.length}건 ${checkLevel !== 'all' ? '<a class="ref" data-level="all">전체 보기</a>' : ''}</div>
+    ${manualListHtml()}
     <div class="list">${shown.slice(0, 500).map((it, i) => `
       <div class="issue" data-open="${esc(it.rule.id)}" data-art="${esc(it.article.key)}">
         <span class="badge ${LEVEL[it.level][1]}">${LEVEL[it.level][0]}</span> <span class="badge b-gray">${ISSUE_TYPE[it.type] || it.type}</span>
@@ -1573,6 +1606,7 @@ function openRule(id, artKey, q) {
           <h3>${hl(a.no, matchers)}${a.title ? '(' + hl(a.title, matchers) + ')' : ''}</h3>
           <div class="tags">${articleTags(rule, a)}</div>
           <div class="body">${renderArticleBody(rule, a, matchers)}</div>
+          ${manualReviews(rule, a).map(([k, v]) => manualReviewHtml(rule, a, k, v)).join('')}
           <div class="acts">
             <button class="btn btn-ghost btn-sm" data-sim="${esc(a.key)}">유사 조항 찾기</button>
             <button class="btn btn-ghost btn-sm" data-copy="${esc(a.key)}">복사</button>
