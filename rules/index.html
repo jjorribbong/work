@@ -235,6 +235,7 @@
   .law-text { white-space: pre-wrap; font-size: 14px; line-height: 1.7; margin-top: 10px; }
   .addenda { background: #fff; margin-top: 8px; padding: 16px; }
   .addenda summary { font-weight: 700; cursor: pointer; }
+  .review.stale > :not(:first-child) { opacity: .55; }
   .review { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #f8fafc; border: 1px dashed var(--border); font-size: 13px; line-height: 1.55; }
   .legend { margin: 10px 0 0; padding-left: 18px; line-height: 1.6; }
   .legend li { margin: 2px 0; }
@@ -1093,14 +1094,16 @@ async function fetchReviews() {
 function reviewOf(key) {
   return reviews && reviews.items[key] || null;
 }
-function reviewHtml(key) {
+function reviewHtml(key, hash) {
   const v = reviewOf(key);
   if (!v) return '';
   const [label, cls] = VERDICT[v.verdict] || VERDICT.check;
-  return `<div class="review"><span class="badge ${cls}">${label}</span> ${esc(v.summary || '')}
+  // 검토한 뒤 규정이나 법령 원문이 바뀌었으면 예전 의견을 흐리게 보이고 재검토 대기로 알린다
+  const stale = v.hash && hash && v.hash !== hash;
+  return `<div class="review${stale ? ' stale' : ''}">${stale ? '<div class="small" style="margin-bottom:4px"><span class="badge b-gray">재검토 대기</span> 검토한 뒤 원문이 바뀌었습니다. 다음 자동 검토(매일 새벽)에서 다시 판단합니다.</div>' : ''}<span class="badge ${cls}">${label}</span> ${esc(v.summary || '')}
     ${v.reason ? `<div class="muted small" style="margin-top:4px">${esc(v.reason)}</div>` : ''}
     ${v.suggestion ? `<div class="small" style="margin-top:4px"><b>제안</b> ${esc(v.suggestion)}</div>` : ''}
-    <div class="muted small" style="margin-top:4px">${esc(reviews.reviewer || 'Claude')} · ${esc(reviews.reviewedAt || '')}</div></div>`;
+    <div class="muted small" style="margin-top:4px">${esc(reviews.reviewer || 'Claude')} · ${esc(v.at || reviews.reviewedAt || '')}</div></div>`;
 }
 
 const ISSUE_TYPE = {
@@ -1127,7 +1130,7 @@ function renderCheck() {
         <li><b>오류</b>: 없는 규정·조항·법령, 폐지된 규정, 삭제된 조를 인용</li>
         <li><b>주의</b>: 인용한 법령 조가 규정 개정 뒤에 바뀜, 삭제된 법령 조 인용, 부칙의 인용 문제 등</li>
         <li><b>참고</b>: 인용한 조의 내용이 인용 문장과 관련이 적음(조 번호가 바뀌었을 수 있음), 목적 조항의 근거 조항에 위임 문언이 없음, 위임한 하위 규정을 확인할 수 없음 등</li>
-        <li><b>검토 의견</b>: Claude가 원문을 읽고 판단한 의견이 있으면 항목에 함께 표시합니다(검토일 기준).</li>
+        <li><b>검토 의견</b>: Claude가 원문을 읽고 판단한 의견이 있으면 항목에 함께 표시합니다. 업데이트로 원문이 바뀐 항목과 새 항목은 매일 새벽 자동으로 다시 검토합니다.</li>
       </ul>
       <p class="muted small" style="margin-top:6px">폐지된 규정과, 요건·절차를 끌어 쓰는 단순 인용("~에 의하여 표창을 받을 때")은 점검하지 않습니다.</p>
     </div>
@@ -1139,7 +1142,7 @@ function renderCheck() {
         <div class="where">${esc(it.rule.title)} ${esc(it.article.no)}${it.article.title ? '(' + esc(it.article.title) + ')' : ''}</div>
         <div class="det">${esc(it.detail)}</div>
         ${it.edge ? `<div class="quote">${esc(it.edge.phrase)}</div>` : ''}
-        ${reviewHtml(E.issueReviewKey(it))}
+        ${reviewHtml(E.issueReviewKey(it), E.issueReviewHash(it))}
       </div>`).join('') || '<div class="issue muted">발견된 문제가 없습니다. 👍</div>'}</div>`;
 }
 
@@ -1244,7 +1247,7 @@ function limitRow(p, texts, showRule) {
     <div class="where">${showRule ? `${esc(rule.title)} ` : ''}${esc(p.article.no)}${p.article.title ? '(' + esc(p.article.title) + ')' : ''} ↔ ${esc(p.lv.name)} ${esc(p.lv.art.no || E.artLabel(p.lv.ak))}${p.lv.art.title ? '(' + esc(p.lv.art.title) + ')' : ''} · ${lawArtLink(p.lv.name, L.url, p.lv.ak)}</div>
     <div class="quote">${esc(p.line)}</div>
     <div class="quote" style="border-left-color:var(--green)">${esc(p.lv.line)}</div>
-    ${reviewHtml(E.reviewKey('limit', rule, p.article.key, p.lv.name, p.lv.ak, p.rv.raw))}
+    ${reviewHtml(E.reviewKey('limit', rule, p.article.key, p.lv.name, p.lv.ak, p.rv.raw), E.reviewHash(p.article.text, p.lv.art.text))}
   </div>`;
 }
 
@@ -1258,7 +1261,7 @@ function contentRow(f, texts, showRule) {
     <div class="where">${showRule ? `${esc(rule.title)} ` : ''}${esc(f.article.no)}${f.article.title ? '(' + esc(f.article.title) + ')' : ''} ↔ ${esc(f.lawName)} ${esc(f.lawArt ? (f.lawArt.no || E.artLabel(f.artKey)) : E.artLabel(f.artKey))}${f.lawArt && f.lawArt.title ? '(' + esc(f.lawArt.title) + ')' : ''} · ${lawArtLink(f.lawName, L.url, f.artKey)}</div>
     <div class="quote">${esc(f.ruleText.length > 400 ? f.ruleText.slice(0, 400) + '…' : f.ruleText)}</div>
     <div class="quote" style="border-left-color:var(--green)">${esc(f.lawText)}</div>
-    ${reviewHtml(E.reviewKey('content:' + f.kind, rule, f.article.key, f.lawName, f.artKey))}
+    ${reviewHtml(E.reviewKey('content:' + f.kind, rule, f.article.key, f.lawName, f.artKey), E.reviewHash(f.article.text, f.lawArt ? f.lawArt.text : f.lawText))}
   </div>`;
 }
 
@@ -1359,7 +1362,7 @@ async function runLawCheck() {
         <div class="msg">${esc(it.message)}</div>
         <div class="where">${esc(it.article.no)}${it.article.title ? '(' + esc(it.article.title) + ')' : ''}</div>
         <div class="det">${esc(it.detail)}</div>
-        ${reviewHtml(E.issueReviewKey(it))}
+        ${reviewHtml(E.issueReviewKey(it), E.issueReviewHash(it))}
       </div>`).join('') || '<div class="issue muted">인용한 법령·조문에 문제가 없습니다.</div>', issues.length > 0)}
     ${sec('내용 분석 (의무·허용·기산점·요건)', content.length, content.length ? `확인 ${content.length}` : '', content.map(f => contentRow(f, texts, false)).join('')
       || '<div class="issue muted">의무·허용·기산점·요건(호)에서 법과 달라 보이는 곳을 찾지 못했습니다.</div>', content.length > 0)}

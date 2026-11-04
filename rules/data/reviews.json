@@ -11,7 +11,9 @@
    "suggestion": "「아동ㆍ청소년의 성보호에 관한 법률」로 고칩니다.",
    "rule": "강사 임용 등에 관한 규정",
    "article": "제21조(결격사유)",
-   "kind": "issue:law-missing"
+   "kind": "issue:law-missing",
+   "hash": "1c254f07.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:missing-rule|강사임용에관한내규|13|강사운영규정||": {
    "verdict": "outdated",
@@ -20,7 +22,9 @@
    "suggestion": "「강사 임용 등에 관한 규정」으로 고칩니다.",
    "rule": "강사임용에관한내규",
    "article": "제13조(계약세부사항)",
-   "kind": "issue:missing-rule"
+   "kind": "issue:missing-rule",
+   "hash": "e43f07b4.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:law-missing|계약학과설치운영규정|24|산업교육진흥및산학협력촉진에관한법률||": {
    "verdict": "outdated",
@@ -29,7 +33,9 @@
    "suggestion": "법률 이름을 「산업교육진흥 및 산학연협력촉진에 관한 법률」로 고칩니다.",
    "rule": "계약학과설치운영규정",
    "article": "제24조(준용규정)",
-   "kind": "issue:law-missing"
+   "kind": "issue:law-missing",
+   "hash": "63731d4d.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:law-missing|교내개인형이동장치안전관리규정|13|화재예방소방시설설치유지및안전관리에관한법률|2|": {
    "verdict": "outdated",
@@ -38,7 +44,9 @@
    "suggestion": "「소방시설 설치 및 관리에 관한 법률」 제2조제1항제1호로 고칩니다.",
    "rule": "교내 개인형 이동장치 안전관리 규정",
    "article": "제13조(주차금지)",
-   "kind": "issue:law-missing"
+   "kind": "issue:law-missing",
+   "hash": "39532e02.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:law-missing|교원인사규정|57|공무원징계양정등에관한규칙||": {
    "verdict": "outdated",
@@ -47,7 +55,9 @@
    "suggestion": "「교육공무원 징계양정 등에 관한 규칙」을 준용하도록 고칩니다.",
    "rule": "교원인사규정",
    "article": "제57조(징계의 양정)",
-   "kind": "issue:law-missing"
+   "kind": "issue:law-missing",
+   "hash": "32de649c.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:law-missing|대학원학칙|4-2|산업교육진흥및산학협력촉진에관한법률||": {
    "verdict": "outdated",
@@ -56,7 +66,9 @@
    "suggestion": "법률 이름을 「산업교육진흥 및 산학연협력촉진에 관한 법률」로 고칩니다.",
    "rule": "대학원학칙",
    "article": "제4조의2(계약에 의한 학과 등)",
-   "kind": "issue:law-missing"
+   "kind": "issue:law-missing",
+   "hash": "297f0bdc.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:deleted-article-ref|대학원학칙|27|청주대학교학칙|15|": {
    "verdict": "outdated",
@@ -65,7 +77,9 @@
    "suggestion": "대학원학칙의 수료학점 조(또는 학칙의 현행 해당 조)로 고칩니다.",
    "rule": "대학원학칙",
    "article": "제27조(석사, 박사 학위수여)",
-   "kind": "issue:deleted-article-ref"
+   "kind": "issue:deleted-article-ref",
+   "hash": "92d84b54.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:law-missing|비전임교원의임용등에관한규정|6|아동청소년성보호에관한법률|56|": {
    "verdict": "outdated",
@@ -74,7 +88,9 @@
    "suggestion": "「아동ㆍ청소년의 성보호에 관한 법률」로 고칩니다.",
    "rule": "비전임교원의 임용 등에 관한 규정",
    "article": "제6조(결격사유)",
-   "kind": "issue:law-missing"
+   "kind": "issue:law-missing",
+   "hash": "a58816f4.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:internal-missing|비정년트랙전임교원인사에관한시행세칙|5|||": {
    "verdict": "ok",
@@ -82,7 +98,9 @@
    "reason": "\"「교원인사규정」 제19조제2항을, 재임용 기간은 제19조제3항제1호를\"처럼 앞의 규정명을 이어 받는 표현입니다.",
    "rule": "비정년트랙 전임교원 인사에 관한 시행세칙",
    "article": "제5조(임용기간)",
-   "kind": "issue:internal-missing"
+   "kind": "issue:internal-missing",
+   "hash": "a33c01a4.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:missing-rule|정년보장교원임용심사위원회규정|9|교수업적평가규정||": {
    "verdict": "outdated",
@@ -91,7 +109,9 @@
    "suggestion": "「교원업적평가규정」으로 통일하거나, 경과 문구가 더 필요 없으면 정리합니다.",
    "rule": "정년보장교원임용심사위원회규정",
    "article": "제9조(정년보장 교원임용 심사기준)",
-   "kind": "issue:missing-rule"
+   "kind": "issue:missing-rule",
+   "hash": "5400fcb8.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:internal-missing|중앙도서관규정|1|||": {
    "verdict": "check",
@@ -100,14 +120,18 @@
    "suggestion": "「청주대학교학칙」 제94조로 고치거나, 도서관운영위원회 근거로 제93조가 필요하면 표기만 바로잡습니다.",
    "rule": "중앙도서관규정",
    "article": "제1조(목적)",
-   "kind": "issue:internal-missing"
+   "kind": "issue:internal-missing",
+   "hash": "0e2c3acb.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:internal-missing|지역가치창출위원회규정|6|||": {
    "verdict": "ok",
    "summary": "자동 점검 오류입니다. \"(종전 제7조는 제6조로 이동)\"이라는 개정 메모입니다.",
    "rule": "지역가치창출위원회규정",
    "article": "제6조(보칙)",
-   "kind": "issue:internal-missing"
+   "kind": "issue:internal-missing",
+   "hash": "cce4cf72.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:internal-missing|직원보수규정|4-2|||": {
    "verdict": "outdated",
@@ -116,7 +140,9 @@
    "suggestion": "\"제7조의2\"로 고칩니다.",
    "rule": "직원보수규정",
    "article": "제4조의2(강임시등의 임금보전)",
-   "kind": "issue:internal-missing"
+   "kind": "issue:internal-missing",
+   "hash": "be8943eb.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:law-missing|청주대학교산학협력단정관|1|산업교육진흥및산학협력촉진에관한법률||": {
    "verdict": "outdated",
@@ -125,7 +151,9 @@
    "suggestion": "법률 이름을 「산업교육진흥 및 산학연협력촉진에 관한 법률」로 고칩니다.",
    "rule": "청주대학교산학협력단정관",
    "article": "제1조(설립목적)",
-   "kind": "issue:law-missing"
+   "kind": "issue:law-missing",
+   "hash": "a12ef5b8.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:law-missing|청주대학교산학협력단정관|18|산업교육진흥및산학협력촉진에관한법률|32|": {
    "verdict": "outdated",
@@ -134,7 +162,9 @@
    "suggestion": "법률 이름을 「산업교육진흥 및 산학연협력촉진에 관한 법률」로 고칩니다.",
    "rule": "청주대학교산학협력단정관",
    "article": "제18조(보상금의 지급)",
-   "kind": "issue:law-missing"
+   "kind": "issue:law-missing",
+   "hash": "122ee0e6.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:law-missing|청주대학교학칙|2-2|산업교육진흥및산학협력촉진에관한법률||": {
    "verdict": "outdated",
@@ -143,7 +173,9 @@
    "suggestion": "법률 이름을 「산업교육진흥 및 산학연협력촉진에 관한 법률」로 고칩니다.",
    "rule": "청주대학교학칙",
    "article": "제2조의2(계약에 의한 학과 등)",
-   "kind": "issue:law-missing"
+   "kind": "issue:law-missing",
+   "hash": "3cadf7f3.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:missing-rule|항공기술교육원규정|13|항공기술교육원교육규정||": {
    "verdict": "check",
@@ -152,7 +184,9 @@
    "suggestion": "내부 기준이면 그대로 두되 문서 이름을 실제 이름과 맞추고, 없어진 문서면 고칩니다.",
    "rule": "항공기술교육원규정",
    "article": "제13조(평가)",
-   "kind": "issue:missing-rule"
+   "kind": "issue:missing-rule",
+   "hash": "a1ef16e1.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:missing-rule|항공기술교육원규정|20|항공기술교육원교육규정||": {
    "verdict": "check",
@@ -161,7 +195,9 @@
    "suggestion": "내부 기준이면 그대로 두되 문서 이름을 실제 이름과 맞추고, 없어진 문서면 고칩니다.",
    "rule": "항공기술교육원규정",
    "article": "제20조(학생의무)",
-   "kind": "issue:missing-rule"
+   "kind": "issue:missing-rule",
+   "hash": "596c90df.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:missing-rule|항공기술교육원규정|29|항공기술교육원교육규정||": {
    "verdict": "check",
@@ -170,7 +206,9 @@
    "suggestion": "내부 기준이면 그대로 두되 문서 이름을 실제 이름과 맞추고, 없어진 문서면 고칩니다.",
    "rule": "항공기술교육원규정",
    "article": "제29조(예외사항)",
-   "kind": "issue:missing-rule"
+   "kind": "issue:missing-rule",
+   "hash": "58f11fe1.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:law-amended|강사임용등에관한규정|3|아동청소년의성보호에관한법률|56|": {
    "verdict": "ok",
@@ -178,7 +216,9 @@
    "reason": "규정 문장이 법 내용을 따로 옮겨 적지 않아 개정할 필요는 없어 보입니다.",
    "rule": "강사 임용 등에 관한 규정",
    "article": "제3조(자격)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "4cf76089.2ae7564b",
+   "at": "2026-11-04"
   },
   "issue:law-amended|강사임용등에관한규정|21|국가공무원법|33|": {
    "verdict": "ok",
@@ -186,7 +226,9 @@
    "reason": "규정 문장이 법 내용을 따로 옮겨 적지 않아 개정할 필요는 없어 보입니다.",
    "rule": "강사 임용 등에 관한 규정",
    "article": "제21조(결격사유)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "1c254f07.effde403",
+   "at": "2026-11-04"
   },
   "issue:law-amended|강사임용등에관한규정|22|국가공무원법|69|": {
    "verdict": "ok",
@@ -194,14 +236,18 @@
    "reason": "규정 문장이 법 내용을 따로 옮겨 적지 않아 개정할 필요는 없어 보입니다.",
    "rule": "강사 임용 등에 관한 규정",
    "article": "제22조(당연 퇴직)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "4a8a7043.de43018c",
+   "at": "2026-11-04"
   },
   "issue:missing-rule|강사임용등에관한규정|b2|강사운영규정||": {
    "verdict": "ok",
    "summary": "부칙의 경과규정이라 개정 당시 규정 이름을 그대로 쓰는 것이 맞습니다.",
    "rule": "강사 임용 등에 관한 규정",
    "article": "부칙(2023.05.23 시행)",
-   "kind": "issue:missing-rule"
+   "kind": "issue:missing-rule",
+   "hash": "bc8fd623.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:law-amended|계약학과설치운영규정|9|고등교육법|33|": {
    "verdict": "ok",
@@ -209,7 +255,9 @@
    "reason": "규정 문장이 법 내용을 따로 옮겨 적지 않아 개정할 필요는 없어 보입니다.",
    "rule": "계약학과설치운영규정",
    "article": "제9조(입학자격)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "4cfca0df.41a09311",
+   "at": "2026-11-04"
   },
   "issue:law-amended|계약학과설치운영규정|10|고등교육법|34|": {
    "verdict": "ok",
@@ -217,7 +265,9 @@
    "reason": "규정 문장이 법 내용을 따로 옮겨 적지 않아 개정할 필요는 없어 보입니다.",
    "rule": "계약학과설치운영규정",
    "article": "제10조(학생선발)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "e0368e98.a0d6865a",
+   "at": "2026-11-04"
   },
   "issue:law-article-deleted|계약학과설치운영규정|23|조세특례제한법|104-18|": {
    "verdict": "outdated",
@@ -226,21 +276,27 @@
    "suggestion": "현행 근거 조문으로 고치거나, 세액공제 고지 내용을 정리합니다.",
    "rule": "계약학과설치운영규정",
    "article": "제23조(세액공제 및 훈련비 환급 고지)",
-   "kind": "issue:law-article-deleted"
+   "kind": "issue:law-article-deleted",
+   "hash": "6b3f03eb.a2626910",
+   "at": "2026-11-04"
   },
   "issue:law-amended|공익신고처리및신고자보호등에관한규정|31|공익신고자보호법시행령|29|": {
    "verdict": "ok",
    "summary": "규정이 따르는 시행령 제29조제1항은 바뀌지 않았습니다. 개정은 위원회 사무(제2항)에 관한 것입니다.",
    "rule": "공익신고 처리 및 신고자 보호 등에 관한 규정",
    "article": "제31조(고유식별정보의 처리)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "1d5e04ee.2a4f053c",
+   "at": "2026-11-04"
   },
   "issue:law-amended|교내개인형이동장치안전관리규정|3|도로교통법|2|": {
    "verdict": "ok",
    "summary": "용어 정의를 법령에서 끌어오는 인용이라 법 개정이 그대로 반영됩니다.",
    "rule": "교내 개인형 이동장치 안전관리 규정",
    "article": "제3조(정의)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "b84b880e.f646491a",
+   "at": "2026-11-04"
   },
   "issue:law-amended|교원보수규정|24|공무원수당등에관한규정|11-3|": {
    "verdict": "check",
@@ -249,7 +305,9 @@
    "suggestion": "공무원수당 등에 관한 규정 제11조의3의 현행 지급기간·부부 지급 기준과 맞추어 단서를 정비합니다.",
    "rule": "교원보수규정",
    "article": "제24조(육아휴직 수당)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "9aa1a844.632792ed",
+   "at": "2026-11-04"
   },
   "issue:law-amended|교원신규임용시행세칙|20|사립학교법|53-5|": {
    "verdict": "ok",
@@ -257,14 +315,18 @@
    "reason": "2025.8.14 개정은 임용 부정행위 조치(제11조의5) 준용을 더한 것으로, 이 조의 취지에 영향이 없습니다.",
    "rule": "교원신규임용시행세칙",
    "article": "제20조(채용후보자 결정)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "b8b4518c.36b74fe6",
+   "at": "2026-11-04"
   },
   "issue:law-amended|교원신규임용시행세칙|20|교육공무원법|11-3|": {
    "verdict": "ok",
    "summary": "특정 대학 학사학위 편중 금지(제11조의3제1항) 취지와 규정 내용이 맞습니다.",
    "rule": "교원신규임용시행세칙",
    "article": "제20조(채용후보자 결정)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "b8b4518c.62baac8b",
+   "at": "2026-11-04"
   },
   "issue:law-article-deleted|교원양성위원회규정|1|교원자격검정령|17|": {
    "verdict": "check",
@@ -273,28 +335,36 @@
    "suggestion": "「교원자격검정령」 제17조의2로 고칩니다.",
    "rule": "교원양성위원회 규정",
    "article": "제1조(목적)",
-   "kind": "issue:law-article-deleted"
+   "kind": "issue:law-article-deleted",
+   "hash": "78505dd4.99fe176f",
+   "at": "2026-11-04"
   },
   "issue:law-amended|교원양성위원회규정|3|교육공무원법|2|": {
    "verdict": "ok",
    "summary": "용어 정의를 법령에서 끌어오는 인용이라 법 개정이 그대로 반영됩니다.",
    "rule": "교원양성위원회 규정",
    "article": "제3조(구성)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "456b613c.09add4d9",
+   "at": "2026-11-04"
   },
   "issue:law-amended|교원인사규정|10|교육공무원임용령|4-3|": {
    "verdict": "ok",
    "summary": "규정 문언(\"3분의 2를 초과할 수 없다\")이 현행 교육공무원임용령 제4조의3과 같습니다.",
    "rule": "교원인사규정",
    "article": "제10조(일반원칙)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "66b14c46.f00fa9b2",
+   "at": "2026-11-04"
   },
   "issue:law-amended|교원징계위원회규정|10|성폭력범죄의처벌등에관한특례법|2|": {
    "verdict": "ok",
    "summary": "용어 정의를 법령에서 끌어오는 인용이라 법 개정이 그대로 반영됩니다.",
    "rule": "교원징계위원회규정",
    "article": "제10조(징계요구)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "4f662956.c949fecc",
+   "at": "2026-11-04"
   },
   "issue:law-missing|교원창업에관한규정|b1|벤처기업육성에관한특별조치법||": {
    "verdict": "outdated",
@@ -303,21 +373,27 @@
    "suggestion": "「벤처기업육성에 관한 특별법」으로 고칩니다.",
    "rule": "교원창업에관한규정",
    "article": "부칙(2012.12.04 시행)",
-   "kind": "issue:law-missing"
+   "kind": "issue:law-missing",
+   "hash": "2c615ea4.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:law-amended|교육대학원교원자격검정운영시행내규|1|초중등교육법|21|": {
    "verdict": "ok",
    "summary": "목적 조항의 근거 법령 인용으로, 해당 조의 개정이 규정 내용에 영향을 주지 않습니다.",
    "rule": "교육대학원교원자격검정운영시행내규",
    "article": "제1조(목적)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "b3b68ff6.041d8eb5",
+   "at": "2026-11-04"
   },
   "issue:law-amended|국가장학운영규정|1|교육기본법|28|": {
    "verdict": "ok",
    "summary": "목적 조항의 근거 법령 인용으로, 해당 조의 개정이 규정 내용에 영향을 주지 않습니다.",
    "rule": "국가장학운영규정",
    "article": "제1조(목적)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "4efb4461.1deb4a8d",
+   "at": "2026-11-04"
   },
   "issue:law-amended|국가장학운영규정|10|대학등록금에관한규칙|6|": {
    "verdict": "ok",
@@ -325,7 +401,9 @@
    "reason": "규정 문장이 법 내용을 따로 옮겨 적지 않아 개정할 필요는 없어 보입니다.",
    "rule": "국가장학운영규정",
    "article": "제10조(장학금의 반환)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "23f922b9.1c04636a",
+   "at": "2026-11-04"
   },
   "issue:law-amended|규정(SEQ223)|12|고등교육법시행령|29|": {
    "verdict": "ok",
@@ -333,7 +411,9 @@
    "reason": "2024.2.20 개정은 제1항(모집인원 조정)과 일부 호에 관한 것입니다.",
    "rule": "규정(SEQ 223)",
    "article": "제12조(모집인원)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "74b8824c.8b5ea414",
+   "at": "2026-11-04"
   },
   "issue:law-amended|대학입학전형회피배제운영내규|2|고등교육법|34-2|": {
    "verdict": "check",
@@ -342,14 +422,18 @@
    "suggestion": "정의에 제34조의2제5항(외부 평가위원)을 더하고, 외부 위원도 회피·배제 대상에 넣을지 검토합니다.",
    "rule": "대학입학전형 회피·배제 운영내규",
    "article": "제2조(정의)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "0e2b24d1.3283db42",
+   "at": "2026-11-04"
   },
   "issue:law-amended|등록금심의위원회규정|1|고등교육법|11|": {
    "verdict": "ok",
    "summary": "목적 조항의 근거 법령 인용으로, 해당 조의 개정이 규정 내용에 영향을 주지 않습니다.",
    "rule": "등록금심의위원회 규정",
    "article": "제1조(목적)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "d3ad04dc.c7c5180c",
+   "at": "2026-11-04"
   },
   "issue:law-amended|문서규정|8|문화예술진흥법|7|": {
    "verdict": "outdated",
@@ -358,7 +442,9 @@
    "suggestion": "「국어기본법」 제14조에 따른 어문규범으로 고칩니다.",
    "rule": "문서규정",
    "article": "제8조(문서의 용어)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "2df275a4.9dc94212",
+   "at": "2026-11-04"
   },
   "issue:law-amended|방사선작업종사자에대한보상기준규정|8|원자력안전법시행규칙|121|": {
    "verdict": "ok",
@@ -366,7 +452,9 @@
    "reason": "규정 문장이 법 내용을 따로 옮겨 적지 않아 개정할 필요는 없어 보입니다.",
    "rule": "방사선작업종사자에대한보상기준규정",
    "article": "제8조(건강진단)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "b924de09.768e53ca",
+   "at": "2026-11-04"
   },
   "issue:law-amended|비전임교원의임용등에관한규정|6|국가공무원법|33|": {
    "verdict": "ok",
@@ -374,7 +462,9 @@
    "reason": "규정 문장이 법 내용을 따로 옮겨 적지 않아 개정할 필요는 없어 보입니다.",
    "rule": "비전임교원의 임용 등에 관한 규정",
    "article": "제6조(결격사유)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "a58816f4.effde403",
+   "at": "2026-11-04"
   },
   "issue:law-amended|비전임교원의임용등에관한규정|12|국가공무원법|69|": {
    "verdict": "ok",
@@ -382,14 +472,18 @@
    "reason": "규정 문장이 법 내용을 따로 옮겨 적지 않아 개정할 필요는 없어 보입니다.",
    "rule": "비전임교원의 임용 등에 관한 규정",
    "article": "제12조(당연퇴직 및 면직)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "5beeab29.de43018c",
+   "at": "2026-11-04"
   },
   "issue:law-amended|비행교육원규정|1|항공안전법|48|": {
    "verdict": "ok",
    "summary": "목적 조항의 근거 법령 인용으로, 해당 조의 개정이 규정 내용에 영향을 주지 않습니다.",
    "rule": "비행교육원규정",
    "article": "제1조(명칭)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "00379be5.38c26a0a",
+   "at": "2026-11-04"
   },
   "issue:law-amended|비행교육원규정|5|항공안전법|58|": {
    "verdict": "ok",
@@ -397,14 +491,18 @@
    "suggestion": "조 제목 표기를 현행 제목으로 맞추면 좋습니다.",
    "rule": "비행교육원규정",
    "article": "제5조(조직)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "1eaad841.ce9a7276",
+   "at": "2026-11-04"
   },
   "issue:law-amended|성희롱성폭력예방및처리에관한규정|2|성폭력범죄의처벌등에관한특례법|2|": {
    "verdict": "ok",
    "summary": "용어 정의를 법령에서 끌어오는 인용이라 법 개정이 그대로 반영됩니다.",
    "rule": "성희롱성폭력예방및처리에관한규정",
    "article": "제2조(정의)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "55e1a69a.c949fecc",
+   "at": "2026-11-04"
   },
   "issue:law-amended|연구개발사업수행에따른연구윤리내규|24|국가연구개발혁신법|31|": {
    "verdict": "outdated",
@@ -413,7 +511,9 @@
    "suggestion": "\"제31조제1항 각 호\"로 고치고 [별표1]에 제7호·제8호 행위를 더합니다.",
    "rule": "연구개발사업수행에 따른 연구윤리내규",
    "article": "제24조(연구부정행위의 정의)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "20ba59d9.d842951e",
+   "at": "2026-11-04"
   },
   "issue:law-amended|재무회계규정|14|사학기관재무회계규칙에대한특례규칙|10|": {
    "verdict": "ok",
@@ -421,7 +521,9 @@
    "reason": "규정 문장이 법 내용을 따로 옮겨 적지 않아 개정할 필요는 없어 보입니다.",
    "rule": "재무회계규정",
    "article": "제14조(예산안의 첨부 서류)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "d4bdb86e.37f2ffcd",
+   "at": "2026-11-04"
   },
   "issue:law-amended|재무회계규정|45|국가를당사자로하는계약에관한법률시행령|76|": {
    "verdict": "ok",
@@ -429,7 +531,9 @@
    "reason": "규정 문장이 법 내용을 따로 옮겨 적지 않아 개정할 필요는 없어 보입니다.",
    "rule": "재무회계규정",
    "article": "제45조(지출의 특례)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "63e1f880.06693bc4",
+   "at": "2026-11-04"
   },
   "issue:law-amended|재무회계규정|49|국가를당사자로하는계약에관한법률시행령|26|": {
    "verdict": "ok",
@@ -437,7 +541,9 @@
    "reason": "규정 문장이 법 내용을 따로 옮겨 적지 않아 개정할 필요는 없어 보입니다.",
    "rule": "재무회계규정",
    "article": "제49조(계약의 원칙)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "24dc860e.9f66221b",
+   "at": "2026-11-04"
   },
   "issue:law-amended|조교운영규정|4|국가공무원법|33|": {
    "verdict": "ok",
@@ -445,21 +551,27 @@
    "reason": "규정 문장이 법 내용을 따로 옮겨 적지 않아 개정할 필요는 없어 보입니다.",
    "rule": "조교 운영 규정",
    "article": "제4조(자격)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "09048521.effde403",
+   "at": "2026-11-04"
   },
   "issue:missing-rule|조교운영규정|b16|조교임용규정||": {
    "verdict": "ok",
    "summary": "부칙의 제명 변경 규정이라 옛 이름을 쓰는 것이 맞습니다.",
    "rule": "조교 운영 규정",
    "article": "부칙(2023.05.23 시행)",
-   "kind": "issue:missing-rule"
+   "kind": "issue:missing-rule",
+   "hash": "da60f1f7.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:missing-rule|직제및사무분장규정|b58|법학연구소규정||": {
    "verdict": "ok",
    "summary": "부칙의 폐지 규정이라 폐지한 규정 이름을 쓰는 것이 맞습니다.",
    "rule": "직제및사무분장규정",
    "article": "부칙(2011.12.27 시행)",
-   "kind": "issue:missing-rule"
+   "kind": "issue:missing-rule",
+   "hash": "613e16c3.811c9dc5",
+   "at": "2026-11-04"
   },
   "issue:law-amended|청주대학교산학협력단정관|4|중소기업창업지원법|2|": {
    "verdict": "outdated",
@@ -468,7 +580,9 @@
    "suggestion": "「중소기업창업 지원법」 제53조에 따른 창업보육센터로 고칩니다.",
    "rule": "청주대학교산학협력단정관",
    "article": "제4조(사업)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "df8d51bd.8f5b4755",
+   "at": "2026-11-04"
   },
   "issue:law-amended|청주대학교산학협력단정관|22|중소기업창업지원법|2|": {
    "verdict": "outdated",
@@ -477,7 +591,9 @@
    "suggestion": "「중소기업창업 지원법」 제53조에 따른 창업보육센터로 고칩니다.",
    "rule": "청주대학교산학협력단정관",
    "article": "제22조(지출)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "6f1b32ff.8f5b4755",
+   "at": "2026-11-04"
   },
   "issue:law-amended|퇴직금지급규정|7|국민연금법|75|": {
    "verdict": "outdated",
@@ -486,7 +602,9 @@
    "suggestion": "퇴직금 전환금 공제 규정이 아직 필요한지 확인하고, 필요하면 현행 근거(국민연금법 부칙 등)로 고치거나 항을 삭제합니다.",
    "rule": "퇴직금지급규정",
    "article": "제7조(퇴직금의 산출)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "5b220089.41ef7e3d",
+   "at": "2026-11-04"
   },
   "issue:law-amended|학점은행제운영규정|2|평가인정학습과정운영에관한규정|13|": {
    "verdict": "ok",
@@ -494,91 +612,117 @@
    "reason": "규정 문장이 법 내용을 따로 옮겨 적지 않아 개정할 필요는 없어 보입니다.",
    "rule": "학점은행제운영규정",
    "article": "제2조(적용범위)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "71283955.9eb596e5",
+   "at": "2026-11-04"
   },
   "issue:law-amended|항공기술교육원규정|2|항공안전법|48|": {
    "verdict": "ok",
    "summary": "목적 조항의 근거 법령 인용으로, 해당 조의 개정이 규정 내용에 영향을 주지 않습니다.",
    "rule": "항공기술교육원규정",
    "article": "제2조(목적)",
-   "kind": "issue:law-amended"
+   "kind": "issue:law-amended",
+   "hash": "77cef249.38c26a0a",
+   "at": "2026-11-04"
   },
   "issue:cite-unrelated|계약학과설치운영규정|2|고등교육법|22|": {
    "verdict": "ok",
    "summary": "인용한 조의 내용이 인용 취지와 맞습니다. 낱말이 달라 자동 점검에 걸렸을 뿐입니다.",
    "rule": "계약학과설치운영규정",
    "article": "제2조(용어의 정의)",
-   "kind": "issue:cite-unrelated"
+   "kind": "issue:cite-unrelated",
+   "hash": "64d1c7ce.1abc9bd8",
+   "at": "2026-11-04"
   },
   "issue:cite-unrelated|물품구매관리검수및시설공사계약에관한규정|3|재무회계규정|49|": {
    "verdict": "ok",
    "summary": "인용한 조의 내용이 인용 취지와 맞습니다. 낱말이 달라 자동 점검에 걸렸을 뿐입니다.",
    "rule": "물품구매관리ㆍ검수및시설공사계약에관한규정",
    "article": "제3조(입찰금액 및 절차)",
-   "kind": "issue:cite-unrelated"
+   "kind": "issue:cite-unrelated",
+   "hash": "b923e0f9.24dc860e",
+   "at": "2026-11-04"
   },
   "issue:cite-unrelated|물품구매관리검수및시설공사계약에관한규정|6|재무회계규정|49|": {
    "verdict": "ok",
    "summary": "인용한 조의 내용이 인용 취지와 맞습니다. 낱말이 달라 자동 점검에 걸렸을 뿐입니다.",
    "rule": "물품구매관리ㆍ검수및시설공사계약에관한규정",
    "article": "제6조(입찰 및 계약)",
-   "kind": "issue:cite-unrelated"
+   "kind": "issue:cite-unrelated",
+   "hash": "dd01a6d9.24dc860e",
+   "at": "2026-11-04"
   },
   "issue:cite-unrelated|비전임교원의임용등에관한규정|2|고등교육법|16|": {
    "verdict": "ok",
    "summary": "인용한 조의 내용이 인용 취지와 맞습니다. 낱말이 달라 자동 점검에 걸렸을 뿐입니다.",
    "rule": "비전임교원의 임용 등에 관한 규정",
    "article": "제2조(정의)",
-   "kind": "issue:cite-unrelated"
+   "kind": "issue:cite-unrelated",
+   "hash": "25096707.1cc99382",
+   "at": "2026-11-04"
   },
   "issue:cite-unrelated|비전임교원의임용등에관한규정|2|대학교원자격기준등에관한규정|2|": {
    "verdict": "ok",
    "summary": "인용한 조의 내용이 인용 취지와 맞습니다. 낱말이 달라 자동 점검에 걸렸을 뿐입니다.",
    "rule": "비전임교원의 임용 등에 관한 규정",
    "article": "제2조(정의)",
-   "kind": "issue:cite-unrelated"
+   "kind": "issue:cite-unrelated",
+   "hash": "25096707.bda4bd88",
+   "at": "2026-11-04"
   },
   "issue:cite-unrelated|비전임교원의임용등에관한규정|28|고등교육법|16|": {
    "verdict": "ok",
    "summary": "인용한 조의 내용이 인용 취지와 맞습니다. 낱말이 달라 자동 점검에 걸렸을 뿐입니다.",
    "rule": "비전임교원의 임용 등에 관한 규정",
    "article": "제28조(자격)",
-   "kind": "issue:cite-unrelated"
+   "kind": "issue:cite-unrelated",
+   "hash": "ebbff0a8.1cc99382",
+   "at": "2026-11-04"
   },
   "issue:cite-unrelated|사외이사겸직에관한규정|2|고등교육법|14|": {
    "verdict": "ok",
    "summary": "인용한 조의 내용이 인용 취지와 맞습니다. 낱말이 달라 자동 점검에 걸렸을 뿐입니다.",
    "rule": "사외이사겸직에관한 규정",
    "article": "제2조(적용대상)",
-   "kind": "issue:cite-unrelated"
+   "kind": "issue:cite-unrelated",
+   "hash": "afa380ad.3f6ed402",
+   "at": "2026-11-04"
   },
   "issue:cite-unrelated|제안규정|17|직원인사규정|35|": {
    "verdict": "ok",
    "summary": "인용한 조의 내용이 인용 취지와 맞습니다. 낱말이 달라 자동 점검에 걸렸을 뿐입니다.",
    "rule": "제안규정",
    "article": "제17조(포상 및 특전)",
-   "kind": "issue:cite-unrelated"
+   "kind": "issue:cite-unrelated",
+   "hash": "7b810950.cafd4044",
+   "at": "2026-11-04"
   },
   "issue:cite-unrelated|직원보수규정|4-2|직원인사규정|26|": {
    "verdict": "ok",
    "summary": "인용한 조의 내용이 인용 취지와 맞습니다. 낱말이 달라 자동 점검에 걸렸을 뿐입니다.",
    "rule": "직원보수규정",
    "article": "제4조의2(강임시등의 임금보전)",
-   "kind": "issue:cite-unrelated"
+   "kind": "issue:cite-unrelated",
+   "hash": "be8943eb.2a770501",
+   "at": "2026-11-04"
   },
   "issue:cite-unrelated|직원인사규정|3|학교법인청석학원정관|102|": {
    "verdict": "ok",
    "summary": "인용한 조의 내용이 인용 취지와 맞습니다. 낱말이 달라 자동 점검에 걸렸을 뿐입니다.",
    "rule": "직원인사규정",
    "article": "제3조(직원의 구분)",
-   "kind": "issue:cite-unrelated"
+   "kind": "issue:cite-unrelated",
+   "hash": "71f9d2a4.33756ccc",
+   "at": "2026-11-04"
   },
   "issue:cite-unrelated|청주대학교동물실험윤리위원회규정|4|고등교육법|2|": {
    "verdict": "ok",
    "summary": "인용한 조의 내용이 인용 취지와 맞습니다. 낱말이 달라 자동 점검에 걸렸을 뿐입니다.",
    "rule": "청주대학교 동물실험윤리위원회 규정",
    "article": "제4조(구성)",
-   "kind": "issue:cite-unrelated"
+   "kind": "issue:cite-unrelated",
+   "hash": "90f7c911.816e3842",
+   "at": "2026-11-04"
   },
   "issue:cite-unrelated|퇴직금지급규정|7|국민연금법|75|": {
    "verdict": "outdated",
@@ -587,42 +731,54 @@
    "suggestion": "퇴직금 전환금 공제 규정이 아직 필요한지 확인하고, 필요하면 현행 근거(국민연금법 부칙 등)로 고치거나 항을 삭제합니다.",
    "rule": "퇴직금지급규정",
    "article": "제7조(퇴직금의 산출)",
-   "kind": "issue:cite-unrelated"
+   "kind": "issue:cite-unrelated",
+   "hash": "5b220089.41ef7e3d",
+   "at": "2026-11-04"
   },
   "issue:cite-unrelated|학교법인청석학원정관|59|초중등교육법|2|": {
    "verdict": "ok",
    "summary": "인용한 조의 내용이 인용 취지와 맞습니다. 낱말이 달라 자동 점검에 걸렸을 뿐입니다.",
    "rule": "학교법인청석학원정관",
    "article": "제59조(교원징계위원회 조직)",
-   "kind": "issue:cite-unrelated"
+   "kind": "issue:cite-unrelated",
+   "hash": "02d2155c.191bb23e",
+   "at": "2026-11-04"
   },
   "issue:cite-unrelated|학생단체등록과운영규정|3|청주대학교학칙|63|": {
    "verdict": "ok",
    "summary": "인용한 조의 내용이 인용 취지와 맞습니다. 낱말이 달라 자동 점검에 걸렸을 뿐입니다.",
    "rule": "학생단체등록과운영규정",
    "article": "제3조(등록요건)",
-   "kind": "issue:cite-unrelated"
+   "kind": "issue:cite-unrelated",
+   "hash": "2653c198.63f1edaa",
+   "at": "2026-11-04"
   },
   "issue:cite-unrelated|학생단체등록과운영규정|12|청주대학교학칙|65|": {
    "verdict": "ok",
    "summary": "인용한 조의 내용이 인용 취지와 맞습니다. 낱말이 달라 자동 점검에 걸렸을 뿐입니다.",
    "rule": "학생단체등록과운영규정",
    "article": "제12조(간행물의 발간허가 신청)",
-   "kind": "issue:cite-unrelated"
+   "kind": "issue:cite-unrelated",
+   "hash": "d2bb3216.a9fbbcc0",
+   "at": "2026-11-04"
   },
   "issue:cite-unrelated|학생지도및상벌에관한규정|9|청주대학교학칙|70|": {
    "verdict": "ok",
    "summary": "인용한 조의 내용이 인용 취지와 맞습니다. 낱말이 달라 자동 점검에 걸렸을 뿐입니다.",
    "rule": "학생지도및상벌에관한규정",
    "article": "제9조(대상)",
-   "kind": "issue:cite-unrelated"
+   "kind": "issue:cite-unrelated",
+   "hash": "c8596e72.8f44fab1",
+   "at": "2026-11-04"
   },
   "content:items|학교법인청석학원정관|116|사립학교법|72-5|": {
    "verdict": "ok",
    "summary": "짝지은 법 조문의 호(관할청 시정 요구 사유)는 행동강령에 넣을 내용이 아닙니다. 규정 제2항은 법 제72조의5제2항 각 호를 담고 있습니다.",
    "rule": "학교법인청석학원정관",
    "article": "제116조(사학기관 행동강령)",
-   "kind": "content:items"
+   "kind": "content:items",
+   "hash": "4ad12fc1.ad74e264",
+   "at": "2026-11-04"
   },
   "content:items|학교법인청석학원정관|44|사립학교법|59|": {
    "verdict": "outdated",
@@ -631,7 +787,9 @@
    "suggestion": "사립학교법 제59조제1항 각 호에 맞추어 휴직 사유와 휴직 기간 조를 함께 정비합니다.",
    "rule": "학교법인청석학원정관",
    "article": "제44조(휴직의 사유)",
-   "kind": "content:items"
+   "kind": "content:items",
+   "hash": "d6aa9289.54931070",
+   "at": "2026-11-04"
   },
   "limit|공익신고처리및신고자보호등에관한규정|26|공익신고자보호법|26|2년 이내": {
    "verdict": "outdated",
@@ -640,14 +798,18 @@
    "suggestion": "\"3년 이내\"로 고칩니다.",
    "rule": "공익신고 처리 및 신고자 보호 등에 관한 규정",
    "article": "제26조(보상금 지급신청 안내)",
-   "kind": "limit:diff"
+   "kind": "limit:diff",
+   "hash": "7f3542a1.0edc9e76",
+   "at": "2026-11-04"
   },
   "content:items|교내개인형이동장치안전관리규정|13|도로교통법|32|": {
    "verdict": "ok",
    "summary": "교내 이동장치 주차 금지 장소는 학교가 정하는 것으로, 도로교통법 제32조 각 호를 모두 담을 필요가 없습니다.",
    "rule": "교내 개인형 이동장치 안전관리 규정",
    "article": "제13조(주차금지)",
-   "kind": "content:items"
+   "kind": "content:items",
+   "hash": "39532e02.20c58313",
+   "at": "2026-11-04"
   },
   "content:items|교원인사규정|37|사립학교법|59|": {
    "verdict": "outdated",
@@ -656,7 +818,9 @@
    "suggestion": "사립학교법 제59조제1항 각 호에 맞추어 휴직 사유와 휴직 기간 조를 함께 정비합니다.",
    "rule": "교원인사규정",
    "article": "제37조(휴직의 사유)",
-   "kind": "content:items"
+   "kind": "content:items",
+   "hash": "a135948c.54931070",
+   "at": "2026-11-04"
   },
   "content:items|교원인사규정|41|교육공무원법|44-2|": {
    "verdict": "check",
@@ -665,7 +829,9 @@
    "suggestion": "제4호 수사기관 표현을 현행 사립학교법 제58조의2제1항제4호와 맞춥니다.",
    "rule": "교원인사규정",
    "article": "제41조(직위해제 및 해임)",
-   "kind": "content:items"
+   "kind": "content:items",
+   "hash": "3c03472e.7c82ff4b",
+   "at": "2026-11-04"
   },
   "content:items|교원인사규정|37|교육공무원법|44|": {
    "verdict": "check",
@@ -673,21 +839,27 @@
    "reason": "참고로 교육공무원법에는 가족 돌봄 휴직(제9호)이 따로 있습니다.",
    "rule": "교원인사규정",
    "article": "제37조(휴직의 사유)",
-   "kind": "content:items"
+   "kind": "content:items",
+   "hash": "a135948c.d2f86864",
+   "at": "2026-11-04"
   },
   "content:items|교원인사규정|17|사립학교법|53-2|": {
    "verdict": "ok",
    "summary": "짝지은 법 조문(임용 방법)과 규정 조문(재임용 절차)은 다른 내용입니다. 재임용 절차는 법 제53조의2제4항~제7항과 맞습니다.",
    "rule": "교원인사규정",
    "article": "제17조(재임용)",
-   "kind": "content:items"
+   "kind": "content:items",
+   "hash": "3ce49974.7876f545",
+   "at": "2026-11-04"
   },
   "limit|교원인사규정|38|교육공무원법|45|1년 이내": {
    "verdict": "ok",
    "summary": "자동 짝짓기 오류입니다. 규정 ⑨(간호 휴직 1년, 총 3년)에 맞는 법 기준은 교육공무원법 제45조제1항제8호(1년, 총 3년)로 같습니다.",
    "rule": "교원인사규정",
    "article": "제38조(휴직의 기간)",
-   "kind": "limit:diff"
+   "kind": "limit:diff",
+   "hash": "c7ab7cee.f0f66f65",
+   "at": "2026-11-04"
   },
   "content:items|재무회계규정|63|사학기관재무회계규칙|53|": {
    "verdict": "outdated",
@@ -696,14 +868,18 @@
    "suggestion": "제1항에 \"7. 금융회사와의 거래실적 입증서류\"를 더합니다.",
    "rule": "재무회계규정",
    "article": "제63조(비치장부와 서류)",
-   "kind": "content:items"
+   "kind": "content:items",
+   "hash": "d67a7e9b.6604d4bd",
+   "at": "2026-11-04"
   },
   "content:items|직원인사규정|33-2|국가공무원법|73-3|": {
    "verdict": "ok",
    "summary": "빠진 법의 제5호는 고위공무원단 일반직공무원에만 해당해 학교 직원에게 적용되지 않습니다.",
    "rule": "직원인사규정",
    "article": "제33조의2(직위해제 및 해임)",
-   "kind": "content:items"
+   "kind": "content:items",
+   "hash": "d9f7725b.79deca16",
+   "at": "2026-11-04"
   },
   "content:start|강사임용등에관한규정|23|교육공무원법|11-4|": {
    "verdict": "check",
@@ -712,7 +888,9 @@
    "suggestion": "\"처분이 있음을 안 날부터 30일 이내\"로 법과 같게 고칩니다.",
    "rule": "강사 임용 등에 관한 규정",
    "article": "제23조(재임용 절차)",
-   "kind": "content:start"
+   "kind": "content:start",
+   "hash": "8cb272d8.2784d7dc",
+   "at": "2026-11-04"
   },
   "content:start|강사임용등에관한규정|23|사립학교법|53-2|": {
    "verdict": "check",
@@ -721,7 +899,9 @@
    "suggestion": "\"처분이 있음을 안 날부터 30일 이내\"로 법과 같게 고칩니다.",
    "rule": "강사 임용 등에 관한 규정",
    "article": "제23조(재임용 절차)",
-   "kind": "content:start"
+   "kind": "content:start",
+   "hash": "8cb272d8.7876f545",
+   "at": "2026-11-04"
   },
   "content:items|강사임용등에관한규정|13|사립학교법시행령|9-9|": {
    "verdict": "ok",
@@ -729,21 +909,27 @@
    "suggestion": "참고로 \"직무와 관련된 비위사실\", \"본인이 직무 수행이 곤란하다고 밝힌 경우\"를 해촉 사유에 더하는 것은 검토해 볼 만합니다.",
    "rule": "강사 임용 등에 관한 규정",
    "article": "제13조(채용심의회 위원의 위촉 해지)",
-   "kind": "content:items"
+   "kind": "content:items",
+   "hash": "de3780f4.68c7d1da",
+   "at": "2026-11-04"
   },
   "limit|교원양성과정운영규정|4|교원자격검정령|17-2|15년 이상": {
    "verdict": "ok",
    "summary": "법보다 엄격한 기준(교육공무원 15년 이상 근무)이라 문제가 없습니다.",
    "rule": "교원양성과정운영규정",
    "article": "제4조(교원양성위원회)",
-   "kind": "limit:diff"
+   "kind": "limit:diff",
+   "hash": "0b1ab3fb.c64211fa",
+   "at": "2026-11-04"
   },
   "content:items|교원징계위원회규정|2|사립학교법|62|": {
    "verdict": "ok",
    "summary": "빠진 법의 제4호는 초ㆍ중등학교에만 해당합니다.",
    "rule": "교원징계위원회규정",
    "article": "제2조(징계위원회 설치 및 정원)",
-   "kind": "content:items"
+   "kind": "content:items",
+   "hash": "77f6a335.c84be644",
+   "at": "2026-11-04"
   }
  }
 }

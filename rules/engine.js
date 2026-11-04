@@ -1435,6 +1435,28 @@
     return [kind, normTitle(rule.title || rule), artKey || '', normTitle(target || ''), targetArt || '', extra || ''].join('|');
   }
 
+  // 검토 당시 원문의 지문: 규정 조문과 대상(규정 조·법령 조) 본문을 공백 없이 FNV-1a로 줄인다.
+  // 업데이트 뒤 지문이 달라지면 그 검토 의견은 "재검토 대기"가 된다.
+  function fnv(s) {
+    s = String(s || '').replace(/\s+/g, '');
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h.toString(16).padStart(8, '0');
+  }
+  function reviewHash(ruleText, targetText) {
+    return fnv(ruleText) + '.' + fnv(targetText);
+  }
+  function issueTargetText(it) {
+    const e = it.edge;
+    if (!e) return '';
+    if (e.to.article) return e.to.article.text;
+    const a = e.law && e.law.articles && e.to.artKey ? e.law.articles[e.to.artKey] : null;
+    return a && !a.missing ? a.text : '';
+  }
+  function issueReviewHash(it) {
+    return reviewHash(it.article && it.article.text, issueTargetText(it));
+  }
+
   function issueReviewKey(it) {
     const e = it.edge;
     const target = e ? (e.to.rule ? e.to.rule.title : (e.law && e.law.name) || e.to.name) : '';
@@ -1442,7 +1464,7 @@
   }
 
   return {
-    reviewKey, issueReviewKey,
+    reviewKey, issueReviewKey, reviewHash, issueReviewHash, issueTargetText,
     contentFindings, citeRelevance,
     limitPairs, lawLimits,
     relatedLaws, compareWithLaws, articleRevision, revisedArticles,

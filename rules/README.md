@@ -118,7 +118,17 @@ python rules/tools/law_check.py --oc 인증키 --debug 고등교육법   # API �
 자동 점검이 찾은 후보를 Claude가 원문(규정·법령)을 읽고 판단한 의견입니다. 항목마다
 `검토: 개정 필요 / 확인 필요 / 문제 없음`, 이유, 제안을 담고 앱의 해당 항목 아래에 표시합니다.
 키는 `종류|규정명|조|대상(규정·법령명)|대상 조|…`이라 규정·법령이 바뀌어도 같은 항목이면 이어서 보입니다.
-새 후보가 생기면(업데이트 후) Claude에게 다시 검토를 요청해 갱신합니다. 법률 자문이 아니며 최종 판단은 담당 부서가 합니다.
+의견마다 검토 당시 규정 조문·대상 조문의 지문(`hash`)과 검토일(`at`)을 저장합니다. 업데이트로 원문이 바뀌면 앱은 그 의견을
+**재검토 대기**로 흐리게 표시합니다.
+
+**매일 자동 재검토**: 매일 새벽 예약된 Claude 작업이 `tools/review_queue.js queue`로 새 후보·원문이 바뀐 항목·해결된 항목을 찾고,
+있으면 그 항목만 원문을 읽어 판단한 뒤 `review_queue.js apply`로 `reviews.json`을 갱신해 gh-pages에 바로 반영합니다.
+바뀐 것이 없으면 아무것도 하지 않습니다. 법률 자문이 아니며 최종 판단은 담당 부서가 합니다.
+
+```bash
+node rules/tools/review_queue.js queue --out /tmp/q   # 대기열: /tmp/q/queue.txt, queue.json
+node rules/tools/review_queue.js apply 판정.json      # 판정 반영(지문·검토일 기록, 해결된 항목 삭제)
+```
 
 ## 상위법 개정 알림
 
