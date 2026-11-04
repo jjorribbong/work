@@ -40,8 +40,9 @@ function candidates() {
   };
   const out = [];
   // 1) 정합성 점검: 오류·주의와 '인용 조 내용 확인'(참고)
+  // 자동 정합성 점검 화면은 전체 검토로 대체했으므로, 상위법 비교의 '인용 상태'에 보이는 법령 인용 항목만 검토한다
   for (const it of v.issues) {
-    if (it.level === 'info' && it.type !== 'cite-unrelated') continue;
+    if (!(/^law-/.test(it.type) || (it.type === 'cite-unrelated' && it.edge && !it.edge.to.rule)) || it.article.addenda) continue;
     const e = it.edge;
     const target = e ? (e.to.rule ? `「${e.to.rule.title}」` : `「${(e.law && e.law.name) || e.to.name}」`) + (e.to.artKey ? ' ' + E.artLabel(e.to.artKey) : '') : '';
     let targetText = E.issueTargetText(it);
