@@ -235,6 +235,8 @@
   .law-text { white-space: pre-wrap; font-size: 14px; line-height: 1.7; margin-top: 10px; }
   .addenda { background: #fff; margin-top: 8px; padding: 16px; }
   .addenda summary { font-weight: 700; cursor: pointer; }
+  .review.stale > :not(:first-child) { opacity: .55; }
+  .review { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #f8fafc; border: 1px dashed var(--border); font-size: 13px; line-height: 1.55; }
   .legend { margin: 10px 0 0; padding-left: 18px; line-height: 1.6; }
   .legend li { margin: 2px 0; }
   .period-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
@@ -371,9 +373,9 @@
         </div>
         <div id="lawResult"></div>
         <details class="group" id="limitAll" style="margin-top:12px">
-          <summary><span>법 숫자 기준 자동 대조 (규정집 전체)</span></summary>
+          <summary><span>규정집 전체 자동 대조 (내용 분석·숫자 기준)</span></summary>
           <div style="padding:0 16px 14px">
-            <p class="muted small">모든 규정을 관련 상위 법령의 "30주 이상", "3개월 이내" 같은 숫자 기준과 자동으로 대조합니다. 처음 실행할 때 법령 조문 파일(약 8MB)을 내려받습니다.</p>
+            <p class="muted small">모든 규정을 관련 상위 법령과 자동으로 대조합니다. 의무·허용·기산점·요건(호) 같은 내용 차이와 "30주 이상", "3개월 이내" 같은 숫자 기준을 봅니다. 처음 실행할 때 법령 조문 파일(약 8MB)을 내려받습니다.</p>
             <button class="btn btn-primary" id="limitAllRun" style="margin-top:10px;width:100%">전체 대조 실행</button>
           </div>
           <div id="limitAllBody"></div>
@@ -1077,9 +1079,37 @@ function showRelations(rule) {
 /* ---------- 검증: 정합성 ---------- */
 let checkLevel = 'all';
 const LEVEL = { error: ['오류', 'b-red'], warn: ['주의', 'b-amber'], info: ['참고', 'b-blue'] };
+/* ---------- 검토 의견 (Claude가 원문을 읽고 판단한 결과, data/reviews.json) ---------- */
+let reviews = null;
+const VERDICT = { violation: ['검토: 법령 위반·불일치', 'b-red'], outdated: ['검토: 개정 필요', 'b-amber'], check: ['검토: 확인 필요', 'b-blue'], ok: ['검토: 문제 없음', 'b-green'] };
+async function fetchReviews() {
+  try {
+    const r = await fetch('data/reviews.json', { cache: 'no-cache' });
+    const js = r.ok ? await r.json() : null;
+    return js && js.items ? js : null;
+  } catch (e) {
+    return null;
+  }
+}
+function reviewOf(key) {
+  return reviews && reviews.items[key] || null;
+}
+function reviewHtml(key, hash) {
+  const v = reviewOf(key);
+  if (!v) return '';
+  const [label, cls] = VERDICT[v.verdict] || VERDICT.check;
+  // 검토한 뒤 규정이나 법령 원문이 바뀌었으면 예전 의견을 흐리게 보이고 재검토 대기로 알린다
+  const stale = v.hash && hash && v.hash !== hash;
+  return `<div class="review${stale ? ' stale' : ''}">${stale ? '<div class="small" style="margin-bottom:4px"><span class="badge b-gray">재검토 대기</span> 검토한 뒤 원문이 바뀌었습니다. 다음 자동 검토(매일 새벽)에서 다시 판단합니다.</div>' : ''}<span class="badge ${cls}">${label}</span> ${esc(v.summary || '')}
+    ${v.reason ? `<div class="muted small" style="margin-top:4px">${esc(v.reason)}</div>` : ''}
+    ${v.suggestion ? `<div class="small" style="margin-top:4px"><b>제안</b> ${esc(v.suggestion)}</div>` : ''}
+    <div class="muted small" style="margin-top:4px">${esc(reviews.reviewer || 'Claude')} · ${esc(v.at || reviews.reviewedAt || '')}</div></div>`;
+}
+
 const ISSUE_TYPE = {
   'missing-rule': '없는 규정 인용', 'missing-article': '없는 조항 인용', 'internal-missing': '내부 조항 오류',
   'abolished-ref': '폐지 규정 인용', 'law-amended': '상위법 개정 확인', 'law-missing': '법령 없음', 'law-article-missing': '법령 조항 없음', 'law-article-deleted': '삭제된 법령 조항', 'law-not-current': '현행 아닌 법령',
+  'deleted-article-ref': '삭제된 조 인용', 'cite-unrelated': '인용 조 내용 확인',
   'basis-mismatch': '위임 근거 불일치', 'basis-weak': '근거 조항 확인', 'delegate-no-backref': '위임 근거 미표기', 'unresolved-delegation': '하위규정 미확인',
 };
 
@@ -1097,9 +1127,10 @@ function renderCheck() {
         <div class="stat ${checkLevel === 'info' ? 'on' : ''}" data-level="info"><div class="n" style="color:var(--blue-l)">${stats.info}</div><div class="l">참고</div></div>
       </div>
       <ul class="muted small legend">
-        <li><b>오류</b>: 없는 규정·조항·법령이나 폐지된 규정을 인용</li>
+        <li><b>오류</b>: 없는 규정·조항·법령, 폐지된 규정, 삭제된 조를 인용</li>
         <li><b>주의</b>: 인용한 법령 조가 규정 개정 뒤에 바뀜, 삭제된 법령 조 인용, 부칙의 인용 문제 등</li>
-        <li><b>참고</b>: 목적 조항의 근거 조항에 위임 문언이 없거나, 위임한 하위 규정을 확인할 수 없음 등</li>
+        <li><b>참고</b>: 인용한 조의 내용이 인용 문장과 관련이 적음(조 번호가 바뀌었을 수 있음), 목적 조항의 근거 조항에 위임 문언이 없음, 위임한 하위 규정을 확인할 수 없음 등</li>
+        <li><b>검토 의견</b>: Claude가 원문을 읽고 판단한 의견이 있으면 항목에 함께 표시합니다. 업데이트로 원문이 바뀐 항목과 새 항목은 매일 새벽 자동으로 다시 검토합니다.</li>
       </ul>
       <p class="muted small" style="margin-top:6px">폐지된 규정과, 요건·절차를 끌어 쓰는 단순 인용("~에 의하여 표창을 받을 때")은 점검하지 않습니다.</p>
     </div>
@@ -1111,6 +1142,7 @@ function renderCheck() {
         <div class="where">${esc(it.rule.title)} ${esc(it.article.no)}${it.article.title ? '(' + esc(it.article.title) + ')' : ''}</div>
         <div class="det">${esc(it.detail)}</div>
         ${it.edge ? `<div class="quote">${esc(it.edge.phrase)}</div>` : ''}
+        ${reviewHtml(E.issueReviewKey(it), E.issueReviewHash(it))}
       </div>`).join('') || '<div class="issue muted">발견된 문제가 없습니다. 👍</div>'}</div>`;
 }
 
@@ -1215,12 +1247,27 @@ function limitRow(p, texts, showRule) {
     <div class="where">${showRule ? `${esc(rule.title)} ` : ''}${esc(p.article.no)}${p.article.title ? '(' + esc(p.article.title) + ')' : ''} ↔ ${esc(p.lv.name)} ${esc(p.lv.art.no || E.artLabel(p.lv.ak))}${p.lv.art.title ? '(' + esc(p.lv.art.title) + ')' : ''} · ${lawArtLink(p.lv.name, L.url, p.lv.ak)}</div>
     <div class="quote">${esc(p.line)}</div>
     <div class="quote" style="border-left-color:var(--green)">${esc(p.lv.line)}</div>
+    ${reviewHtml(E.reviewKey('limit', rule, p.article.key, p.lv.name, p.lv.ak, p.rv.raw), E.reviewHash(p.article.text, p.lv.art.text))}
+  </div>`;
+}
+
+const CONTENT_KIND = { duty: ['의무 완화 의심', 'b-red'], permit: ['금지 사항 허용 의심', 'b-red'], start: ['기산점 다름', 'b-amber'], items: ['요건(호) 누락 의심', 'b-amber'] };
+function contentRow(f, texts, showRule) {
+  const rule = index.byId.get(f.article.ruleId);
+  const L = texts.get(f.lawKey) || {};
+  return `<div class="issue" data-open="${esc(rule.id)}" data-art="${esc(f.article.key)}">
+    <span class="badge ${CONTENT_KIND[f.kind][1]}">${CONTENT_KIND[f.kind][0]}</span>
+    <div class="msg">${esc(f.message)}</div>
+    <div class="where">${showRule ? `${esc(rule.title)} ` : ''}${esc(f.article.no)}${f.article.title ? '(' + esc(f.article.title) + ')' : ''} ↔ ${esc(f.lawName)} ${esc(f.lawArt ? (f.lawArt.no || E.artLabel(f.artKey)) : E.artLabel(f.artKey))}${f.lawArt && f.lawArt.title ? '(' + esc(f.lawArt.title) + ')' : ''} · ${lawArtLink(f.lawName, L.url, f.artKey)}</div>
+    <div class="quote">${esc(f.ruleText.length > 400 ? f.ruleText.slice(0, 400) + '…' : f.ruleText)}</div>
+    <div class="quote" style="border-left-color:var(--green)">${esc(f.lawText)}</div>
+    ${reviewHtml(E.reviewKey('content:' + f.kind, rule, f.article.key, f.lawName, f.artKey), E.reviewHash(f.article.text, f.lawArt ? f.lawArt.text : f.lawText))}
   </div>`;
 }
 
 /* 규정집 전체: 모든 규정을 관련 법령의 숫자 기준과 대조 */
 let limitAll = null;     // {rows: [{rule, pairs}], texts}
-let limitFilter = 'diff';
+let limitFilter = 'content';
 async function runLimitAll() {
   const box = $('#limitAllBody');
   const btn = $('#limitAllRun');
@@ -1241,7 +1288,8 @@ async function runLimitAll() {
     const p = plans[j];
     const sub = new Map(p.laws.map(x => [x.key, texts.get(x.key)]));
     const pairs = E.limitPairs(p.rule, sub);
-    if (pairs.length) rows.push({ rule: p.rule, pairs });
+    const content = sub.size ? E.contentFindings(p.rule, E.compareWithLaws(index, p.rule, an, sub).similar, sub) : [];
+    if (pairs.length || content.length) rows.push({ rule: p.rule, pairs, content });
     if (j % 20 === 0) {
       box.innerHTML = `<p class="muted small" style="padding:0 16px 14px">대조 중… ${j}/${plans.length}</p>`;
       await new Promise(r => setTimeout(r, 0));
@@ -1257,15 +1305,20 @@ function renderLimitAll() {
   const box = $('#limitAllBody');
   if (!limitAll) return;
   const all = limitAll.rows.flatMap(r => r.pairs);
+  const contentAll = limitAll.rows.flatMap(r => r.content);
   const cnt = k => all.filter(p => k === 'out' ? p.status === 'below' || p.status === 'above' : p.status === k).length;
   const want = p => limitFilter === 'all' || (limitFilter === 'diff' ? p.status !== 'same' : limitFilter === 'out' ? p.status === 'below' || p.status === 'above' : p.status === limitFilter);
-  const rows = limitAll.rows.map(r => ({ rule: r.rule, pairs: r.pairs.filter(want) })).filter(r => r.pairs.length);
+  const rows = limitAll.rows.map(r => ({ rule: r.rule, pairs: limitFilter === 'content' ? [] : r.pairs.filter(want) })).filter(r => r.pairs.length);
   const chip = (k, label, n) => `<button class="chip ${limitFilter === k ? 'on' : ''}" data-lf="${k}">${label} ${n}</button>`;
   box.innerHTML = `<div style="padding:0 16px">
-      <div class="chips">${chip('diff', '다른 것만', all.length - cnt('same'))}${chip('out', '법 기준 벗어남', cnt('out'))}${chip('same', '같음', cnt('same'))}${chip('all', '전체', all.length)}</div>
-      <p class="muted small" style="margin:8px 0">규정 ${limitAll.rows.length}건에서 법의 숫자 기준과 짝지은 문장 ${all.length}개. 앞말이 비슷한 문장끼리 자동으로 짝지은 결과라 엉뚱한 짝도 섞일 수 있으니 <b>검토 후보</b>로 봐 주세요.</p>
+      <div class="chips">${chip('content', '내용 분석', contentAll.length)}${chip('diff', '숫자 다름', all.length - cnt('same'))}${chip('out', '법 기준 벗어남', cnt('out'))}${chip('same', '숫자 같음', cnt('same'))}${chip('all', '숫자 전체', all.length)}</div>
+      <p class="muted small" style="margin:8px 0">${limitFilter === 'content'
+        ? `법 조문과 비슷한 규정 문장에서 의무("하여야")를 재량("할 수 있다")으로 바꾼 곳, 금지를 허용으로 바꾼 곳, 기간을 세는 기준이 다른 곳, 법이 정한 요건(호)이 빠진 곳 ${contentAll.length}개.`
+        : `법의 숫자 기준과 짝지은 문장 ${all.length}개.`} 자동으로 찾은 <b>검토 후보</b>이며, 검토 의견이 있으면 함께 보여줍니다.</p>
     </div>
-    <div class="list">${rows.map(r => r.pairs.map(p => limitRow(p, limitAll.texts, true)).join('')).join('') || '<div class="issue muted">해당하는 문장이 없습니다.</div>'}</div>`;
+    <div class="list">${limitFilter === 'content'
+      ? (limitAll.rows.map(r => r.content.map(f => contentRow(f, limitAll.texts, true)).join('')).join('') || '<div class="issue muted">해당하는 곳이 없습니다.</div>')
+      : (rows.map(r => r.pairs.map(p => limitRow(p, limitAll.texts, true)).join('')).join('') || '<div class="issue muted">해당하는 문장이 없습니다.</div>')}</div>`;
 }
 
 async function runLawCheck() {
@@ -1281,7 +1334,8 @@ async function runLawCheck() {
   const { citations, similar } = E.compareWithLaws(index, rule, an, texts);
   const limits = E.limitPairs(rule, texts);
   const nLimit = limits.filter(p => p.status !== 'same').length;
-  const issues = getChecked().issues.filter(i => i.rule === rule && /^law-/.test(i.type) && !i.article.addenda);
+  const content = E.contentFindings(rule, similar, texts);
+  const issues = getChecked().issues.filter(i => i.rule === rule && (/^law-/.test(i.type) || (i.type === 'cite-unrelated' && i.edge && !i.edge.to.rule)) && !i.article.addenda);
   const partial = picked.filter(x => !texts.get(x.key).full).map(x => x.name);
   const nCite = citations.filter(c => c.nums && c.nums.differ).length;
   const nSim = similar.filter(p => p.numDiff).length;
@@ -1296,11 +1350,11 @@ async function runLawCheck() {
       <div class="stat-grid" style="grid-template-columns:1fr 1fr">
         <div class="stat"><div class="n" style="color:var(--red)">${issues.filter(i => i.level === 'error').length}</div><div class="l">인용 오류</div></div>
         <div class="stat"><div class="n" style="color:var(--amber)">${issues.filter(i => i.level !== 'error').length}</div><div class="l">인용 주의</div></div>
-        <div class="stat"><div class="n" style="color:var(--red)">${nLimit}</div><div class="l">법 숫자 기준과 다름</div></div>
-        <div class="stat"><div class="n" style="color:var(--amber)">${nSim + nCite}</div><div class="l">비슷한 조문 숫자 다름</div></div>
+        <div class="stat"><div class="n" style="color:var(--red)">${content.length}</div><div class="l">내용 분석</div></div>
+        <div class="stat"><div class="n" style="color:var(--amber)">${nLimit + nSim + nCite}</div><div class="l">법과 숫자 다름</div></div>
       </div>
       <p class="muted small" style="margin-top:10px">법령 ${picked.length}개와 대조했습니다.${partial.length ? ` ${esc(partial.join(', '))}은(는) 아직 전체 조문이 없어 인용한 조문만 대조했습니다(업데이트 프로그램을 실행하면 전체 조문으로 대조).` : ''}
-      숫자·문장 차이는 자동으로 찾은 <b>검토 후보</b>이며, 위반인지는 원문을 읽고 판단해 주세요.</p>
+      내용·숫자 차이는 자동으로 찾은 <b>검토 후보</b>입니다. Claude의 검토 의견이 있으면 항목 아래에 함께 보여줍니다.</p>
     </div>
     ${sec('인용 상태', issues.length, issues.filter(i => i.level === 'error').length ? '오류' : '', issues.map(it => `
       <div class="issue" data-open="${esc(rule.id)}" data-art="${esc(it.article.key)}">
@@ -1308,7 +1362,10 @@ async function runLawCheck() {
         <div class="msg">${esc(it.message)}</div>
         <div class="where">${esc(it.article.no)}${it.article.title ? '(' + esc(it.article.title) + ')' : ''}</div>
         <div class="det">${esc(it.detail)}</div>
+        ${reviewHtml(E.issueReviewKey(it), E.issueReviewHash(it))}
       </div>`).join('') || '<div class="issue muted">인용한 법령·조문에 문제가 없습니다.</div>', issues.length > 0)}
+    ${sec('내용 분석 (의무·허용·기산점·요건)', content.length, content.length ? `확인 ${content.length}` : '', content.map(f => contentRow(f, texts, false)).join('')
+      || '<div class="issue muted">의무·허용·기산점·요건(호)에서 법과 달라 보이는 곳을 찾지 못했습니다.</div>', content.length > 0)}
     ${sec('법 숫자 기준 대조', limits.length, nLimit ? `다름 ${nLimit}` : '', limits.map(p => limitRow(p, texts, false)).join('')
       || '<div class="issue muted">법의 숫자 기준("○주 이상", "○개월 이내" 등)과 짝지어지는 문장이 없습니다.</div>', nLimit > 0)}
     ${sec('비슷한 법 조문 (문장 대조)', similar.length, nSim ? `숫자 다름 ${nSim}` : '', similar.map(p => {
@@ -1882,6 +1939,7 @@ $('#btnPaste').addEventListener('click', () => {
 (async function init() {
   renderRecent();
   fetchLawCatalog().then(t => { lawCatalog = t; renderLawPick(); });
+  fetchReviews().then(rv => { reviews = rv; if (rv) renderCheck(); });
   fetchLawChanges().then(lc => {
     lawChanges = lc;
     if (!lc || !lc.events.length) return;

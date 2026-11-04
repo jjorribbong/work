@@ -432,8 +432,9 @@
   const GUIDELINE_RE = /(지침|기준|요령|매뉴얼|편람|운영계획|방침)$/;
   // 「 」 안이 규정 이름 꼴일 때만 규정 인용으로 본다(교과목명·서식명 등 제외)
   const RULE_NAME_RE = /(규정|학칙|세칙|규칙|지침|정관|요령|기준|내규|준칙|강령|회칙|규약|요강|수칙|헌장|약관|규범|법|법률|령|조례|고시|훈령|예규)$/;
-  const REF_ART_RE = /^\s*(?:의\s*)?제\s*(\d+)\s*조(?:\s*의\s*(\d+))?(?:\s*의?\s*제\s*(\d+)\s*항)?(?:\s*제\s*[\dㆍ·,\s]+호)?/;
-  const INTERNAL_ART_RE = /제\s*(\d+)\s*조(?:\s*의\s*(\d+))?(?:\s*제\s*(\d+)\s*항)?(?:\s*제\s*(\d+)\s*호)?/g;
+  // "제96조의 2항"은 제96조 제2항이다(조의 뒤 숫자가 '항'으로 끝나면 가지번호가 아님).
+  const REF_ART_RE = /^\s*(?:의\s*)?제\s*(\d+)\s*조(?:\s*의\s*(\d+)(?!\d*\s*항))?(?:\s*의?\s*(?:제\s*)?(\d+)\s*항)?(?:\s*제\s*[\dㆍ·,\s]+호)?/;
+  const INTERNAL_ART_RE = /제\s*(\d+)\s*조(?:\s*의\s*(\d+)(?!\d*\s*항))?(?:\s*의?\s*(?:제\s*)?(\d+)\s*항)?(?:\s*제\s*(\d+)\s*호)?/g;
 
   // 참조 뒤 문맥으로 관계 유형을 판정한다.
   function classify(after) {
@@ -623,6 +624,11 @@
    * 위임·참조 정합성 검증.
    * @returns {issues:[{level, type, rule, article, message, detail, edge}], stats}
    */
+  const CITE_MIN = 0.1;
+  function isDeletedArticle(a) {
+    return /^\s*삭\s*제/.test(a.title || '') || (/^\s*삭\s*제/.test(a.text || '') && String(a.text).replace(/\s/g, '').length < 40);
+  }
+
   function validate(index, analysis) {
     analysis = analysis || analyze(index);
     let issues = [];
@@ -634,6 +640,16 @@
         detail = `${detail} 부칙의 인용이라 개정 당시 기준일 수 있습니다.`;
       }
       issues.push(Object.assign({ level, type, rule, article, message, detail }, extra || {}));
+    };
+
+    // 인용 문장과 인용한 조의 내용이 거의 겹치지 않으면 조 번호가 바뀌었을 수 있다(확인 필요, 참고).
+    // 목적 조항·정의 조항 인용은 원래 내용이 겹치지 않으므로 뺀다.
+    const citeCheck = (e, fr, fa, name, title, text) => {
+      if (fa.addenda || fa.key === '1' || /목적/.test(fa.title) || /정의|용어/.test(title || '')) return;
+      const r = citeRelevance(e.phrase, title, text);
+      if (r == null || r >= CITE_MIN) return;
+      add('info', 'cite-unrelated', fr, fa, `인용한 ${name} ${artLabel(e.to.artKey)}${title ? '(' + title + ')' : ''}의 내용이 인용 문장과 관련이 적어 보임`,
+        '인용한 조의 제목·본문에 인용 문장의 낱말이 거의 없습니다. 개정으로 조 번호가 바뀌어 다른 조를 가리키는지 확인이 필요합니다.', { edge: e, relevance: r });
     };
 
     // 하위 규정에서 받은 근거(역방향) 집계
@@ -683,6 +699,7 @@
                 { edge: e, amended });
             }
           }
+          if (a && !a.missing && !a.deleted) citeCheck(e, fr, fa, `「${L.name}」`, a.title, a.text);
           continue;
         }
         if (L && !L.found && !/규정$/.test(normTitle(e.to.name)) && !GUIDELINE_RE.test(normTitle(e.to.name))) {
@@ -705,6 +722,12 @@
           '조문 번호가 개정으로 변경되었는지 확인이 필요합니다.', { edge: e });
         continue;
       }
+      if (e.to.article && isDeletedArticle(e.to.article)) {
+        add('error', 'deleted-article-ref', fr, fa, `「${e.to.rule.title}」 ${e.to.article.no}는 삭제된 조`,
+          `삭제된 조를 인용하고 있습니다(${e.to.article.title || e.to.article.text}). 내용이 옮겨진 조로 고쳐야 하는지 확인이 필요합니다.`, { edge: e });
+        continue;
+      }
+      if (e.to.article) citeCheck(e, fr, fa, `「${e.to.rule.title}」`, e.to.article.title, e.to.article.text);
       if (e.type === 'basis' && e.to.article && !articleDelegates(e.to.article, fr)) {
         const at = `${e.to.article.no}${e.to.article.title ? '(' + e.to.article.title + ')' : ''}`;
         if (e.explicit) {
@@ -1311,7 +1334,138 @@
     return out.sort((a, b) => rank[a.status] - rank[b.status] || b.score - a.score);
   }
 
+  /* ---------- 내용 분석: 의무 강도·허용·금지·기산점·요건(호) 누락 ---------- */
+
+  const MUST_RE = /하여야\s*(?:한다|하며|하고)|해야\s*한다/;
+  const MAY_RE = /할\s*수\s*있(?:다|으며|고)/;
+  const NOT_RE = /(?:할|하지|될|둘|받을|가질|겸할|임용될|임명될|선임될)\s*수\s*없(?:다|으며)|(?:하여서는|해서는)\s*아니\s*된다|못한다/;
+  const START_RE = /(안|있은|발생한|받은|종료된|만료된|끝난|확정된|도달한|접수한|접수된|제출한|시작한|그친)\s*날(?:로)?부터/g;
+
+  function modality(t) {
+    return { must: MUST_RE.test(t), may: MAY_RE.test(t), not: NOT_RE.test(t) };
+  }
+
+  function startPoints(t) {
+    return [...new Set([...String(t).matchAll(START_RE)].map(m => m[1]))];
+  }
+
+  function sentences(text) {
+    return stripNotes(text).split(/\n|(?<=다\.)\s+/).map(s => s.trim()).filter(s => ctxNorm(s).length >= 12);
+  }
+
+  function items(text) {
+    return String(text || '').split('\n').map(l => l.trim()).filter(l => /^\d+(?:의\d+)?\.\s*\S/.test(l))
+      .map(l => ({ line: l, no: l.match(/^(\d+(?:의\d+)?)\./)[1], b: bigrams(ctxNorm(stripNotes(l).replace(/^\d+(?:의\d+)?\./, ''))) }));
+  }
+
+  /**
+   * 비슷한 법 조문 쌍(compareWithLaws의 similar)에서 문장 단위로 뜻이 달라진 곳을 찾는다.
+   * @returns [{kind: duty|permit|start|items, article, lawKey, lawName, artKey, lawArt, ruleText, lawText, message}]
+   */
+  function contentFindings(rule, similar, texts) {
+    const out = [];
+    const seen = new Set();
+    const push = (f) => {
+      const k = `${f.kind}|${f.article.key}|${f.lawKey}|${f.artKey}|${f.ruleText}`;
+      if (!seen.has(k)) { seen.add(k); out.push(f); }
+    };
+    for (const p of similar) {
+      if (p.score < 0.5) continue;
+      const base = { article: p.article, lawKey: p.lawKey, lawName: p.lawName, artKey: p.artKey, lawArt: p.lawArt };
+      const lawSents = sentences(p.lawArt ? lawBody(p.lawArt.text) : p.lawText).map(s => ({ s, b: bigrams(ctxNorm(s)) }));
+      for (const rs of sentences(p.ruleText)) {
+        const rb = bigrams(ctxNorm(rs));
+        let best = null;
+        for (const ls of lawSents) {
+          const d = dice(rb, ls.b);
+          if (d >= 0.55 && (!best || d > best.d)) best = { ls, d };
+        }
+        if (!best) continue;
+        const a = modality(rs), b = modality(best.ls.s);
+        if (b.must && !a.must && a.may && !b.may) {
+          push(Object.assign({ kind: 'duty', ruleText: rs, lawText: best.ls.s, score: best.d,
+            message: '법은 "하여야 한다"(의무)인데 규정은 "할 수 있다"(재량)' }, base));
+        }
+        if (b.not && !a.not && a.may) {
+          push(Object.assign({ kind: 'permit', ruleText: rs, lawText: best.ls.s, score: best.d,
+            message: '법은 금지("할 수 없다/아니 된다")인데 규정은 허용("할 수 있다")' }, base));
+        }
+        const sa = startPoints(rs), sb = startPoints(best.ls.s);
+        if (sa.length && sb.length && !sa.some(x => sb.includes(x))) {
+          push(Object.assign({ kind: 'start', ruleText: rs, lawText: best.ls.s, score: best.d,
+            message: `기간을 세는 기준이 다름: 규정 "${sa.join(', ')} 날부터" ↔ 법 "${sb.join(', ')} 날부터"` }, base));
+        }
+      }
+      // 요건 누락: 법 조문의 호 목록 중 규정 조문에 대응하는 호가 없는 것
+      if (p.lawArt) {
+        // "그 밖에 대통령령으로 정하는 …" 같은 포괄 호와 삭제된 호는 빼고 본다
+        const li = items(p.lawArt.text).filter(x => !/^\d+(?:의\d+)?\.\s*(?:그\s*밖에|삭\s*제)/.test(x.line)), ri = items(p.article.text);
+        if (li.length >= 3 && ri.length >= 2) {
+          const miss = li.filter(x => !ri.some(y => dice(x.b, y.b) >= 0.45));
+          const matched = li.length - miss.length;
+          if (miss.length && matched >= Math.max(2, Math.ceil(li.length / 2))) {
+            push(Object.assign({ kind: 'items', ruleText: stripNotes(p.article.text).trim(), lawText: miss.map(x => x.line).join('\n'), score: p.score,
+              missing: miss.map(x => x.no),
+              message: `법의 ${li.length}개 호 중 ${miss.map(x => `제${x.no}호`).join(', ')}에 해당하는 내용이 규정에 없음` }, base));
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  /**
+   * 인용한 조의 내용이 인용 문장과 관련 있는지(조 번호가 바뀌어 다른 조를 가리키는 경우 찾기).
+   * 문장(인용 이름·조 번호 제외)의 두 글자 조각 중 대상 조의 제목·본문에 있는 비율. 낮을수록 의심.
+   */
+  const CITE_STOP = new Set('규정 정하 하는 한다 에따 따라 따른 의하 하여 경우 해당 관한 관하 사항 이하 다음 각호 에의 으로 에서 이라 라한 있다 하고 같다 본대 대학 학교 청주 주대 에관 정함 함을 목적 적으로 로한 정에 의거 거하 준용 용한 에게 하며 야한 수있 있으 으며 또는'.split(' '));
+  function citeRelevance(phrase, title, text) {
+    const pb = new Set([...bigrams(String(phrase).replace(/「[^」]*」|『[^』]*』/g, ' ').replace(/제\s*\d+\s*조(?:의\s*\d+)?(?:\s*제\s*\d+\s*[항호])*/g, ' ')
+      .replace(/\([^)]*\)/g, ' ').replace(/[^가-힣]/g, ''))].filter(b => !CITE_STOP.has(b)));
+    if (pb.size < 6) return null;
+    const tb = bigrams(String((title || '') + (text || '')).replace(/[^가-힣]/g, ''));
+    let c = 0;
+    pb.forEach(b => { if (tb.has(b)) c++; });
+    return c / pb.size;
+  }
+
+  /* ---------- 검토 의견(data/reviews.json) 연결 키 ---------- */
+  // 규정·조·대상(규정명 또는 법령명)·대상 조로 만든다. 규정 id 대신 이름을 써서 사람이 읽고 고칠 수 있게 한다.
+  function reviewKey(kind, rule, artKey, target, targetArt, extra) {
+    return [kind, normTitle(rule.title || rule), artKey || '', normTitle(target || ''), targetArt || '', extra || ''].join('|');
+  }
+
+  // 검토 당시 원문의 지문: 규정 조문과 대상(규정 조·법령 조) 본문을 공백 없이 FNV-1a로 줄인다.
+  // 업데이트 뒤 지문이 달라지면 그 검토 의견은 "재검토 대기"가 된다.
+  function fnv(s) {
+    s = String(s || '').replace(/\s+/g, '');
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h.toString(16).padStart(8, '0');
+  }
+  function reviewHash(ruleText, targetText) {
+    return fnv(ruleText) + '.' + fnv(targetText);
+  }
+  function issueTargetText(it) {
+    const e = it.edge;
+    if (!e) return '';
+    if (e.to.article) return e.to.article.text;
+    const a = e.law && e.law.articles && e.to.artKey ? e.law.articles[e.to.artKey] : null;
+    return a && !a.missing ? a.text : '';
+  }
+  function issueReviewHash(it) {
+    return reviewHash(it.article && it.article.text, issueTargetText(it));
+  }
+
+  function issueReviewKey(it) {
+    const e = it.edge;
+    const target = e ? (e.to.rule ? e.to.rule.title : (e.law && e.law.name) || e.to.name) : '';
+    return reviewKey('issue:' + it.type, it.rule, it.article && it.article.key, target, e ? e.to.artKey : '');
+  }
+
   return {
+    reviewKey, issueReviewKey, reviewHash, issueReviewHash, issueTargetText,
+    contentFindings, citeRelevance,
     limitPairs, lawLimits,
     relatedLaws, compareWithLaws, articleRevision, revisedArticles,
     normTitle, looseRegex, escapeRegex, artKey, artLabel,
