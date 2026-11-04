@@ -1126,7 +1126,7 @@ function manualListHtml() {
   all.sort((a, b) => (order[a[1].verdict] - order[b[1].verdict]) || a[1].rule.localeCompare(b[1].rule, 'ko'));
   const cnt = k => all.filter(([, v]) => v.verdict === k).length;
   return `<details class="group" id="manualAll" style="margin-bottom:12px">
-    <summary><span>전체 검토 결과 (Claude)</span> <span class="sum-badges">${cnt('violation') + cnt('outdated') ? `<span class="badge b-red">개정 필요 ${cnt('violation') + cnt('outdated')}</span>` : ''}${cnt('check') ? `<span class="badge b-blue">확인 ${cnt('check')}</span>` : ''}<span class="badge b-gray">${all.length}</span></span></summary>
+    <summary><span>전체 검토 결과</span> <span class="sum-badges">${cnt('violation') + cnt('outdated') ? `<span class="badge b-red">개정 필요 ${cnt('violation') + cnt('outdated')}</span>` : ''}${cnt('check') ? `<span class="badge b-blue">확인 ${cnt('check')}</span>` : ''}<span class="badge b-gray">${all.length}</span></span></summary>
     <p class="muted small" style="padding:0 16px">자동 점검과 별도로 규정 전문을 읽고 상위 법령과 대조해 찾은 의견입니다${reviews.fullReview ? ` (${esc(reviews.fullReview)})` : ''}. 누르면 해당 조문으로 갑니다.</p>
     <div class="list">${all.map(([k, v]) => {
       const rule = E.findRuleByName(index, v.ref.rule);
