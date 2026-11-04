@@ -1464,7 +1464,7 @@
   }
 
   return {
-    reviewKey, issueReviewKey, reviewHash, issueReviewHash, issueTargetText,
+    reviewKey, issueReviewKey, reviewHash, issueReviewHash, issueTargetText, textHash: fnv,
     contentFindings, citeRelevance,
     limitPairs, lawLimits,
     relatedLaws, compareWithLaws, articleRevision, revisedArticles,
