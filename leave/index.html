@@ -87,6 +87,11 @@
   table.list td.bl, table.list th.bl { border-left: 1px solid var(--border); }
   table.list input.cell-date { width: 128px; padding: 4px 6px; font-size: 12.5px; border-radius: 7px; }
   table.list input.cell-date.done { background: var(--green-soft); border-color: #bbf7d0; }
+  table.list th[data-sort] { cursor: pointer; user-select: none; }
+  table.list th[data-sort]:hover { color: var(--text); }
+  table.list th[data-sort]::after { content: ' ↕'; font-size: 10px; opacity: .35; }
+  table.list th.sort-asc::after { content: ' ▲'; opacity: 1; color: var(--blue); }
+  table.list th.sort-desc::after { content: ' ▼'; opacity: 1; color: var(--blue); }
   .due-now { color: var(--orange); font-weight: 700; }
   .due-late { color: var(--red); font-weight: 700; }
   .due-ok { color: var(--sub); }
@@ -213,10 +218,10 @@
           <table class="list">
             <thead><tr>
               <th class="fx0"><input type="checkbox" id="chkAll"></th>
-              <th class="fx1">사번</th><th class="fx2">성명</th><th>소속</th><th>직종/직급</th>
-              <th class="num">연가일수</th><th class="num">공제</th><th class="num">사용</th><th class="num">잔여</th>
-              <th class="bl">1차 통보기간</th><th>1차 통보일</th><th>계획 제출일</th>
-              <th class="bl">2차 통보기한</th><th>2차 통보일</th><th class="bl">소멸일</th><th>상태</th>
+              <th class="fx1" data-sort="empNo">사번</th><th class="fx2" data-sort="name">성명</th><th data-sort="dept">소속</th><th data-sort="pos">직종/직급</th>
+              <th class="num" data-sort="granted">연가일수</th><th class="num" data-sort="deduct">공제</th><th class="num" data-sort="used">사용</th><th class="num" data-sort="remain">잔여</th>
+              <th class="bl" data-sort="w1">1차 통보기간</th><th data-sort="n1">1차 통보일</th><th data-sort="plan">계획 제출일</th>
+              <th class="bl" data-sort="d2">2차 통보기한</th><th data-sort="n2">2차 통보일</th><th class="bl" data-sort="exp">소멸일</th><th data-sort="status">상태</th>
             </tr></thead>
             <tbody id="empBody"></tbody>
           </table>
@@ -774,6 +779,38 @@ function renderDash() {
 /* ============ 직원 목록 ============ */
 // 짧은 날짜: 올해면 'M. D.', 다른 해면 'YY. M. D.'
 function shortD(d) { return (d.getFullYear() !== today().getFullYear() ? String(d.getFullYear()).slice(2) + '. ' : '') + (d.getMonth() + 1) + '. ' + d.getDate() + '.'; }
+/* 열 정렬: 제목을 누르면 오름차순 ▲ → 내림차순 ▼, 빈 값은 항상 맨 아래 */
+let SORT = (() => { try { return JSON.parse(localStorage.getItem('leavePromo.sort')) || { key: '', dir: 1 }; } catch (e) { return { key: '', dir: 1 }; } })();
+const SORT_KEY = {
+  empNo: u => u.empNo || null, name: u => u.name || null, dept: u => u.dept || null, pos: u => [u.jobType, u.position].filter(Boolean).join(' ') || null,
+  granted: u => granted(u), deduct: u => deduct(u), used: u => used(u), remain: u => remain(u),
+  w1: u => { const s = schedule(u); return s ? s.w1s.getTime() : null; }, n1: u => u.n1Date || null, plan: u => u.planDate || null,
+  d2: u => { const s = schedule(u); return s ? s.d2.getTime() : null; }, n2: u => u.n2Date || null,
+  exp: u => { const s = schedule(u); return s ? s.expire.getTime() : null; }, status: u => STATUS[status(u).k].o
+};
+function sortUnits(list) {
+  const f = SORT_KEY[SORT.key]; if (!f) return list;
+  const v = list.map((u, i) => ({ u, i, k: f(u) }));
+  v.sort((a, b) => {
+    if (a.k == null && b.k == null) return a.i - b.i;
+    if (a.k == null) return 1; if (b.k == null) return -1;
+    const c = typeof a.k === 'number' && typeof b.k === 'number' ? a.k - b.k : String(a.k).localeCompare(String(b.k), 'ko', { numeric: true });
+    return c * SORT.dir || a.i - b.i;
+  });
+  return v.map(x => x.u);
+}
+document.querySelectorAll('table.list th[data-sort]').forEach(th => th.onclick = () => {
+  SORT = SORT.key === th.dataset.sort ? { key: SORT.key, dir: -SORT.dir } : { key: th.dataset.sort, dir: 1 };
+  try { localStorage.setItem('leavePromo.sort', JSON.stringify(SORT)); } catch (e) {}
+  renderEmp();
+});
+function markSort() {
+  document.querySelectorAll('table.list th[data-sort]').forEach(th => {
+    th.classList.toggle('sort-asc', th.dataset.sort === SORT.key && SORT.dir === 1);
+    th.classList.toggle('sort-desc', th.dataset.sort === SORT.key && SORT.dir === -1);
+    th.title = th.dataset.sort === SORT.key ? (SORT.dir === 1 ? '오름차순 — 누르면 내림차순' : '내림차순 — 누르면 오름차순') : '눌러서 정렬';
+  });
+}
 function cellDate(u, field) {
   return '<input type="date" class="cell-date' + (u[field] ? ' done' : '') + '" data-key="' + u.key + '" data-field="' + field + '" value="' + esc(u[field] || '') + '">';
 }
@@ -805,7 +842,7 @@ function renderEmp() {
   const curT = $('fType').value;
   $('fType').innerHTML = '<option value="">전체 직종</option>' + types.map(d => '<option' + (d === curT ? ' selected' : '') + '>' + esc(d) + '</option>').join('');
   $('fType').style.display = types.length ? '' : 'none';
-  const list = filtered(), keys = new Set(allUnits().map(u => u.key));
+  const list = sortUnits(filtered()), keys = new Set(allUnits().map(u => u.key));
   [...selected].forEach(k => { if (!keys.has(k)) selected.delete(k); });
   if (!list.length) {
     $('empBody').innerHTML = '<tr><td colspan="16"><div class="empty">' + (DB.employees.length ? '조건에 맞는 직원이 없습니다.' : '직원을 추가하거나 설정·데이터 탭에서 엑셀을 불러오세요.') + '</div></td></tr>';
@@ -838,6 +875,7 @@ function renderEmp() {
     };
   });
   $('empBody').querySelectorAll('.chk').forEach(c => c.onchange = () => { c.checked ? selected.add(c.dataset.key) : selected.delete(c.dataset.key); updSel(); });
+  markSort();
   $('chkAll').checked = list.length > 0 && list.every(e => selected.has(e.key));
   updSel();
 }
