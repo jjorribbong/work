@@ -160,14 +160,15 @@
         <div class="toolbar">
           <input type="text" id="q" placeholder="이름·사번·소속 검색">
           <select id="fDept"><option value="">전체 소속</option></select>
+          <select id="fType"><option value="">전체 직종</option></select>
           <select id="fStatus"><option value="">전체 상태</option></select>
           <button class="btn" id="btnAdd">+ 직원 추가</button>
         </div>
         <div class="toolbar" id="bulkBar">
           <span class="muted" id="selInfo">선택 0명</span>
           <span class="spacer"></span>
-          <button class="btn sm ghost" data-bulk="n1">1차 통보일 기록(오늘)</button>
-          <button class="btn sm ghost" data-bulk="n2">2차 통보일 기록(오늘)</button>
+          <button class="btn sm ghost" data-bulk="n1">1차 통보일 기록</button>
+          <button class="btn sm ghost" data-bulk="n2">2차 통보일 기록</button>
           <button class="btn sm" data-bulk="p1">1차 통보서 인쇄</button>
           <button class="btn sm" data-bulk="pf">사용계획서 양식 인쇄</button>
           <button class="btn sm" data-bulk="p2">2차 지정통보서 인쇄</button>
@@ -176,8 +177,8 @@
           <table class="list">
             <thead><tr>
               <th><input type="checkbox" id="chkAll"></th>
-              <th>사번</th><th>성명</th><th>소속</th><th>직급</th>
-              <th class="num">부여</th><th class="num">사용</th><th class="num">잔여</th>
+              <th>사번</th><th>성명</th><th>소속</th><th>직종/직급</th>
+              <th class="num">부여</th><th class="num">공제</th><th class="num">사용</th><th class="num">잔여</th>
               <th>1차 통보</th><th>계획 제출</th><th>2차 지정</th><th>상태</th>
             </tr></thead>
             <tbody id="empBody"></tbody>
@@ -205,7 +206,7 @@
 
       <div class="card">
         <h2>엑셀 불러오기 <small>.xlsx · .xls · .csv</small></h2>
-        <p class="muted">첫 행에 제목이 있는 표를 인식합니다. 인식하는 열 이름: <b>사번</b>(직원번호), <b>성명</b>(이름), <b>소속</b>(부서), <b>직급</b>(직위), <b>입사일</b>(임용일), <b>부여</b>(발생·연가일수), <b>사용</b>(사용일수), <b>1년미만</b>(Y/N).<br>사번 또는 성명+소속이 같은 직원은 기존 정보를 갱신하고 촉진 기록은 유지합니다.</p>
+        <p class="muted">첫 행에 제목이 있는 표를 인식합니다. <b>종합정보시스템 › 인사 › 복무관리 › 연가일수관리</b>에서 내려받은 엑셀을 그대로 올리면 됩니다(교직원번호·성명·소속부서·직종·직급·연가기준일·발령종료일·연가일수·공제일수·사용일수 인식, 잔여일수로 검증).<br>그 밖의 양식에서 인식하는 열 이름: <b>사번</b>(직원번호), <b>성명</b>(이름), <b>소속</b>(부서), <b>직급</b>(직위), <b>입사일</b>(임용일), <b>부여</b>(발생·연가일수), <b>사용</b>(사용일수), <b>1년미만</b>(Y/N).<br>사번 또는 성명+소속이 같은 직원은 기존 정보를 갱신하고 촉진 기록은 유지합니다.</p>
         <div class="row" style="margin-top:12px">
           <input type="file" id="fileImport" accept=".xlsx,.xls,.csv" style="display:none">
           <button class="btn" id="btnImport">파일 선택</button>
@@ -276,9 +277,12 @@
         <div><label class="f">사번</label><input type="text" id="eEmpNo"></div>
         <div><label class="f">성명 *</label><input type="text" id="eName"></div>
         <div><label class="f">소속</label><input type="text" id="eDept"></div>
+        <div><label class="f">직종</label><input type="text" id="eType"></div>
         <div><label class="f">직급</label><input type="text" id="ePos"></div>
-        <div><label class="f">입사일</label><input type="date" id="eHire"></div>
+        <div><label class="f">입사일(연가기준일)</label><input type="date" id="eHire"></div>
+        <div><label class="f">발령(계약) 종료일</label><input type="date" id="eEnd"></div>
         <div><label class="f">부여일수 (비우면 자동)</label><input type="number" step="0.5" min="0" id="eGranted"></div>
+        <div><label class="f">공제일수</label><input type="number" step="0.5" min="0" id="eDeduct"></div>
         <div><label class="f">사용일수</label><input type="number" step="0.5" min="0" id="eUsed"></div>
         <div style="align-self:end"><label class="check"><input type="checkbox" id="eUnder1"> 1년 미만 근로자</label></div>
       </div>
@@ -389,7 +393,10 @@ function granted(e) {
   const a = autoGranted(e); return a == null ? 0 : a;
 }
 function used(e) { return +e.used || 0; }
-function remain(e) { return Math.max(0, granted(e) - used(e)); }
+function deduct(e) { return +e.deduct || 0; }
+function consumed(e) { return used(e) + deduct(e); } // 사용 + 공제
+function remain(e) { return Math.max(0, granted(e) - consumed(e)); }
+function endsEarly(e) { const s = schedule(e), d = parseD(e.endDate); return !!(s && d && d < s.expire); }
 
 // 촉진 일정: base = 휴가 소멸일 다음날(=만료 기준일)
 function schedule(e) {
@@ -483,7 +490,7 @@ function renderDash() {
   } else $('timeline').innerHTML = '<p class="muted">설정에서 연가 산정 기간을 입력하세요.</p>';
 
   const E = DB.employees;
-  const tg = E.reduce((a, e) => a + granted(e), 0), tu = E.reduce((a, e) => a + Math.min(used(e), granted(e)), 0);
+  const tg = E.reduce((a, e) => a + granted(e), 0), tu = E.reduce((a, e) => a + Math.min(consumed(e), granted(e)), 0);
   const rate = tg ? tu / tg * 100 : 0;
   const st = E.map(status);
   const cnt = k => st.filter(x => k.includes(x.k)).length;
@@ -492,7 +499,7 @@ function renderDash() {
     ['전체 직원', E.length, '명'],
     ['촉진 대상(잔여 있음)', target, '명'],
     ['총 부여', num(tg), '일'],
-    ['총 사용', num(tu), '일'],
+    ['총 사용(공제 포함)', num(tu), '일'],
     ['평균 사용률', num(rate), '%', rate],
     ['조치 필요', cnt(['need1', 'need2', 'late1', 'late2']), '명']
   ].map(x => '<div class="stat"><div class="label">' + x[0] + '</div><div class="value">' + x[1] + '<small>' + x[2] + '</small></div>' +
@@ -514,7 +521,7 @@ function renderDash() {
   }).join('') + (todos.length > 30 ? '<p class="muted" style="margin-top:8px">외 ' + (todos.length - 30) + '건 — 직원·진행관리 탭에서 확인하세요.</p>' : '');
 
   const depts = {};
-  E.forEach(e => { const d = e.dept || '(미지정)'; (depts[d] = depts[d] || { g: 0, u: 0, n: 0 }); depts[d].g += granted(e); depts[d].u += Math.min(used(e), granted(e)); depts[d].n++; });
+  E.forEach(e => { const d = e.dept || '(미지정)'; (depts[d] = depts[d] || { g: 0, u: 0, n: 0 }); depts[d].g += granted(e); depts[d].u += Math.min(consumed(e), granted(e)); depts[d].n++; });
   const dl = Object.entries(depts).sort((a, b) => (a[1].u / (a[1].g || 1)) - (b[1].u / (b[1].g || 1)));
   $('deptStats').innerHTML = dl.length ? dl.map(([d, v]) => {
     const r = v.g ? v.u / v.g * 100 : 0;
@@ -525,12 +532,13 @@ function renderDash() {
 /* ============ 직원 목록 ============ */
 const selected = new Set();
 Object.entries(STATUS).forEach(([k, v]) => $('fStatus').insertAdjacentHTML('beforeend', '<option value="' + k + '">' + v.t + '</option>'));
-['q', 'fDept', 'fStatus'].forEach(id => $(id).addEventListener('input', renderEmp));
+['q', 'fDept', 'fType', 'fStatus'].forEach(id => $(id).addEventListener('input', renderEmp));
 function filtered() {
-  const q = $('q').value.replace(/\s/g, '').toLowerCase(), fd = $('fDept').value, fs = $('fStatus').value;
+  const q = $('q').value.replace(/\s/g, '').toLowerCase(), fd = $('fDept').value, ft = $('fType').value, fs = $('fStatus').value;
   return DB.employees.filter(e => {
     if (q && !((e.name || '') + (e.empNo || '') + (e.dept || '')).replace(/\s/g, '').toLowerCase().includes(q)) return false;
     if (fd && (e.dept || '') !== fd) return false;
+    if (ft && (e.jobType || '') !== ft) return false;
     if (fs && status(e).k !== fs) return false;
     return true;
   });
@@ -539,17 +547,21 @@ function renderEmp() {
   const depts = [...new Set(DB.employees.map(e => e.dept || ''))].filter(Boolean).sort();
   const cur = $('fDept').value;
   $('fDept').innerHTML = '<option value="">전체 소속</option>' + depts.map(d => '<option' + (d === cur ? ' selected' : '') + '>' + esc(d) + '</option>').join('');
+  const types = [...new Set(DB.employees.map(e => e.jobType || ''))].filter(Boolean).sort();
+  const curT = $('fType').value;
+  $('fType').innerHTML = '<option value="">전체 직종</option>' + types.map(d => '<option' + (d === curT ? ' selected' : '') + '>' + esc(d) + '</option>').join('');
+  $('fType').style.display = types.length ? '' : 'none';
   const list = filtered();
   [...selected].forEach(id => { if (!DB.employees.some(e => e.id === id)) selected.delete(id); });
   if (!list.length) {
-    $('empBody').innerHTML = '<tr><td colspan="12"><div class="empty">' + (DB.employees.length ? '조건에 맞는 직원이 없습니다.' : '직원을 추가하거나 설정·데이터 탭에서 엑셀을 불러오세요.') + '</div></td></tr>';
+    $('empBody').innerHTML = '<tr><td colspan="13"><div class="empty">' + (DB.employees.length ? '조건에 맞는 직원이 없습니다.' : '직원을 추가하거나 설정·데이터 탭에서 엑셀을 불러오세요.') + '</div></td></tr>';
   } else {
     $('empBody').innerHTML = list.map(e => {
       const st = status(e), S = STATUS[st.k];
       const auto = (e.granted === '' || e.granted == null) ? ' title="자동계산"' : '';
       return '<tr data-id="' + e.id + '"><td onclick="event.stopPropagation()"><input type="checkbox" class="chk" data-id="' + e.id + '"' + (selected.has(e.id) ? ' checked' : '') + '></td>' +
-        '<td>' + esc(e.empNo) + '</td><td><b>' + esc(e.name) + '</b>' + (e.under1 ? ' <span class="badge b-gray">1년미만</span>' : '') + '</td><td>' + esc(e.dept) + '</td><td>' + esc(e.position) + '</td>' +
-        '<td class="num"' + auto + '>' + num(granted(e)) + (auto ? '*' : '') + '</td><td class="num">' + num(used(e)) + '</td><td class="num"><b>' + num(remain(e)) + '</b></td>' +
+        '<td>' + esc(e.empNo) + '</td><td><b>' + esc(e.name) + '</b>' + (e.under1 ? ' <span class="badge b-gray">1년미만</span>' : '') + (endsEarly(e) ? ' <span class="badge b-orange" title="기간 만료 전 계약(발령) 종료">~' + esc(e.endDate.slice(5)) + ' 종료</span>' : '') + '</td><td>' + esc(e.dept) + '</td><td>' + esc([e.jobType, e.position].filter(Boolean).join(' · ')) + '</td>' +
+        '<td class="num"' + auto + '>' + num(granted(e)) + (auto ? '*' : '') + '</td><td class="num">' + (deduct(e) ? num(deduct(e)) : '') + '</td><td class="num">' + num(used(e)) + '</td><td class="num"><b>' + num(remain(e)) + '</b></td>' +
         '<td>' + (e.n1Date || '-') + '</td><td>' + (e.planDate || '-') + '</td><td>' + (e.n2Date || '-') + '</td>' +
         '<td><span class="badge ' + S.c + '">' + S.t + '</span></td></tr>';
     }).join('');
@@ -571,8 +583,11 @@ document.querySelectorAll('[data-bulk]').forEach(b => b.onclick = () => {
     const field = k === 'n1' ? 'n1Date' : 'n2Date';
     const targets = list.filter(e => !e[field] && remain(e) > 0);
     if (!targets.length) return toast('기록할 대상이 없습니다(이미 기록됨 또는 잔여 0일)');
-    if (!confirm(targets.length + '명의 ' + (k === 'n1' ? '1차 통보일' : '2차 지정 통보일') + '을 오늘(' + td + ')로 기록할까요?')) return;
-    targets.forEach(e => e[field] = td); save(); render(); toast(targets.length + '명 기록 완료');
+    const inp = prompt(targets.length + '명의 ' + (k === 'n1' ? '1차 통보일' : '2차 지정 통보일') + '을 기록합니다.\n통보한 날짜를 입력하세요 (YYYY-MM-DD)', td);
+    if (inp == null) return;
+    const dv = normDate(inp.trim());
+    if (!dv) return toast('날짜 형식이 올바르지 않습니다');
+    targets.forEach(e => e[field] = dv); save(); render(); toast(targets.length + '명 ' + dv + ' 기록 완료');
   } else {
     const docs = list.filter(e => remain(e) > 0);
     if (!docs.length) return toast('잔여 연가가 있는 직원이 없습니다');
@@ -582,7 +597,7 @@ document.querySelectorAll('[data-bulk]').forEach(b => b.onclick = () => {
 
 /* ============ 직원 모달 ============ */
 let editing = null;
-const F = { empNo: 'eEmpNo', name: 'eName', dept: 'eDept', position: 'ePos', hireDate: 'eHire', granted: 'eGranted', used: 'eUsed',
+const F = { empNo: 'eEmpNo', name: 'eName', dept: 'eDept', jobType: 'eType', position: 'ePos', hireDate: 'eHire', endDate: 'eEnd', granted: 'eGranted', deduct: 'eDeduct', used: 'eUsed',
   n1Date: 'eN1', planDate: 'ePlanDate', planText: 'ePlanText', n2Date: 'eN2', designText: 'eDesignText', memo: 'eMemo' };
 function openEmp(id) {
   const e = id ? DB.employees.find(x => x.id === id) : { id: null };
@@ -602,15 +617,17 @@ function readForm() {
   o.under1 = $('eUnder1').checked;
   if (o.granted !== '') o.granted = +o.granted;
   o.used = o.used === '' ? 0 : +o.used;
+  o.deduct = o.deduct === '' ? 0 : +o.deduct;
   return o;
 }
 function refreshModalInfo() {
   const tmp = Object.assign({}, editing, readForm());
   const st = status(tmp), s = st.s, c = compliance(tmp);
   $('mBadge').innerHTML = '<span class="badge ' + STATUS[st.k].c + '">' + STATUS[st.k].t + '</span>';
-  let h = '부여 <b>' + num(granted(tmp)) + '일</b>' + (tmp.granted === '' ? '(자동)' : '') + ' · 사용 ' + num(used(tmp)) + '일 · 잔여 <b>' + num(remain(tmp)) + '일</b>';
+  let h = '부여 <b>' + num(granted(tmp)) + '일</b>' + (tmp.granted === '' ? '(자동)' : '') + (deduct(tmp) ? ' · 공제 ' + num(deduct(tmp)) + '일' : '') + ' · 사용 ' + num(used(tmp)) + '일 · 잔여 <b>' + num(remain(tmp)) + '일</b>';
   if (s) h += '<br>' + (s.type === 'u1' ? '[1년 미만] ' : '') + '1차 ' + fmtK(s.w1s) + '~' + fmtK(s.w1e) + ' · 2차 ' + fmtK(s.d2) + '까지 · 만료 ' + fmtK(s.expire);
   if (st.due) h += '<br>계획서 제출 기한: ' + fmtK(st.due);
+  if (endsEarly(tmp)) h += '<br><span style="color:var(--orange)">⚠ 연가 기간 만료 전 ' + fmtK(tmp.endDate) + ' 발령(계약) 종료 — 퇴직 시 미사용 연가는 정산 대상이므로 종료 전 사용을 권장하세요.</span>';
   if (c && remain(tmp) > 0 && (tmp.n1Date || today() > s.w1e)) h += '<br>' + (c.ok ? '<span style="color:var(--green);font-weight:700">✔ 사용촉진 절차 이행 완료 (보상 면제 요건 충족)</span>' : '<span style="color:var(--red)">⚠ ' + c.issues.map(esc).join(' / ') + '</span>');
   $('mSched').innerHTML = h;
 }
@@ -641,7 +658,7 @@ $('btnAdd').onclick = () => openEmp(null);
 function infoTable(e) {
   const S = DB.settings;
   return '<table><tr><th>소속</th><th>직급</th><th>사번</th><th>성명</th></tr><tr><td>' + esc(e.dept) + '</td><td>' + esc(e.position) + '</td><td>' + esc(e.empNo) + '</td><td>' + esc(e.name) + '</td></tr></table>' +
-    '<table><tr><th>연가 사용기간</th><th>부여일수</th><th>사용일수</th><th>미사용일수</th></tr><tr><td>' + periodText(e) + '</td><td>' + num(granted(e)) + '일</td><td>' + num(used(e)) + '일</td><td><b>' + num(remain(e)) + '일</b></td></tr></table>';
+    '<table><tr><th>연가 사용기간</th><th>부여일수</th>' + (deduct(e) ? '<th>공제일수</th>' : '') + '<th>사용일수</th><th>미사용일수</th></tr><tr><td>' + periodText(e) + '</td><td>' + num(granted(e)) + '일</td>' + (deduct(e) ? '<td>' + num(deduct(e)) + '일</td>' : '') + '<td>' + num(used(e)) + '일</td><td><b>' + num(remain(e)) + '일</b></td></tr></table>';
 }
 function periodText(e) {
   const s = schedule(e);
@@ -714,15 +731,20 @@ $('btnSaveSettings').onclick = () => {
 };
 
 /* ============ 엑셀 ============ */
+// 종합정보시스템 > 인사 > 복무관리 > 연가일수관리 엑셀 열 이름 포함
 const COLS = {
-  empNo: ['사번', '직원번호', '교번', '번호'], name: ['성명', '이름', '직원명'], dept: ['소속', '부서', '학과', '부서명'],
-  position: ['직급', '직위', '직책', '직종'], hireDate: ['입사일', '임용일', '입사일자', '임용일자', '최초임용일'],
-  granted: ['부여', '발생', '연가일수', '부여일수', '총연가', '발생일수'], used: ['사용', '사용일수', '사용연가'],
+  skip: ['사용일수(결재)', '연가수정일수', '근속년수', '제외기간', '제외일수', '이월일수', '보상일수'],
+  empNo: ['사번', '교직원번호', '직원번호', '교번', '번호'], name: ['성명', '이름', '직원명'], dept: ['소속부서', '소속', '부서', '학과', '부서명'],
+  jobType: ['직종'], position: ['직급', '직위', '직책'], empStatus: ['재직구분'],
+  hireDate: ['연가기준일', '입사일', '임용일', '입사일자', '임용일자', '최초임용일'], endDate: ['발령종료일', '계약종료일', '종료일'],
+  granted: ['연가일수', '부여', '발생', '부여일수', '총연가', '발생일수'], deduct: ['공제일수', '공제'],
+  used: ['사용일수', '사용', '사용연가'], remainFile: ['잔여일수', '잔여'], note: ['비고'],
   under1: ['1년미만', '1년 미만']
 };
 function mapHeader(h) {
   const t = String(h || '').replace(/\s/g, '');
-  for (const [k, names] of Object.entries(COLS)) if (names.some(n => t === n.replace(/\s/g, ''))) return k;
+  for (const [k, names] of Object.entries(COLS)) if (names.some(n => t === n.replace(/\s/g, ''))) return k === 'skip' ? null : k;
+  if (COLS.skip.some(n => t.includes(n))) return null;
   for (const [k, names] of Object.entries(COLS)) if (names.some(n => n.length > 1 && t.includes(n.replace(/\s/g, '')))) return k;
   return null;
 }
@@ -738,20 +760,29 @@ $('fileImport').onchange = async ev => {
       if (m.includes('name')) { hi = i; map = m; break; }
     }
     if (hi < 0) return toast('"성명" 열을 찾지 못했습니다. 양식을 확인하세요');
-    let added = 0, updated = 0;
+    let added = 0, updated = 0, skipped = 0; const mismatch = [];
     for (const r of rows.slice(hi + 1)) {
       const o = {};
       map.forEach((k, i) => { if (k && o[k] == null) o[k] = r[i]; });
       const name = String(o.name || '').trim(); if (!name) continue;
+      if (o.empStatus && /퇴직|퇴사/.test(String(o.empStatus))) { skipped++; continue; }
       const rec = { name, empNo: String(o.empNo || '').trim(), dept: String(o.dept || '').trim(), position: String(o.position || '').trim(), hireDate: normDate(o.hireDate) };
+      if (map.includes('jobType')) rec.jobType = String(o.jobType || '').trim();
+      if (map.includes('endDate')) rec.endDate = normDate(o.endDate);
+      if (map.includes('deduct')) rec.deduct = parseFloat(o.deduct) || 0;
       if (o.granted !== undefined && o.granted !== '' && !isNaN(parseFloat(o.granted))) rec.granted = parseFloat(o.granted);
       if (o.used !== undefined && o.used !== '' && !isNaN(parseFloat(o.used))) rec.used = parseFloat(o.used);
       if (o.under1 !== undefined) rec.under1 = /^(y|yes|o|예|true|1|해당|○)$/i.test(String(o.under1).trim());
       const ex = DB.employees.find(e => rec.empNo ? e.empNo === rec.empNo : (e.name.replace(/\s/g, '') === name.replace(/\s/g, '') && (e.dept || '') === rec.dept));
-      if (ex) { Object.assign(ex, rec); updated++; }
-      else { DB.employees.push(Object.assign({ id: uid(), granted: '', used: 0, under1: false }, rec)); added++; }
+      const target = ex || Object.assign({ id: uid(), granted: '', used: 0, under1: false }, rec);
+      if (ex) { Object.assign(ex, rec); updated++; } else { DB.employees.push(target); added++; }
+      if (o.note && String(o.note).trim() && !target.memo) target.memo = String(o.note).trim();
+      if (o.remainFile !== undefined && o.remainFile !== '' && Math.abs(remain(target) - parseFloat(o.remainFile)) > 0.001) mismatch.push(name);
     }
-    save(); render(); toast('신규 ' + added + '명 · 갱신 ' + updated + '명');
+    save(); render();
+    let msg = '불러오기 완료: 신규 ' + added + '명 · 갱신 ' + updated + '명' + (skipped ? ' · 퇴직 제외 ' + skipped + '명' : '');
+    if (mismatch.length) msg += '\n\n※ 파일의 잔여일수와 계산값이 다른 직원 ' + mismatch.length + '명: ' + mismatch.slice(0, 10).join(', ') + (mismatch.length > 10 ? ' 외' : '');
+    alert(msg);
   } catch (err) { console.error(err); toast('파일을 읽지 못했습니다: ' + err.message); }
 };
 $('btnTemplate').onclick = () => {
@@ -764,15 +795,15 @@ $('btnTemplate').onclick = () => {
 $('btnExport').onclick = () => {
   if (!window.XLSX) return toast('엑셀 모듈을 불러오지 못했습니다');
   if (!DB.employees.length) return toast('직원 데이터가 없습니다');
-  const aoa = [['사번', '성명', '소속', '직급', '입사일', '1년미만', '부여일수', '사용일수', '잔여일수', '사용률(%)', '1차 통보일', '계획 제출일', '사용 예정일', '2차 통보일', '지정 사용일', '상태', '절차 점검', '메모']];
+  const aoa = [['사번', '성명', '소속', '직종', '직급', '연가기준일', '발령종료일', '1년미만', '부여일수', '공제일수', '사용일수', '잔여일수', '사용률(%)', '1차 통보일', '계획 제출일', '사용 예정일', '2차 통보일', '지정 사용일', '상태', '절차 점검', '메모']];
   DB.employees.forEach(e => {
     const st = status(e), c = compliance(e), g = granted(e);
-    aoa.push([e.empNo, e.name, e.dept, e.position, e.hireDate, e.under1 ? 'Y' : '', g, used(e), remain(e), g ? Math.round(Math.min(used(e), g) / g * 1000) / 10 : 0,
+    aoa.push([e.empNo, e.name, e.dept, e.jobType || '', e.position, e.hireDate, e.endDate || '', e.under1 ? 'Y' : '', g, deduct(e), used(e), remain(e), g ? Math.round(Math.min(consumed(e), g) / g * 1000) / 10 : 0,
       e.n1Date || '', e.planDate || '', e.planText || '', e.n2Date || '', e.designText || '', STATUS[st.k].t,
       remain(e) <= 0 ? '' : (c ? (c.ok ? '이행 완료' : c.issues.join(' / ')) : ''), e.memo || '']);
   });
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = [10, 10, 14, 10, 12, 7, 9, 9, 9, 9, 12, 12, 24, 12, 24, 14, 30, 20].map(w => ({ wch: w }));
+  ws['!cols'] = [10, 10, 14, 10, 12, 12, 12, 7, 9, 9, 9, 9, 9, 12, 12, 24, 12, 24, 14, 30, 20].map(w => ({ wch: w }));
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '연가촉진 관리대장');
   XLSX.writeFile(wb, '연가촉진_관리대장_' + fmt(today()) + '.xlsx');
 };
@@ -794,7 +825,7 @@ $('btnNewPeriod').onclick = () => {
   if (!confirm('새 연가 기간을 시작합니다.\n· 기간을 1년 뒤로 이동\n· 모든 직원의 사용일수·통보 기록·계획 초기화\n· 자동계산이 아닌 부여일수는 비움(다시 입력 또는 엑셀 업로드)\n\n먼저 백업 파일을 저장하는 것을 권장합니다. 계속할까요?')) return;
   const S = DB.settings, st = addMonths(parseD(S.start), 12);
   S.start = fmt(st); S.end = fmt(addDays(addMonths(st, 12), -1)); S.calcBase = S.start;
-  DB.employees.forEach(e => { Object.assign(e, { granted: '', used: 0, n1Date: '', planDate: '', planText: '', n2Date: '', designText: '' });
+  DB.employees.forEach(e => { Object.assign(e, { granted: '', used: 0, deduct: 0, n1Date: '', planDate: '', planText: '', n2Date: '', designText: '' });
     if (e.under1 && parseD(e.hireDate) && addMonths(parseD(e.hireDate), 12) <= st) e.under1 = false; });
   save(); render(); toast('새 기간이 시작되었습니다');
 };
