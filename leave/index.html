@@ -254,6 +254,17 @@
       </div>
 
       <div class="card">
+        <h2>공휴일 · 학교 휴무일</h2>
+        <p class="muted" id="holInfo"></p>
+        <p class="muted" style="margin-top:4px">자동 제안과 입력 검증에서 주말과 함께 제외합니다. 온라인이면 7일마다 최신 데이터(새로 지정된 임시공휴일 등)로 자동 갱신합니다.</p>
+        <div style="margin-top:10px"><label class="f">학교 휴무일·추가 공휴일 (개교기념일, 아직 반영되지 않은 임시공휴일 등)</label>
+          <textarea id="sExtraHol" placeholder="yyyy-mm-dd 이름"></textarea>
+          <div class="fmt-guide">입력 형식: yyyy-mm-dd 이름 · 한 줄에 하나 — 예) 2026-05-15 개교기념일</div></div>
+        <div class="row" style="margin-top:10px"><button class="btn ghost sm" id="btnHolUpdate">공휴일 데이터 지금 갱신</button><span class="spacer"></span><button class="btn sm" id="btnHolSave">휴무일 저장</button></div>
+        <p class="muted" id="holList" style="margin-top:10px;line-height:1.8"></p>
+      </div>
+
+      <div class="card">
         <h2>엑셀 불러오기 <small>.xlsx · .xls · .csv</small></h2>
         <p class="muted">첫 행에 제목이 있는 표를 인식합니다. <b>종합정보시스템 › 인사 › 복무관리 › 연가일수관리</b>에서 내려받은 엑셀을 그대로 올리면 됩니다(교직원번호·성명·소속부서·직종·직급·연가기준일·발령종료일·연가일수·공제일수·사용일수 인식, 잔여일수로 검증).<br>그 밖의 양식에서 인식하는 열 이름: <b>사번</b>(직원번호), <b>성명</b>(이름), <b>소속</b>(부서), <b>직급</b>(직위), <b>입사일</b>(임용일), <b>부여</b>(발생·연가일수), <b>사용</b>(사용일수), <b>1년미만</b>(Y/N).<br>사번 또는 성명+소속이 같은 직원은 기존 정보를 갱신하고 촉진 기록은 유지합니다.</p>
         <div class="row" style="margin-top:12px">
@@ -826,9 +837,58 @@ document.querySelectorAll('[data-bulk]').forEach(b => b.onclick = () => {
 });
 
 /* ============ 사용일(예정·지정) 입력 검증 ============ */
-// 고정 공휴일(양력). 설·추석 등 음력 공휴일과 대체공휴일·임시공휴일은 직접 확인
-const FIXED_HOLIDAYS = ['01-01', '03-01', '05-05', '06-06', '08-15', '10-03', '10-09', '12-25'];
-const isHoliday = d => FIXED_HOLIDAYS.includes(pad(d.getMonth() + 1) + '-' + pad(d.getDate()));
+/* 공휴일: 음력 공휴일·대체공휴일·임시공휴일 포함
+   - 내장 데이터: 우주항공청 월력요항·관보 기반 공개 데이터(github.com/hyunbinseo/holidays-kr, MIT) 2024~2027년
+   - 온라인이면 7일마다 같은 저장소의 연도별 데이터를 받아 갱신(코드 실행 없이 날짜·명칭만 읽음)
+   - 학교 휴무일(개교기념일 등)·미반영 임시공휴일은 설정에서 추가 */
+const HOLIDAY_BUILTIN = {"2024-01-01": "1월 1일", "2024-02-09": "설날 전날", "2024-02-10": "설날", "2024-02-11": "설날 다음 날", "2024-02-12": "대체공휴일(설날)", "2024-03-01": "3ㆍ1절", "2024-04-10": "제22대국회의원선거", "2024-05-05": "어린이날", "2024-05-06": "대체공휴일(어린이날)", "2024-05-15": "부처님 오신 날", "2024-06-06": "현충일", "2024-08-15": "광복절", "2024-09-16": "추석 전날", "2024-09-17": "추석", "2024-09-18": "추석 다음 날", "2024-10-01": "임시공휴일", "2024-10-03": "개천절", "2024-10-09": "한글날", "2024-12-25": "기독탄신일", "2025-01-01": "1월 1일", "2025-01-27": "임시공휴일", "2025-01-28": "설날 전날", "2025-01-29": "설날", "2025-01-30": "설날 다음 날", "2025-03-01": "3ㆍ1절", "2025-03-03": "대체공휴일(3ㆍ1절)", "2025-05-05": "어린이날·부처님 오신 날", "2025-05-06": "대체공휴일(부처님 오신 날)", "2025-06-03": "임시공휴일(대통령선거)", "2025-06-06": "현충일", "2025-08-15": "광복절", "2025-10-03": "개천절", "2025-10-05": "추석 전날", "2025-10-06": "추석", "2025-10-07": "추석 다음 날", "2025-10-08": "대체공휴일(추석)", "2025-10-09": "한글날", "2025-12-25": "기독탄신일", "2026-01-01": "1월 1일", "2026-02-16": "설날 전날", "2026-02-17": "설날", "2026-02-18": "설날 다음 날", "2026-03-01": "3ㆍ1절", "2026-03-02": "대체공휴일(3ㆍ1절)", "2026-05-01": "노동절", "2026-05-05": "어린이날", "2026-05-24": "부처님 오신 날", "2026-05-25": "대체공휴일(부처님 오신 날)", "2026-06-03": "전국동시지방선거", "2026-06-06": "현충일", "2026-07-17": "제헌절", "2026-08-15": "광복절", "2026-08-17": "대체공휴일(광복절)", "2026-09-24": "추석 전날", "2026-09-25": "추석", "2026-09-26": "추석 다음 날", "2026-10-03": "개천절", "2026-10-05": "대체공휴일(개천절)", "2026-10-09": "한글날", "2026-12-25": "기독탄신일", "2027-01-01": "1월 1일", "2027-02-06": "설날 전날", "2027-02-07": "설날", "2027-02-08": "설날 다음 날", "2027-02-09": "대체공휴일(설날)", "2027-03-01": "3ㆍ1절", "2027-05-01": "노동절", "2027-05-03": "대체공휴일(노동절)", "2027-05-05": "어린이날", "2027-05-13": "부처님 오신 날", "2027-06-06": "현충일", "2027-07-17": "제헌절", "2027-07-19": "대체공휴일(제헌절)", "2027-08-15": "광복절", "2027-08-16": "대체공휴일(광복절)", "2027-09-14": "추석 전날", "2027-09-15": "추석", "2027-09-16": "추석 다음 날", "2027-10-03": "개천절", "2027-10-04": "대체공휴일(개천절)", "2027-10-09": "한글날", "2027-10-11": "대체공휴일(한글날)", "2027-12-25": "기독탄신일", "2027-12-27": "대체공휴일(기독탄신일)"};
+const HOL_KEY = 'leavePromo.holidays';
+let HOL_REMOTE = (() => { try { return JSON.parse(localStorage.getItem(HOL_KEY)) || { data: {} }; } catch (e) { return { data: {} }; } })();
+const FIXED_HOLIDAYS = { '01-01': '1월 1일', '03-01': '3ㆍ1절', '05-05': '어린이날', '06-06': '현충일', '08-15': '광복절', '10-03': '개천절', '10-09': '한글날', '12-25': '기독탄신일' };
+function extraHolidays() {
+  const m = {};
+  String(DB.settings.extraHolidays || '').split(/[\n,]+/).forEach(line => {
+    const r = /^\s*(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})\.?\s*(.*)$/.exec(line);
+    if (r) m[r[1] + '-' + pad(+r[2]) + '-' + pad(+r[3])] = (r[4] || '').replace(/^[()\s]+|[()\s]+$/g, '') || '휴무일';
+  });
+  return m;
+}
+const holYears = () => new Set(Object.keys(HOLIDAY_BUILTIN).concat(Object.keys(HOL_REMOTE.data || {})).map(k => k.slice(0, 4)));
+function holidayName(d) {
+  const k = fmt(d), ex = extraHolidays();
+  if (ex[k]) return ex[k];
+  const y = String(d.getFullYear()), remote = HOL_REMOTE.data || {};
+  if (remote[k] || HOLIDAY_BUILTIN[k]) return remote[k] || HOLIDAY_BUILTIN[k]; // 최신 데이터 + 내장 데이터 합집합
+  if (holYears().has(y)) return null;
+  return FIXED_HOLIDAYS[k.slice(5)] || null; // 데이터 없는 연도: 양력 고정 공휴일만
+}
+const isHoliday = d => !!holidayName(d);
+async function updateHolidays(force) {
+  if (!force && HOL_REMOTE.fetchedAt && Date.now() - new Date(HOL_REMOTE.fetchedAt) < 7 * 86400000) return;
+  const y0 = (parseD(DB.settings.start) || today()).getFullYear(), data = Object.assign({}, HOL_REMOTE.data || {});
+  let got = 0;
+  for (const y of [y0 - 1, y0, y0 + 1, y0 + 2]) {
+    try {
+      const res = await fetch('https://cdn.jsdelivr.net/gh/hyunbinseo/holidays-kr@main/src/holidays/' + y + '.ts', { cache: 'no-cache' });
+      if (!res.ok) continue;
+      const txt = await res.text(), found = {};
+      txt.replace(/["'](\d{4}-\d{2}-\d{2})["']\s*:\s*\[([^\]]*)\]/g, (_, k, v) => { if (k.startsWith(y + '-')) found[k] = (v.match(/["']([^"']+)["']/g) || []).map(x => x.slice(1, -1)).join('·'); });
+      if (Object.keys(found).length >= 10) { Object.keys(data).forEach(k => { if (k.startsWith(y + '-')) delete data[k]; }); Object.assign(data, found); got++; }
+    } catch (e) {}
+  }
+  if (got) { HOL_REMOTE = { fetchedAt: new Date().toISOString(), data }; try { localStorage.setItem(HOL_KEY, JSON.stringify(HOL_REMOTE)); } catch (e) {} }
+  renderHolidayInfo();
+  if (force) toast(got ? '공휴일 데이터를 갱신했습니다' : '공휴일 데이터를 받지 못했습니다(인터넷 연결 확인) — 내장 데이터를 사용합니다');
+}
+function renderHolidayInfo() {
+  const el = document.getElementById('holInfo'); if (!el) return;
+  const ys = [...holYears()].sort();
+  el.innerHTML = '공휴일 데이터: <b>' + ys[0] + '~' + ys[ys.length - 1] + '년</b> (음력 공휴일·대체공휴일·임시공휴일 포함) · 최신 갱신: <b>' + (HOL_REMOTE.fetchedAt ? fmtK(fmt(new Date(HOL_REMOTE.fetchedAt))) : '내장 데이터 사용 중') + '</b>';
+  const list = $('holList'); if (!list) return;
+  const st = parseD(DB.settings.start), en = parseD(DB.settings.end); if (!st || !en) return;
+  const rows = []; for (let d = new Date(st); d <= en; d = addDays(d, 1)) { const n = holidayName(d); if (n) rows.push(fmtK(d).slice(2) + '(' + DOW[d.getDay()] + ') ' + n); }
+  list.innerHTML = '<b>이번 연가 기간 공휴일·휴무일 ' + rows.length + '일</b><br>' + rows.map(esc).join(' · ');
+}
 const isWeekend = d => d.getDay() === 0 || d.getDay() === 6;
 const DOW = '일월화수목금토';
 function parseLeaveDays(text) {
@@ -857,7 +917,7 @@ function checkLeaveDays(u, text, kind) {
   if (s) { const over = good.filter(x => x.d > s.expire); if (over.length) errs.push('소멸일(' + fmtK(s.expire) + ') 이후: ' + over.map(x => x.key).join(', ')); }
   if (from) { const early = good.filter(x => x.d <= from); if (early.length) errs.push((kind === 'design' ? '2차 통보일' : '계획 제출일') + '(' + fmtK(from) + ') 이전·당일: ' + early.map(x => x.key).join(', ')); }
   const wk = good.filter(x => isWeekend(x.d) || isHoliday(x.d));
-  if (wk.length) warns.push('주말·공휴일: ' + wk.map(x => x.key + '(' + DOW[x.d.getDay()] + (isHoliday(x.d) ? '·공휴일' : '') + ')').join(', '));
+  if (wk.length) warns.push('주말·공휴일: ' + wk.map(x => x.key + '(' + DOW[x.d.getDay()] + (isHoliday(x.d) ? '·' + esc(holidayName(x.d)) : '') + ')').join(', '));
   if (Math.abs(total - need) > 0.001) (total < need ? errs : warns).push((kind === 'design' ? '지정' : '예정') + ' 합계 ' + num(total) + '일 ≠ 미사용 ' + num(need) + '일' + (total < need ? ' (' + num(need - total) + '일 부족)' : ' (' + num(total - need) + '일 초과)'));
   let html = '<span class="' + (errs.length ? 'err' : warns.length ? 'warn' : 'ok') + '">' + (errs.length ? '⚠ ' : warns.length ? '△ ' : '✔ ') + good.length + '건 · 합계 ' + num(total) + '일 / 미사용 ' + num(need) + '일</span>';
   errs.forEach(x => html += '<br><span class="err">· ' + x + '</span>');
@@ -962,7 +1022,7 @@ $('btnSuggest').onclick = () => {
   if (!r || !r.text) return toast('시작일부터 소멸일 사이에 지정할 평일이 없습니다');
   if ($('eDesignText').value.trim() && !confirm('입력된 지정 사용일을 제안 날짜로 바꿀까요?')) return;
   $('eDesignText').value = r.text; refreshModalInfo();
-  toast(r.short ? '소멸일까지 평일이 부족해 ' + num(r.short) + '일은 제안하지 못했습니다' : '제안 완료 — 설·추석 등 음력 공휴일과 대체공휴일은 직접 확인하세요');
+  toast(r.short ? '소멸일까지 평일이 부족해 ' + num(r.short) + '일은 제안하지 못했습니다' : '제안 완료 — 주말·공휴일(대체·임시 포함)·학교 휴무일 제외');
 };
 function closeModal() { $('modalBg').classList.remove('open'); editing = null; }
 $('mCancel').onclick = closeModal;
@@ -1059,11 +1119,14 @@ function renderSettings() {
   const S = DB.settings;
   $('sOrg').value = S.org; $('sSigner').value = S.signer; $('sDept').value = S.dept;
   $('sStart').value = S.start; $('sEnd').value = S.end;
+  $('sExtraHol').value = S.extraHolidays || ''; renderHolidayInfo();
 }
 $('sStart').addEventListener('change', () => {
   const st = parseD($('sStart').value); if (!st) return;
   $('sEnd').value = fmt(addDays(addMonths(st, 12), -1));
 });
+$('btnHolSave').onclick = () => { DB.settings.extraHolidays = $('sExtraHol').value.trim(); save(); renderHolidayInfo(); toast('휴무일을 저장했습니다'); };
+$('btnHolUpdate').onclick = () => updateHolidays(true);
 $('btnSaveSettings').onclick = () => {
   const st = parseD($('sStart').value), en = parseD($('sEnd').value);
   if (!st || !en || en <= st) return toast('연가 산정 기간을 확인하세요');
@@ -1330,6 +1393,7 @@ function render() {
 }
 window.addEventListener('afterprint', () => { $('printArea').innerHTML = ''; });
 renderBackupBar(); renderPersist(); requestPersist();
+updateHolidays(false);
 render();
 </script>
 </body>
