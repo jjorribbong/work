@@ -199,7 +199,7 @@
           <div><label class="f">연가 산정 기간 시작</label><input type="date" id="sStart"></div>
           <div><label class="f">연가 산정 기간 종료</label><input type="date" id="sEnd"></div>
         </div>
-        <p class="muted" style="margin-top:10px">학년도(3. 1.~2월 말일) 기준으로 운영합니다. 부여일수는 종합정보시스템 엑셀 값을 그대로 쓰며, 비어 있으면 같은 방식으로 자동 계산합니다.<br>· 근속년수 = 현재 학년도 − 입사 학년도 · 2년 이상: 15일 + (근속−1)÷2일, 최대 25일<br>· 엑셀의 사용일수는 이번 학년도 사용분만이므로, 직전 학년도에 사용한 월차는 연가수정일수(= 비례연차 올림분 + 미사용 월차 이월분)로 역산해 월차분에 포함합니다<br>· 직전 학년도 입사: 3. 1. 비례연차(15일 × 직전 학년도 근무일수 ÷ 365, 0.5일 단위 올림) + 소멸 전 월차 — 목록에서 '월차분'(입사 1년 되는 날 전날 소멸)과 '비례연차분'(학년도 말 소멸)으로 나누어 각각 촉진하며, 사용일수는 월차분에서 먼저 차감<br>· 이번 학년도 입사: 학년도 안에 발생할 월차(매월 1일, 최대 11일) — 1년 미만 촉진 일정 적용</p>
+        <p class="muted" style="margin-top:10px">학년도(3. 1.~2월 말일) 기준으로 운영합니다. 부여일수는 종합정보시스템 엑셀 값을 그대로 쓰며, 비어 있으면 같은 방식으로 자동 계산합니다.<br>· 근속년수 = 현재 학년도 − 입사 학년도 · 2년 이상: 15일 + (근속−1)÷2일, 최대 25일<br>· 엑셀의 사용일수는 이번 학년도 사용분만이므로, 직전 학년도에 사용(또는 연가보상비로 정산)한 월차는 연가수정일수(= 비례연차 올림분 + 미사용 월차 이월분)로 역산해 월차분에 포함합니다<br>· 직전 학년도 입사: 3. 1. 비례연차(15일 × 직전 학년도 근무일수 ÷ 365, 0.5일 단위 올림) + 소멸 전 월차 — 목록에서 '월차분'(입사 1년 되는 날 전날 소멸)과 '비례연차분'(학년도 말 소멸)으로 나누어 각각 촉진하며, 사용일수는 월차분에서 먼저 차감<br>· 이번 학년도 입사: 학년도 안에 발생할 월차(매월 1일, 최대 11일) — 1년 미만 촉진 일정 적용</p>
         <div class="row end" style="margin-top:12px"><button class="btn" id="btnSaveSettings">설정 저장</button></div>
       </div>
 
@@ -487,7 +487,7 @@ function settlement(e, endStr) {
 function settleText(r) {
   if (!r) return '';
   if (r.over1) return '1년 이상 근속 — 학년도 기준과 입사일 기준을 비교해 유리한 쪽으로 정산';
-  return '입사일 기준 발생 ' + num(r.accrued) + '일 − 사용 ' + num(r.usedTotal) + '일' + (r.priorUsed ? '(직전 학년도 ' + num(r.priorUsed) + '일 포함)' : '') + ' = ' +
+  return '입사일 기준 발생 ' + num(r.accrued) + '일 − 사용 ' + num(r.usedTotal) + '일' + (r.priorUsed ? '(직전 학년도 사용·보상 ' + num(r.priorUsed) + '일 포함)' : '') + ' = ' +
     (r.diff > 0 ? '미사용 ' + num(r.diff) + '일 연차수당 지급' : r.diff < 0 ? '초과사용 ' + num(-r.diff) + '일 (복무확인서에 따라 정산)' : '과부족 없음');
 }
 function allUnits() { return DB.employees.flatMap(units); }
@@ -766,7 +766,7 @@ function refreshModalInfo() {
     const sp = splitParts(tmpE);
     const pm = priorMonthly(tmpE);
     h += '직전 학년도 입사 · 이번 학년도 연가일수 <b>' + num(granted(tmpE)) + '일</b> = 월차 잔여 ' + num(sp.M) + '일 + 비례연차 ' + num(sp.P) + '일 (계산값 ' + num(proratedCalc(tmpE)) + '일)<br>';
-    if (pm.prior) h += '월차(임용일 기준): 직전 학년도 발생 ' + pm.prior + '일 중 사용 <b>' + pm.used + '일</b> · 이월 ' + pm.carried + '일 + 이번 학년도 발생 ' + pm.cur + '일' + (tmpE.fix == null ? ' (연가수정일수 없음 — 역산값)' : '') + '<br>';
+    if (pm.prior) h += '월차(임용일 기준): 직전 학년도 발생 ' + pm.prior + '일 중 사용·보상 <b>' + pm.used + '일</b> · 이월 ' + pm.carried + '일 + 이번 학년도 발생 ' + pm.cur + '일' + (tmpE.fix == null ? ' (연가수정일수 없음 — 역산값)' : '') + '<br>';
     h += '<b>[' + tmp.label + ']</b> ';
   }
   h += '부여 <b>' + num(granted(tmp)) + '일</b>' + (!split && tmpE.granted === '' ? '(자동)' : '') + (deduct(tmp) ? ' · 공제 ' + num(deduct(tmp)) + '일' : '') + ' · 사용 ' + num(used(tmp)) + '일 · 잔여 <b>' + num(remain(tmp)) + '일</b>';
@@ -808,7 +808,7 @@ function infoTable(e) {
     '<table><tr><th>연가 사용기간</th><th>부여일수</th>' + (deduct(e) ? '<th>공제일수</th>' : '') + '<th>사용일수</th><th>미사용일수</th></tr><tr><td>' + periodText(e) + '</td><td>' + num(granted(e)) + '일</td>' + (deduct(e) ? '<td>' + num(deduct(e)) + '일</td>' : '') + '<td>' + num(used(e)) + '일</td><td><b>' + num(remain(e)) + '일</b></td></tr></table>' + priorNote(e);
 }
 function priorNote(e) {
-  return e.part === 'm' && e.priorUsed ? '<p style="font-size:13px;margin-top:-10px">※ 부여·사용일수는 임용일 기준 월차 전체이며, 사용일수에 ' + fmtK(addDays(parseD(DB.settings.start), -1)).replace(/\.$/, '') + '. 이전 사용 ' + num(e.priorUsed) + '일이 포함되어 있습니다.</p>' : '';
+  return e.part === 'm' && e.priorUsed ? '<p style="font-size:13px;margin-top:-10px">※ 부여·사용일수는 임용일 기준 월차 전체이며, 사용일수에 ' + fmtK(addDays(parseD(DB.settings.start), -1)).replace(/\.$/, '') + '. 이전 사용(연가보상 포함) ' + num(e.priorUsed) + '일이 포함되어 있습니다.</p>' : '';
 }
 function periodText(e) {
   const s = schedule(e);
