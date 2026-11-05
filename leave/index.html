@@ -59,6 +59,12 @@
   input[type=text], input[type=number], input[type=date], select, textarea {
     width: 100%; border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; font-size: 14px; background: #fff; color: var(--text); font-family: inherit; }
   textarea { resize: vertical; min-height: 60px; }
+  textarea::placeholder, input::placeholder { font-style: italic; color: #9ca3af; }
+  .fmt-guide { font-size: 12px; font-style: italic; color: var(--sub); margin-top: 4px; }
+  .vcheck { font-size: 12.5px; margin-top: 6px; line-height: 1.7; }
+  .vcheck .ok { color: var(--green); font-weight: 700; }
+  .vcheck .warn { color: var(--orange); }
+  .vcheck .err { color: var(--red); font-weight: 700; }
   .form { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
   .form .full { grid-column: 1 / -1; }
   .check { display: flex; align-items: center; gap: 6px; font-size: 14px; }
@@ -352,14 +358,23 @@
       <div class="form">
         <div><label class="f">1차 통보(서면 촉구)일</label><input type="date" id="eN1"></div>
         <div><label class="f">사용계획 제출일</label><input type="date" id="ePlanDate"></div>
-        <div class="full"><label class="f">근로자 제출 사용 예정일 (예: 2026-08-14, 2026-09-25)</label><textarea id="ePlanText"></textarea></div>
+        <div class="full"><label class="f">근로자 제출 사용 예정일</label><textarea id="ePlanText" placeholder="yyyy-mm-dd, yyyy-mm-dd(오후 반차)"></textarea>
+          <div class="fmt-guide">입력 형식: yyyy-mm-dd · 반차는 yyyy-mm-dd(오전 반차) / (오후 반차) · 쉼표 또는 줄바꿈으로 구분 — 예) 2026-12-24, 2027-01-04(오후 반차)</div>
+          <div class="vcheck" id="planCheck"></div></div>
       </div>
     </div>
     <div class="sec">
       <div class="sec-title" id="secT2">2차 촉진 (미제출자 사용시기 지정)</div>
       <div class="form">
         <div><label class="f">2차 지정 통보일</label><input type="date" id="eN2"></div>
-        <div class="full"><label class="f">사용자 지정 사용일</label><textarea id="eDesignText"></textarea></div>
+        <div class="full"><label class="f">사용자 지정 사용일</label><textarea id="eDesignText" placeholder="yyyy-mm-dd, yyyy-mm-dd(오후 반차)"></textarea>
+          <div class="fmt-guide">입력 형식: yyyy-mm-dd · 반차는 yyyy-mm-dd(오전 반차) / (오후 반차) · 쉼표 또는 줄바꿈으로 구분 — 예) 2027-01-05, 2027-01-06, 2027-01-07(오전 반차)</div>
+          <div class="row" style="margin-top:6px;gap:6px">
+            <span class="muted" style="font-size:12.5px">자동 제안 시작일</span>
+            <input type="date" id="eSuggestFrom" style="width:150px;padding:5px 8px;font-size:13px">
+            <button class="btn sm ghost" id="btnSuggest" type="button">잔여일수만큼 평일 자동 제안</button>
+          </div>
+          <div class="vcheck" id="designCheck"></div></div>
       </div>
     </div>
     <div class="sec">
@@ -810,6 +825,59 @@ document.querySelectorAll('[data-bulk]').forEach(b => b.onclick = () => {
   }
 });
 
+/* ============ 사용일(예정·지정) 입력 검증 ============ */
+// 고정 공휴일(양력). 설·추석 등 음력 공휴일과 대체공휴일·임시공휴일은 직접 확인
+const FIXED_HOLIDAYS = ['01-01', '03-01', '05-05', '06-06', '08-15', '10-03', '10-09', '12-25'];
+const isHoliday = d => FIXED_HOLIDAYS.includes(pad(d.getMonth() + 1) + '-' + pad(d.getDate()));
+const isWeekend = d => d.getDay() === 0 || d.getDay() === 6;
+const DOW = '일월화수목금토';
+function parseLeaveDays(text) {
+  const items = String(text || '').split(/[\n,]+/).map(x => x.trim()).filter(Boolean);
+  return items.map(raw => {
+    const m = /^(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})\.?\s*(.*)$/.exec(raw);
+    if (!m) return { raw, bad: true };
+    const d = new Date(+m[1], +m[2] - 1, +m[3]);
+    if (d.getMonth() !== +m[2] - 1) return { raw, bad: true };
+    const note = m[4] || '';
+    const half = /반차|0\.5|오전|오후/.test(note);
+    return { raw, d, key: fmt(d), half, days: half ? 0.5 : 1, note };
+  });
+}
+// kind: 'design'(사용자 지정) | 'plan'(근로자 제출)
+function checkLeaveDays(u, text, kind) {
+  if (!String(text || '').trim()) return { html: '', problems: 0 };
+  const list = parseLeaveDays(text), s = schedule(u), need = remain(u);
+  const good = list.filter(x => !x.bad), total = good.reduce((a, x) => a + x.days, 0);
+  const from = kind === 'design' ? parseD(u.n2Date) : parseD(u.planDate) || parseD(u.n1Date);
+  const errs = [], warns = [];
+  const bad = list.filter(x => x.bad); if (bad.length) errs.push('형식 오류: ' + bad.map(x => esc(x.raw)).join(', '));
+  const seen = {}, dup = [];
+  good.forEach(x => { seen[x.key] = (seen[x.key] || 0) + x.days; if (seen[x.key] > 1) dup.push(x.key); });
+  if (dup.length) errs.push('같은 날 중복: ' + [...new Set(dup)].join(', '));
+  if (s) { const over = good.filter(x => x.d > s.expire); if (over.length) errs.push('소멸일(' + fmtK(s.expire) + ') 이후: ' + over.map(x => x.key).join(', ')); }
+  if (from) { const early = good.filter(x => x.d <= from); if (early.length) errs.push((kind === 'design' ? '2차 통보일' : '계획 제출일') + '(' + fmtK(from) + ') 이전·당일: ' + early.map(x => x.key).join(', ')); }
+  const wk = good.filter(x => isWeekend(x.d) || isHoliday(x.d));
+  if (wk.length) warns.push('주말·공휴일: ' + wk.map(x => x.key + '(' + DOW[x.d.getDay()] + (isHoliday(x.d) ? '·공휴일' : '') + ')').join(', '));
+  if (Math.abs(total - need) > 0.001) (total < need ? errs : warns).push((kind === 'design' ? '지정' : '예정') + ' 합계 ' + num(total) + '일 ≠ 미사용 ' + num(need) + '일' + (total < need ? ' (' + num(need - total) + '일 부족)' : ' (' + num(total - need) + '일 초과)'));
+  let html = '<span class="' + (errs.length ? 'err' : warns.length ? 'warn' : 'ok') + '">' + (errs.length ? '⚠ ' : warns.length ? '△ ' : '✔ ') + good.length + '건 · 합계 ' + num(total) + '일 / 미사용 ' + num(need) + '일</span>';
+  errs.forEach(x => html += '<br><span class="err">· ' + x + '</span>');
+  warns.forEach(x => html += '<br><span class="warn">· ' + x + '</span>');
+  return { html, problems: errs.length };
+}
+// 잔여일수만큼 평일(주말·고정 공휴일 제외) 제안, 소수 0.5는 마지막에 오전 반차
+function suggestDays(u, startStr) {
+  const s = schedule(u); if (!s) return '';
+  let d = parseD(startStr); if (!d) return '';
+  let left = remain(u); const out = [];
+  while (left > 0.001 && d <= s.expire) {
+    if (!isWeekend(d) && !isHoliday(d)) {
+      if (left >= 1) { out.push(fmt(d)); left -= 1; } else { out.push(fmt(d) + '(오전 반차)'); left -= 0.5; }
+    }
+    d = addDays(d, 1);
+  }
+  return { text: out.join(', '), short: left > 0.001 ? left : 0 };
+}
+
 /* ============ 직원 모달 ============ */
 let editing = null, editingPart = '';
 const FB = { empNo: 'eEmpNo', name: 'eName', dept: 'eDept', jobType: 'eType', position: 'ePos', hireDate: 'eHire', endDate: 'eEnd', granted: 'eGranted', mGranted: 'eMGranted', deduct: 'eDeduct', used: 'eUsed', memo: 'eMemo' };
@@ -824,6 +892,7 @@ function openEmp(id, part) {
   const rec = editingPart === 'm' ? (e.m || {}) : e;
   Object.entries(FR).forEach(([k, el]) => $(el).value = rec[k] == null ? '' : rec[k]);
   $('eUnder1').checked = e.id || e.hireDate ? isUnder1(e) : false;
+  $('eSuggestFrom').value = ''; $('eSuggestFrom').dataset.auto = '1';
   $('mTitle').textContent = id ? e.name + ' 님' : '직원 추가';
   $('mDelete').style.display = id ? '' : 'none';
   ['mP1', 'mPF', 'mP2'].forEach(b => $(b).style.display = id ? '' : 'none');
@@ -876,8 +945,25 @@ function refreshModalInfo() {
   if (endsEarly(tmp)) h += '<br><span style="color:var(--orange)">⚠ 소멸일 전 ' + fmtK(tmp.endDate) + ' 발령(계약) 종료 — 퇴직 시 미사용 연가는 정산 대상이므로 종료 전 사용을 권장하세요.</span>';
   if (c && remain(tmp) > 0 && (tmp.n1Date || today() > s.w1e)) h += '<br>' + (c.ok ? '<span style="color:var(--green);font-weight:700">✔ 사용촉진 절차 이행 완료 (보상 면제 요건 충족)</span>' : '<span style="color:var(--red)">⚠ ' + c.issues.map(esc).join(' / ') + '</span>');
   $('mSched').innerHTML = h;
+  $('designCheck').innerHTML = checkLeaveDays(tmp, tmp.designText, 'design').html;
+  $('planCheck').innerHTML = checkLeaveDays(tmp, tmp.planText, 'plan').html;
+  if (!$('eSuggestFrom').value || $('eSuggestFrom').dataset.auto === '1') {
+    const base = parseD(tmp.n2Date) || today();
+    $('eSuggestFrom').value = fmt(addDays(base, 1)); $('eSuggestFrom').dataset.auto = '1';
+  }
 }
-document.querySelectorAll('#modalBg input, #modalBg textarea').forEach(el => el.addEventListener('input', refreshModalInfo));
+document.querySelectorAll('#modalBg input, #modalBg textarea').forEach(el => { if (el.id !== 'eSuggestFrom') el.addEventListener('input', refreshModalInfo); });
+$('eSuggestFrom').addEventListener('input', () => { $('eSuggestFrom').dataset.auto = '0'; });
+$('btnSuggest').onclick = () => {
+  const tmpE = applyForm(Object.assign({}, editing, { m: Object.assign({}, editing.m || {}) }), readForm());
+  const u = currentUnit(tmpE);
+  if (remain(u) <= 0) return toast('미사용 일수가 없습니다');
+  const r = suggestDays(u, $('eSuggestFrom').value);
+  if (!r || !r.text) return toast('시작일부터 소멸일 사이에 지정할 평일이 없습니다');
+  if ($('eDesignText').value.trim() && !confirm('입력된 지정 사용일을 제안 날짜로 바꿀까요?')) return;
+  $('eDesignText').value = r.text; refreshModalInfo();
+  toast(r.short ? '소멸일까지 평일이 부족해 ' + num(r.short) + '일은 제안하지 못했습니다' : '제안 완료 — 설·추석 등 음력 공휴일과 대체공휴일은 직접 확인하세요');
+};
 function closeModal() { $('modalBg').classList.remove('open'); editing = null; }
 $('mCancel').onclick = closeModal;
 $('modalBg').onclick = ev => { if (ev.target === $('modalBg')) closeModal(); };
@@ -945,7 +1031,8 @@ function docPF(e) {
 function docP2(e) {
   const S = DB.settings, d = e.n2Date || fmt(today());
   const days = (e.designText || '').split(/[\n,]+/).map(x => x.trim()).filter(Boolean);
-  let tr = days.length ? days.map((x, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(x) + '</td></tr>').join('')
+  const pd = parseLeaveDays(e.designText);
+  let tr = days.length ? pd.map((x, i) => '<tr><td>' + (i + 1) + '</td><td>' + (x.bad ? esc(x.raw) : fmtK(x.d) + ' (' + DOW[x.d.getDay()] + ')' + (x.half ? ' ' + esc(x.note.replace(/[()]/g, '') || '반차') : '')) + '</td></tr>').join('')
     : Array.from({ length: Math.max(3, Math.min(10, Math.ceil(remain(e)))) }, (_, i) => '<tr class="lines"><td>' + (i + 1) + '</td><td></td></tr>').join('');
   return '<div class="doc"><h1>미사용 연가 사용시기 지정 통보</h1>' + docSub(e) +
     '<p>' + esc(S.org || '') + ' ' + esc(e.dept || '') + ' ' + esc(e.name) + ' 귀하</p>' + infoTable(e) +
@@ -959,7 +1046,9 @@ function printDocs(list, kind) {
   const fn = { p1: docP1, pf: docPF, p2: docP2 }[kind];
   if (kind === 'p2') {
     const noDesign = list.filter(e => !e.designText).length;
-    if (noDesign && !confirm(noDesign + '건은 지정 사용일이 입력되지 않아 빈 칸으로 인쇄됩니다. 계속할까요?')) return;
+    const probs = list.filter(e => e.designText && checkLeaveDays(e, e.designText, 'design').problems).map(e => e.name + (e.label ? '(' + e.label + ')' : ''));
+    if ((noDesign || probs.length) && !confirm((noDesign ? noDesign + '건은 지정 사용일이 없어 빈 칸으로 인쇄됩니다.\n' : '') +
+      (probs.length ? probs.length + '건은 지정 사용일에 문제가 있습니다(일수 부족·소멸일 이후·형식 오류 등): ' + probs.slice(0, 8).join(', ') + (probs.length > 8 ? ' 외' : '') + '\n' : '') + '계속 인쇄할까요?')) return;
   }
   $('printArea').innerHTML = list.map(fn).join('');
   setTimeout(() => window.print(), 50);
