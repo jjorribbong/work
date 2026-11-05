@@ -419,7 +419,11 @@ function monthlyInPeriod(e) {
   return n;
 }
 function isUnder1(e) { return e.under1 == null ? tenure(e) === 0 : !!e.under1; }
-function isProrated(e) { return tenure(e) === 1; }
+// 직전 학년도 중간 임용자만 비례 대상. 학년도 시작일(3. 1.) 임용자는 1년을 채워 정상 연차(15일) 발생
+function isProrated(e) {
+  const hire = parseD(e.hireDate), st = parseD(DB.settings.start);
+  return tenure(e) === 1 && !!hire && !!st && addMonths(hire, 12) > st;
+}
 const ceilHalf = x => Math.ceil(Math.round(x * 1e6) / 1e6 * 2) / 2;
 // 비례연차 = 15일 × 직전 학년도 근무일수 ÷ 365, 0.5일 단위 올림
 function proratedCalc(e) {
