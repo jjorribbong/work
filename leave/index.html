@@ -248,6 +248,9 @@
           <div><label class="f">담당 부서</label><input type="text" id="sDept"></div>
           <div><label class="f">연가 산정 기간 시작</label><input type="date" id="sStart"></div>
           <div><label class="f">연가 산정 기간 종료</label><input type="date" id="sEnd"></div>
+          <div><label class="f">2차 통보 후 사용계획 제출기간(일)</label><input type="number" min="0" max="60" id="sD2Plan"></div>
+          <div><label class="f">제출기간 종료 후 지정 시작까지(일)</label><input type="number" min="0" max="90" id="sD2Gap"></div>
+          <div class="full"><label class="check"><input type="checkbox" id="sD2Notice"> 2차 통보서에 사용계획 제출기간(지정일 변경 신청) 안내 문구 넣기</label></div>
         </div>
         <p class="muted" style="margin-top:10px">학년도(3. 1.~2월 말일) 기준으로 운영합니다. 부여일수는 종합정보시스템 엑셀 값을 그대로 쓰며, 비어 있으면 같은 방식으로 자동 계산합니다.<br>· 근속년수 = 현재 학년도 − 입사 학년도 · 2년 이상: 15일 + (근속−1)÷2일, 최대 25일<br>· 엑셀의 사용일수는 이번 학년도 사용분만이므로, 직전 학년도에 사용(또는 연가보상비로 정산)한 월차는 연가수정일수(= 비례연차 올림분 + 미사용 월차 이월분)로 역산해 월차분에 포함합니다<br>· 직전 학년도 입사: 3. 1. 비례연차(15일 × 직전 학년도 근무일수 ÷ 365, 0.5일 단위 올림) + 소멸 전 월차 — 목록에서 '월차분'(입사 1년 되는 날 전날 소멸)과 '비례연차분'(학년도 말 소멸)으로 나누어 각각 촉진하며, 사용일수는 월차분에서 먼저 차감<br>· 이번 학년도 입사: 학년도 안에 발생할 월차(매월 1일, 최대 11일) — 1년 미만 촉진 일정 적용</p>
         <div class="row end" style="margin-top:12px"><button class="btn" id="btnSaveSettings">설정 저장</button></div>
@@ -305,6 +308,7 @@
           <li><b>1차 촉진</b> — 기간 만료 6개월 전을 기준으로 10일 이내(9. 1.~9. 10.) 근로자별 미사용 일수를 알리고 사용 시기를 정해 통보하도록 <b>서면</b> 촉구</li>
           <li><b>사용계획 제출</b> — 근로자는 촉구를 받은 날부터 10일 이내 사용 시기를 정해 사용자에게 통보</li>
           <li><b>2차 촉진</b> — 근로자가 10일 이내 통보하지 않으면, 사용자가 기간 만료 2개월 전까지(12. 31.) 사용 시기를 지정해 <b>서면</b> 통보</li>
+          <li>지정일은 통보 후 바로가 아니라 <b>사용계획 제출기간(기본 10일) + 2주</b> 뒤부터 자동 제안합니다(설정에서 변경). 예) 11. 5. 통보 → 제출기한 11. 15. → 11. 29.부터 지정</li>
         </ul>
         <h3>1년 미만 근로자 (매월 1일씩, 최대 11일)</h3>
         <p>이번 학년도 입사자는 '1년미만'으로 자동 표시되어 입사일 기준 일정이 적용됩니다. 직전 학년도 입사자는 연차가 두 종류로 나뉘어 목록에 두 줄로 표시됩니다.<br>· <b>월차분</b>: 입사 1년 미만 기간 매월 1일(최대 11일) — 입사 1년 되는 날 전날 소멸, 1차는 그 3개월 전부터 10일 이내, 2차는 1개월 전까지<br>· <b>비례연차분</b>: 3. 1.에 15일 × 직전 학년도 근무일수 ÷ 365(0.5일 단위 올림) — 학년도 일정 적용<br>예) 2025. 10. 1. 입사 → 월차 11일(2026. 9. 30. 소멸, 1차 7. 1.~7. 10., 2차 8. 31.까지) + 비례연차 6.5일(151일, 2027. 2. 28. 소멸, 1차 9. 1.~9. 10., 2차 12. 31.까지). 사용일수는 월차분에서 먼저 차감합니다.</p>
@@ -381,7 +385,7 @@
         <div class="full"><label class="f">사용자 지정 사용일</label><textarea id="eDesignText" placeholder="yyyy-mm-dd, yyyy-mm-dd(오후 반차)"></textarea>
           <div class="fmt-guide">입력 형식: yyyy-mm-dd · 반차는 yyyy-mm-dd(오전 반차) / (오후 반차) · 쉼표 또는 줄바꿈으로 구분 — 예) 2027-01-05, 2027-01-06, 2027-01-07(오전 반차)</div>
           <div class="row" style="margin-top:6px;gap:6px">
-            <span class="muted" style="font-size:12.5px">자동 제안 시작일</span>
+            <span class="muted" style="font-size:12.5px" title="2차 통보일 + 사용계획 제출기간 + 지정 시작까지 간격(설정에서 변경)">자동 제안 시작일</span>
             <input type="date" id="eSuggestFrom" style="width:150px;padding:5px 8px;font-size:13px">
             <button class="btn sm ghost" id="btnSuggest" type="button">잔여일수만큼 평일 자동 제안</button>
           </div>
@@ -421,7 +425,7 @@ function ayEnd(y) { return new Date(y + 1, 2, 0); } // 다음 해 2월 말일(�
 function defaultData() {
   const e = ayEnd(curAY);
   return {
-    settings: { v: 2, org: '', signer: '', dept: '인사팀',
+    settings: { v: 2, org: '', signer: '', dept: '인사팀', d2PlanDays: 10, d2Gap: 14, d2Notice: true,
       start: curAY + '-03-01', end: e.getFullYear() + '-02-' + String(e.getDate()).padStart(2, '0') },
     employees: []
   };
@@ -904,6 +908,9 @@ function parseLeaveDays(text) {
   });
 }
 // kind: 'design'(사용자 지정) | 'plan'(근로자 제출)
+// 2차 지정일 권장 시작일 = 2차 통보일(없으면 오늘) + 사용계획 제출기간 + 지정 시작까지 간격
+function d2PlanDue(u) { const S = DB.settings, b = parseD(u.n2Date) || today(); return addDays(b, +S.d2PlanDays || 0); }
+function d2SuggestStart(u) { return addDays(d2PlanDue(u), +DB.settings.d2Gap || 0); }
 function checkLeaveDays(u, text, kind) {
   if (!String(text || '').trim()) return { html: '', problems: 0 };
   const list = parseLeaveDays(text), s = schedule(u), need = remain(u);
@@ -916,6 +923,7 @@ function checkLeaveDays(u, text, kind) {
   if (dup.length) errs.push('같은 날 중복: ' + [...new Set(dup)].join(', '));
   if (s) { const over = good.filter(x => x.d > s.expire); if (over.length) errs.push('소멸일(' + fmtK(s.expire) + ') 이후: ' + over.map(x => x.key).join(', ')); }
   if (from) { const early = good.filter(x => x.d <= from); if (early.length) errs.push((kind === 'design' ? '2차 통보일' : '계획 제출일') + '(' + fmtK(from) + ') 이전·당일: ' + early.map(x => x.key).join(', ')); }
+  if (kind === 'design') { const rs = d2SuggestStart(u), soon = good.filter(x => x.d < rs && (!from || x.d > from)); if (soon.length) warns.push('권장 시작일(' + fmtK(rs) + ', 사용계획 제출기간 ' + (+DB.settings.d2PlanDays || 0) + '일 + ' + (+DB.settings.d2Gap || 0) + '일) 이전: ' + soon.map(x => x.key).join(', ')); }
   const wk = good.filter(x => isWeekend(x.d) || isHoliday(x.d));
   if (wk.length) warns.push('주말·공휴일: ' + wk.map(x => x.key + '(' + DOW[x.d.getDay()] + (isHoliday(x.d) ? '·' + esc(holidayName(x.d)) : '') + ')').join(', '));
   if (Math.abs(total - need) > 0.001) (total < need ? errs : warns).push((kind === 'design' ? '지정' : '예정') + ' 합계 ' + num(total) + '일 ≠ 미사용 ' + num(need) + '일' + (total < need ? ' (' + num(need - total) + '일 부족)' : ' (' + num(total - need) + '일 초과)'));
@@ -1008,8 +1016,7 @@ function refreshModalInfo() {
   $('designCheck').innerHTML = checkLeaveDays(tmp, tmp.designText, 'design').html;
   $('planCheck').innerHTML = checkLeaveDays(tmp, tmp.planText, 'plan').html;
   if (!$('eSuggestFrom').value || $('eSuggestFrom').dataset.auto === '1') {
-    const base = parseD(tmp.n2Date) || today();
-    $('eSuggestFrom').value = fmt(addDays(base, 1)); $('eSuggestFrom').dataset.auto = '1';
+    $('eSuggestFrom').value = fmt(d2SuggestStart(tmp)); $('eSuggestFrom').dataset.auto = '1';
   }
 }
 document.querySelectorAll('#modalBg input, #modalBg textarea').forEach(el => { if (el.id !== 'eSuggestFrom') el.addEventListener('input', refreshModalInfo); });
@@ -1098,6 +1105,7 @@ function docP2(e) {
     '<p>' + esc(S.org || '') + ' ' + esc(e.dept || '') + ' ' + esc(e.name) + ' 귀하</p>' + infoTable(e) +
     '<p>귀하는 ' + (e.n1Date ? fmtK(e.n1Date) + '자 ' : '') + '미사용 연가 사용시기 지정 요청을 받은 날부터 10일 이내에 사용 시기를 통보하지 아니하였으므로, 「근로기준법」 제61조 제1항 제2호에 따라 미사용 연가 <b>' + num(remain(e)) + '일</b>의 사용 시기를 아래와 같이 지정하여 통보합니다.</p>' +
     '<table><tr><th style="width:15%">연번</th><th>지정 사용일</th></tr>' + tr + '</table>' +
+    (S.d2Notice && +S.d2PlanDays > 0 ? '<p>다만, 지정된 사용일의 변경을 원하는 경우 이 통보를 받은 날부터 <b>' + (+S.d2PlanDays) + '일 이내(' + fmtK(d2PlanDue(e)) + '까지)</b> 별지 「연가 사용계획서」를 ' + esc(S.dept || '인사 담당 부서') + '에 제출하면 협의하여 조정할 수 있으며, 기한 내 제출하지 않으면 위 지정일이 사용일로 확정됩니다.</p>' : '') +
     '<p>지정된 날에 연가를 사용하지 아니하여 소멸되는 연가에 대해서는 금전 보상 의무가 없음을 알려 드립니다.</p>' +
     signBlock(d) +
     '<div class="receipt">위 통보서를 수령하였음을 확인합니다.<br>수령일: 　　　　년 　　월 　　일　　　　수령자: ' + esc(e.name) + ' 　　　　(서명)</div></div>';
@@ -1119,6 +1127,7 @@ function renderSettings() {
   const S = DB.settings;
   $('sOrg').value = S.org; $('sSigner').value = S.signer; $('sDept').value = S.dept;
   $('sStart').value = S.start; $('sEnd').value = S.end;
+  $('sD2Plan').value = S.d2PlanDays; $('sD2Gap').value = S.d2Gap; $('sD2Notice').checked = !!S.d2Notice;
   $('sExtraHol').value = S.extraHolidays || ''; renderHolidayInfo();
 }
 $('sStart').addEventListener('change', () => {
@@ -1131,7 +1140,8 @@ $('btnSaveSettings').onclick = () => {
   const st = parseD($('sStart').value), en = parseD($('sEnd').value);
   if (!st || !en || en <= st) return toast('연가 산정 기간을 확인하세요');
   Object.assign(DB.settings, { org: $('sOrg').value.trim(), signer: $('sSigner').value.trim(), dept: $('sDept').value.trim(),
-    start: fmt(st), end: fmt(en) });
+    start: fmt(st), end: fmt(en),
+    d2PlanDays: Math.max(0, parseInt($('sD2Plan').value, 10) || 0), d2Gap: Math.max(0, parseInt($('sD2Gap').value, 10) || 0), d2Notice: $('sD2Notice').checked });
   save(); render(); toast('설정이 저장되었습니다');
 };
 
