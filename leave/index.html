@@ -256,6 +256,14 @@
           <li>제출 기한이 지난 미제출자에게 사용일을 지정해 <b>2차 지정통보서 인쇄</b> → <b>2차 통보일 기록</b>.</li>
           <li>사용일수는 수시로 갱신(엑셀 재업로드 가능)하고, 대시보드의 <b>지금 할 일</b>을 확인합니다.</li>
         </ul>
+        <h3>1년 미만 근무 후 퇴직자 정산 (입사일 기준)</h3>
+        <ul>
+          <li>입사일 기준 법정 연차는 퇴직일까지 발생한 월차(매월 1일, 최대 11일)뿐이며, 3. 1. 비례연차는 정산에서 제외됩니다.</li>
+          <li>월차는 1개월 개근한 다음 날 재직 중이어야 발생합니다. 예) 2025. 10. 1. 입사, 2026. 6. 30. 퇴직 → 8일 (7. 1. 발생분 없음)</li>
+          <li>1년 계약으로 입사 1년 되는 날 전날 계약이 끝나면 15일 연차는 발생하지 않습니다(대법원 2021다227100).</li>
+          <li>직원 상세에 발령(계약) 종료일·퇴직(예정)일을 넣으면 미사용 수당 지급 또는 초과사용 일수를 계산합니다(개근 가정).</li>
+          <li>초과사용분을 임금에서 공제하려면 근로자의 자유로운 의사에 따른 동의가 필요합니다(임금 전액지급 원칙, 근로기준법 제43조). 복무확인서와 함께 복무규정에도 근거를 두고, 퇴직 시 정산 내역을 확인받는 것을 권장합니다.</li>
+        </ul>
         <h3>유의사항</h3>
         <ul>
           <li>통보는 서면(전자결재·사내 전자문서 포함)으로 해야 하며, 문자·구두 통보는 인정되지 않을 수 있습니다. 수령 확인을 받아 보관하세요.</li>
@@ -282,7 +290,7 @@
         <div><label class="f">직종</label><input type="text" id="eType"></div>
         <div><label class="f">직급</label><input type="text" id="ePos"></div>
         <div><label class="f">입사일(연가기준일)</label><input type="date" id="eHire"></div>
-        <div><label class="f">발령(계약) 종료일</label><input type="date" id="eEnd"></div>
+        <div><label class="f">발령(계약) 종료일 · 퇴직(예정)일</label><input type="date" id="eEnd"></div>
         <div><label class="f">부여일수 (비우면 자동)</label><input type="number" step="0.5" min="0" id="eGranted"></div>
         <div id="wMG"><label class="f">월차분 일수 (비우면 자동)</label><input type="number" step="0.5" min="0" id="eMGranted"></div>
         <div><label class="f">공제일수</label><input type="number" step="0.5" min="0" id="eDeduct"></div>
@@ -441,6 +449,27 @@ function units(e) {
   if (M > 0 || (e.m && e.m.n1Date)) out.push(Object.assign({}, e, BLANK_REC, e.m || {}, { ref: e, part: 'm', key: e.id + ':m', label: '월차분', granted: M, deduct: dm, used: um, under1: true }));
   if (P > 0 || !out.length) out.push(Object.assign({}, e, { ref: e, part: 'p', key: e.id + ':p', label: '비례연차분', granted: P, deduct: D - dm, used: U - um, under1: false }));
   return out;
+}
+/* 1년 미만 근무 후 퇴직자 입사일 기준 정산 (복무확인서 기준)
+   - 법정 연차: 퇴직일까지 발생한 월차(입사 후 매월 같은 날 발생, 그 날 재직 필요, 최대 11일, 개근 가정)
+   - 사용: 이번 학년도 사용·공제 + 직전 학년도에 이미 쓴 월차(직전 학년도 발생 월차 − 이월된 월차)
+   - 3. 1. 비례연차는 입사일 기준 정산에서 제외 */
+function settlement(e, endStr) {
+  const hire = parseD(e.hireDate), end = parseD(endStr || e.endDate), st = parseD(DB.settings.start);
+  if (!hire || !end || !st || end < hire) return null;
+  if (end >= addMonths(hire, 12)) return { over1: true };
+  let accrued = 0, prior = 0, curAll = 0;
+  for (let k = 1; k <= 11; k++) { const d = addMonths(hire, k); if (d <= end) accrued++; if (d < st) prior++; else curAll++; }
+  let priorUsed = 0;
+  if (prior > 0 && isSplit(e)) priorUsed = Math.max(0, prior - Math.max(0, splitParts(e).M - curAll));
+  const usedTotal = consumed(e) + priorUsed;
+  return { over1: false, accrued, priorUsed, usedTotal, diff: accrued - usedTotal };
+}
+function settleText(r) {
+  if (!r) return '';
+  if (r.over1) return '1년 이상 근속 — 학년도 기준과 입사일 기준을 비교해 유리한 쪽으로 정산';
+  return '입사일 기준 발생 ' + num(r.accrued) + '일 − 사용 ' + num(r.usedTotal) + '일' + (r.priorUsed ? '(직전 학년도 ' + num(r.priorUsed) + '일 포함)' : '') + ' = ' +
+    (r.diff > 0 ? '미사용 ' + num(r.diff) + '일 연차수당 지급' : r.diff < 0 ? '초과사용 ' + num(-r.diff) + '일 (복무확인서에 따라 정산)' : '과부족 없음');
 }
 function allUnits() { return DB.employees.flatMap(units); }
 function setRec(u, field, val) { if (u.part === 'm') (u.ref.m = u.ref.m || {})[field] = val; else u.ref[field] = val; }
@@ -722,6 +751,8 @@ function refreshModalInfo() {
   h += '부여 <b>' + num(granted(tmp)) + '일</b>' + (!split && tmpE.granted === '' ? '(자동)' : '') + (deduct(tmp) ? ' · 공제 ' + num(deduct(tmp)) + '일' : '') + ' · 사용 ' + num(used(tmp)) + '일 · 잔여 <b>' + num(remain(tmp)) + '일</b>';
   if (s) h += '<br>' + (s.type === 'u1' ? '[입사일 기준] 사용기간 ' + fmtK(tmp.hireDate) + '~' + fmtK(s.expire) + ' · ' : '') + '1차 ' + fmtK(s.w1s) + '~' + fmtK(s.w1e) + ' · 2차 ' + fmtK(s.d2) + '까지 · 소멸 ' + fmtK(s.expire);
   if (st.due) h += '<br>계획서 제출 기한: ' + fmtK(st.due);
+  const stl = tmpE.endDate ? settlement(tmpE) : null;
+  if (stl && !stl.over1) h += '<br><b>퇴직 정산(' + fmtK(tmpE.endDate) + ' 종료 시, 입사일 기준)</b>: ' + settleText(stl);
   if (endsEarly(tmp)) h += '<br><span style="color:var(--orange)">⚠ 소멸일 전 ' + fmtK(tmp.endDate) + ' 발령(계약) 종료 — 퇴직 시 미사용 연가는 정산 대상이므로 종료 전 사용을 권장하세요.</span>';
   if (c && remain(tmp) > 0 && (tmp.n1Date || today() > s.w1e)) h += '<br>' + (c.ok ? '<span style="color:var(--green);font-weight:700">✔ 사용촉진 절차 이행 완료 (보상 면제 요건 충족)</span>' : '<span style="color:var(--red)">⚠ ' + c.issues.map(esc).join(' / ') + '</span>');
   $('mSched').innerHTML = h;
@@ -894,12 +925,12 @@ $('btnTemplate').onclick = () => {
 $('btnExport').onclick = () => {
   if (!window.XLSX) return toast('엑셀 모듈을 불러오지 못했습니다');
   if (!DB.employees.length) return toast('직원 데이터가 없습니다');
-  const aoa = [['사번', '성명', '구분', '소속', '직종', '직급', '연가기준일', '발령종료일', '1년미만/비례', '부여일수', '공제일수', '사용일수', '잔여일수', '사용률(%)', '1차 통보일', '계획 제출일', '사용 예정일', '2차 통보일', '지정 사용일', '상태', '절차 점검', '메모']];
+  const aoa = [['사번', '성명', '구분', '소속', '직종', '직급', '연가기준일', '발령종료일', '1년미만/비례', '부여일수', '공제일수', '사용일수', '잔여일수', '사용률(%)', '1차 통보일', '계획 제출일', '사용 예정일', '2차 통보일', '지정 사용일', '상태', '절차 점검', '퇴직 정산(입사일 기준)', '메모']];
   allUnits().forEach(e => {
     const st = status(e), c = compliance(e), g = granted(e);
     aoa.push([e.empNo, e.name, e.label || '', e.dept, e.jobType || '', e.position, e.hireDate, e.endDate || '', e.part ? '비례' : (isUnder1(e) ? 'Y' : ''), g, deduct(e), used(e), remain(e), g ? Math.round(Math.min(consumed(e), g) / g * 1000) / 10 : 0,
       e.n1Date || '', e.planDate || '', e.planText || '', e.n2Date || '', e.designText || '', STATUS[st.k].t,
-      remain(e) <= 0 ? '' : (c ? (c.ok ? '이행 완료' : c.issues.join(' / ')) : ''), e.memo || '']);
+      remain(e) <= 0 ? '' : (c ? (c.ok ? '이행 완료' : c.issues.join(' / ')) : ''), e.part === 'p' ? '' : (e.endDate ? settleText(settlement(e.ref)) : ''), e.memo || '']);
   });
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = [10, 10, 10, 14, 10, 12, 12, 12, 7, 9, 9, 9, 9, 9, 12, 12, 24, 12, 24, 14, 30, 20].map(w => ({ wch: w }));
