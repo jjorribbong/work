@@ -64,10 +64,37 @@
   .check { display: flex; align-items: center; gap: 6px; font-size: 14px; }
   .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
   .toolbar input, .toolbar select { width: auto; flex: 1 1 140px; }
-  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
-  table.list { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 860px; }
-  table.list th { background: #f9fafb; color: var(--sub); font-weight: 700; text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; position: sticky; top: 0; }
-  table.list td { padding: 9px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .toolbar input[type=checkbox] { flex: none; }
+  .toolbar .check { white-space: nowrap; }
+  .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 12px; background: #fff; max-height: calc(100vh - 250px); min-height: 260px; }
+  table.list { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; min-width: 1240px; }
+  table.list th { background: #f9fafb; color: var(--sub); font-weight: 700; text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; position: sticky; top: 0; z-index: 2; }
+  table.list td { padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; font-variant-numeric: tabular-nums; background: #fff; }
+  table.list tbody tr:hover td { background: #f9fafb; }
+  /* 왼쪽 열 고정: 선택 · 사번 · 성명 */
+  table.list .fx0, table.list .fx1, table.list .fx2 { position: sticky; z-index: 1; }
+  table.list th.fx0, table.list th.fx1, table.list th.fx2 { z-index: 3; }
+  table.list .fx0 { left: 0; width: 36px; min-width: 36px; }
+  table.list .fx1 { left: 36px; width: 74px; min-width: 74px; }
+  table.list .fx2 { left: 110px; min-width: 150px; max-width: 190px; overflow: hidden; text-overflow: ellipsis; box-shadow: 1px 0 0 var(--border); }
+  table.list th.grp { text-align: center; border-left: 1px solid var(--border); }
+  table.list td.bl, table.list th.bl { border-left: 1px solid var(--border); }
+  table.list input.cell-date { width: 128px; padding: 4px 6px; font-size: 12.5px; border-radius: 7px; }
+  table.list input.cell-date.done { background: var(--green-soft); border-color: #bbf7d0; }
+  .due-now { color: var(--orange); font-weight: 700; }
+  .due-late { color: var(--red); font-weight: 700; }
+  .due-ok { color: var(--sub); }
+  .ev { display: grid; grid-template-columns: 112px 1fr auto; gap: 10px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .ev:last-child { border-bottom: none; }
+  .ev.past { opacity: .55; }
+  .ev .when { font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .ev .when small { display: block; font-weight: 600; color: var(--sub); font-size: 12px; }
+  .ev .what { font-size: 14px; font-weight: 700; }
+  .ev .who { font-size: 12.5px; color: var(--sub); margin-top: 4px; line-height: 1.7; white-space: normal; }
+  .ev .who a { color: var(--blue); cursor: pointer; text-decoration: none; margin-right: 6px; }
+  .ev .cnt { text-align: right; font-size: 13px; white-space: nowrap; }
+  .month { font-size: 13px; font-weight: 800; color: var(--blue); margin: 16px 0 2px; }
+  @media (max-width: 600px) { .ev { grid-template-columns: 1fr; gap: 4px; } .ev .cnt { text-align: left; } }
   table.list tr:last-child td { border-bottom: none; }
   table.list tbody tr { cursor: pointer; } table.list tbody tr:hover { background: #f9fafb; }
   table.list td.num, table.list th.num { text-align: right; }
@@ -130,6 +157,7 @@
     <nav>
       <button data-page="dash" class="active">대시보드</button>
       <button data-page="emp">직원·진행관리</button>
+      <button data-page="sched">일정관리</button>
       <button data-page="settings">설정·데이터</button>
       <button data-page="help">도움말</button>
     </nav>
@@ -162,6 +190,7 @@
           <select id="fDept"><option value="">전체 소속</option></select>
           <select id="fType"><option value="">전체 직종</option></select>
           <select id="fStatus"><option value="">전체 상태</option></select>
+          <button class="btn ghost" id="btnEmpExcel">엑셀 다운로드</button>
           <button class="btn" id="btnAdd">+ 직원 추가</button>
         </div>
         <div class="toolbar" id="bulkBar">
@@ -176,15 +205,29 @@
         <div class="table-wrap">
           <table class="list">
             <thead><tr>
-              <th><input type="checkbox" id="chkAll"></th>
-              <th>사번</th><th>성명</th><th>소속</th><th>직종/직급</th>
+              <th class="fx0"><input type="checkbox" id="chkAll"></th>
+              <th class="fx1">사번</th><th class="fx2">성명</th><th>소속</th><th>직종/직급</th>
               <th class="num">부여</th><th class="num">공제</th><th class="num">사용</th><th class="num">잔여</th>
-              <th>1차 통보</th><th>계획 제출</th><th>2차 지정</th><th>상태</th>
+              <th class="bl">1차 통보기간</th><th>1차 통보일</th><th>계획 제출일</th>
+              <th class="bl">2차 통보기한</th><th>2차 통보일</th><th class="bl">소멸일</th><th>상태</th>
             </tr></thead>
             <tbody id="empBody"></tbody>
           </table>
         </div>
-        <p class="muted" style="margin-top:8px">행을 누르면 상세 정보·통보 기록·사용계획을 입력할 수 있습니다.</p>
+        <p class="muted" style="margin-top:8px">표의 날짜 칸에서 1차 통보일·계획 제출일·2차 통보일을 바로 입력할 수 있습니다. 행을 누르면 상세 정보·사용계획을 입력합니다.<br>기한 색상: <span class="due-now">진행 중·30일 이내</span> · <span class="due-late">기한 경과(미처리)</span></p>
+      </div>
+    </section>
+
+    <!-- 일정관리 -->
+    <section class="page" id="page-sched">
+      <div class="card">
+        <div class="toolbar">
+          <h2 style="margin:0;flex:1">촉진 일정 <small>법정 기한별 대상·처리 현황</small></h2>
+          <label class="check"><input type="checkbox" id="schPending" checked> 미처리 일정만</label>
+          <label class="check"><input type="checkbox" id="schPast"> 지난 일정 포함</label>
+          <button class="btn ghost sm" id="btnSchExcel">엑셀 다운로드</button>
+        </div>
+        <div id="schList"></div>
       </div>
     </section>
 
@@ -649,6 +692,18 @@ function renderDash() {
 }
 
 /* ============ 직원 목록 ============ */
+// 짧은 날짜: 올해면 'M. D.', 다른 해면 'YY. M. D.'
+function shortD(d) { return (d.getFullYear() !== today().getFullYear() ? String(d.getFullYear()).slice(2) + '. ' : '') + (d.getMonth() + 1) + '. ' + d.getDate() + '.'; }
+function cellDate(u, field) {
+  return '<input type="date" class="cell-date' + (u[field] ? ' done' : '') + '" data-key="' + u.key + '" data-field="' + field + '" value="' + esc(u[field] || '') + '">';
+}
+// 기한 표시: 처리 완료 → 회색, 진행 중/30일 이내 → 주황, 경과 → 빨강
+function dueSpan(text, from, to, done) {
+  const t = today();
+  let cls = 'due-ok';
+  if (!done) { if (t > to) cls = 'due-late'; else if (t >= from || diffDays(t, to) <= 30) cls = 'due-now'; }
+  return '<span class="' + cls + '"' + (!done && t <= to ? ' title="' + dday(to) + '"' : '') + '>' + text + (!done && t <= to && t >= addDays(from, -30) ? ' <small>(' + dday(to) + ')</small>' : '') + '</span>';
+}
 const selected = new Set();
 Object.entries(STATUS).forEach(([k, v]) => $('fStatus').insertAdjacentHTML('beforeend', '<option value="' + k + '">' + v.t + '</option>'));
 ['q', 'fDept', 'fType', 'fStatus'].forEach(id => $(id).addEventListener('input', renderEmp));
@@ -673,20 +728,35 @@ function renderEmp() {
   const list = filtered(), keys = new Set(allUnits().map(u => u.key));
   [...selected].forEach(k => { if (!keys.has(k)) selected.delete(k); });
   if (!list.length) {
-    $('empBody').innerHTML = '<tr><td colspan="13"><div class="empty">' + (DB.employees.length ? '조건에 맞는 직원이 없습니다.' : '직원을 추가하거나 설정·데이터 탭에서 엑셀을 불러오세요.') + '</div></td></tr>';
+    $('empBody').innerHTML = '<tr><td colspan="16"><div class="empty">' + (DB.employees.length ? '조건에 맞는 직원이 없습니다.' : '직원을 추가하거나 설정·데이터 탭에서 엑셀을 불러오세요.') + '</div></td></tr>';
   } else {
     $('empBody').innerHTML = list.map(e => {
       const st = status(e), S = STATUS[st.k];
       const auto = (e.ref.granted === '' || e.ref.granted == null) ? ' title="자동계산"' : '';
       const tag = e.part ? partBadge(e) : (isUnder1(e) ? ' <span class="badge b-gray">1년미만</span>' : '');
-      return '<tr data-id="' + e.ref.id + '" data-part="' + e.part + '"><td onclick="event.stopPropagation()"><input type="checkbox" class="chk" data-key="' + e.key + '"' + (selected.has(e.key) ? ' checked' : '') + '></td>' +
-        '<td>' + esc(e.empNo) + '</td><td><b>' + esc(e.name) + '</b>' + tag + (endsEarly(e) ? ' <span class="badge b-orange" title="소멸일 전 계약(발령) 종료">~' + esc(e.endDate.slice(5)) + ' 종료</span>' : '') + '</td><td>' + esc(e.dept) + '</td><td>' + esc([e.jobType, e.position].filter(Boolean).join(' · ')) + '</td>' +
+      const sc = st.s;
+      return '<tr data-id="' + e.ref.id + '" data-part="' + e.part + '"><td class="fx0" onclick="event.stopPropagation()"><input type="checkbox" class="chk" data-key="' + e.key + '"' + (selected.has(e.key) ? ' checked' : '') + '></td>' +
+        '<td class="fx1">' + esc(e.empNo) + '</td><td class="fx2" title="' + esc(e.name + (e.label ? ' · ' + e.label : '')) + '"><b>' + esc(e.name) + '</b>' + tag + (endsEarly(e) ? ' <span class="badge b-orange" title="소멸일 전 계약(발령) 종료">~' + esc(e.endDate.slice(5)) + ' 종료</span>' : '') + '</td><td>' + esc(e.dept) + '</td><td>' + esc([e.jobType, e.position].filter(Boolean).join(' · ')) + '</td>' +
         '<td class="num"' + auto + '>' + num(granted(e)) + (auto ? '*' : '') + '</td><td class="num">' + (deduct(e) ? num(deduct(e)) : '') + '</td><td class="num">' + num(used(e)) + '</td><td class="num"><b>' + num(remain(e)) + '</b></td>' +
-        '<td>' + (e.n1Date || '-') + '</td><td>' + (e.planDate || '-') + '</td><td>' + (e.n2Date || '-') + '</td>' +
+        '<td class="bl">' + (sc ? dueSpan(shortD(sc.w1s) + '~' + shortD(sc.w1e), sc.w1s, sc.w1e, !!(e.n1Date || e.planDate || e.n2Date) || remain(e) <= 0) : '-') + '</td>' +
+        '<td>' + cellDate(e, 'n1Date') + '</td><td>' + cellDate(e, 'planDate') + '</td>' +
+        '<td class="bl">' + (sc ? dueSpan(shortD(sc.d2) + '까지', addDays(sc.w1e, 11), sc.d2, !!(e.planDate || e.n2Date) || remain(e) <= 0 || !e.n1Date && today() <= sc.w1e) : '-') + '</td>' +
+        '<td>' + cellDate(e, 'n2Date') + '</td>' +
+        '<td class="bl">' + (sc ? fmtK(sc.expire) : '-') + '</td>' +
         '<td><span class="badge ' + S.c + '">' + S.t + '</span></td></tr>';
     }).join('');
   }
   $('empBody').querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => openEmp(tr.dataset.id, tr.dataset.part));
+  $('empBody').querySelectorAll('input.cell-date').forEach(inp => {
+    inp.onclick = ev => ev.stopPropagation();
+    inp.onchange = () => {
+      const u = allUnits().find(x => x.key === inp.dataset.key); if (!u) return;
+      setRec(u, inp.dataset.field, inp.value); save();
+      const y = $('empBody').parentElement.parentElement.scrollTop;
+      renderEmp(); $('empBody').parentElement.parentElement.scrollTop = y;
+      toast(u.name + (u.label ? ' (' + u.label + ')' : '') + ' ' + { n1Date: '1차 통보일', planDate: '계획 제출일', n2Date: '2차 통보일' }[inp.dataset.field] + (inp.value ? ' ' + inp.value + ' 기록' : ' 삭제'));
+    };
+  });
   $('empBody').querySelectorAll('.chk').forEach(c => c.onchange = () => { c.checked ? selected.add(c.dataset.key) : selected.delete(c.dataset.key); updSel(); });
   $('chkAll').checked = list.length > 0 && list.every(e => selected.has(e.key));
   updSel();
@@ -951,20 +1021,30 @@ $('btnTemplate').onclick = () => {
   ws['!cols'] = [10, 10, 14, 10, 12, 10, 10, 8].map(w => ({ wch: w }));
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '직원명단'); XLSX.writeFile(wb, '연가촉진_명단양식.xlsx');
 };
-$('btnExport').onclick = () => {
+function exportUnits(list, fileTag) {
   if (!window.XLSX) return toast('엑셀 모듈을 불러오지 못했습니다');
-  if (!DB.employees.length) return toast('직원 데이터가 없습니다');
-  const aoa = [['사번', '성명', '구분', '소속', '직종', '직급', '연가기준일', '발령종료일', '1년미만/비례', '부여일수', '공제일수', '사용일수', '잔여일수', '사용률(%)', '1차 통보일', '계획 제출일', '사용 예정일', '2차 통보일', '지정 사용일', '상태', '절차 점검', '퇴직 정산(입사일 기준)', '메모']];
-  allUnits().forEach(e => {
-    const st = status(e), c = compliance(e), g = granted(e);
+  if (!list.length) return toast('내보낼 데이터가 없습니다');
+  const aoa = [['사번', '성명', '구분', '소속', '직종', '직급', '연가기준일', '발령종료일', '1년미만/비례', '부여일수', '공제일수', '사용일수', '잔여일수', '사용률(%)',
+    '1차 통보기간 시작', '1차 통보기간 종료', '1차 통보일', '계획 제출기한', '계획 제출일', '사용 예정일', '2차 통보기한', '2차 통보일', '지정 사용일', '소멸일', '상태', '절차 점검', '퇴직 정산(입사일 기준)', '메모']];
+  list.forEach(e => {
+    const st = status(e), c = compliance(e), g = granted(e), s = st.s;
     aoa.push([e.empNo, e.name, e.label || '', e.dept, e.jobType || '', e.position, e.hireDate, e.endDate || '', e.part ? '비례' : (isUnder1(e) ? 'Y' : ''), g, deduct(e), used(e), remain(e), g ? Math.round(Math.min(consumed(e), g) / g * 1000) / 10 : 0,
-      e.n1Date || '', e.planDate || '', e.planText || '', e.n2Date || '', e.designText || '', STATUS[st.k].t,
+      s ? fmt(s.w1s) : '', s ? fmt(s.w1e) : '', e.n1Date || '', e.n1Date ? fmt(addDays(parseD(e.n1Date), 10)) : '', e.planDate || '', e.planText || '',
+      s ? fmt(s.d2) : '', e.n2Date || '', e.designText || '', s ? fmt(s.expire) : '', STATUS[st.k].t,
       remain(e) <= 0 ? '' : (c ? (c.ok ? '이행 완료' : c.issues.join(' / ')) : ''), e.part === 'p' ? '' : (e.endDate ? settleText(settlement(e.ref)) : ''), e.memo || '']);
   });
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = [10, 10, 10, 14, 10, 12, 12, 12, 7, 9, 9, 9, 9, 9, 12, 12, 24, 12, 24, 14, 30, 20].map(w => ({ wch: w }));
+  ws['!cols'] = [9, 9, 9, 14, 9, 12, 11, 11, 7, 7, 7, 7, 7, 8, 11, 11, 11, 11, 11, 24, 11, 11, 24, 11, 13, 30, 30, 20].map(w => ({ wch: w }));
+  ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: aoa.length - 1, c: aoa[0].length - 1 } }) };
+  ws['!freeze'] = { xSplit: 2, ySplit: 1 };
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '연가촉진 관리대장');
-  XLSX.writeFile(wb, '연가촉진_관리대장_' + fmt(today()) + '.xlsx');
+  XLSX.writeFile(wb, '연가촉진_' + fileTag + '_' + fmt(today()) + '.xlsx');
+  toast(list.length + '건 엑셀 저장');
+}
+$('btnExport').onclick = () => exportUnits(allUnits(), '관리대장');
+$('btnEmpExcel').onclick = () => {
+  const f = filtered(), all = allUnits().length;
+  exportUnits(f, f.length < all ? '관리대장(필터)' : '관리대장');
 };
 
 /* ============ 백업 ============ */
@@ -1013,6 +1093,61 @@ $('btnSample').onclick = () => {
   save(); render(); toast('예시 데이터가 추가되었습니다');
 };
 
+/* ============ 일정관리 ============ */
+function scheduleEvents() {
+  const ev = new Map(); // key: date|type
+  const add = (date, type, title, u, done, from) => {
+    const k = fmt(date) + '|' + type + '|' + title;
+    if (!ev.has(k)) ev.set(k, { date, from, type, title, items: [] });
+    ev.get(k).items.push({ u, done });
+  };
+  allUnits().forEach(u => {
+    const s = schedule(u); if (!s) return;
+    const active = remain(u) > 0;
+    const grp = u.part === 'm' || (s.type === 'u1') ? ' (1년 미만·입사일 기준)' : '';
+    if (active || u.n1Date) add(s.w1e, 'n1', '1차 촉진(서면 촉구)' + grp, u, !!(u.n1Date || u.planDate || u.n2Date), s.w1s);
+    if (u.n1Date && (active || u.planDate)) add(addDays(parseD(u.n1Date), 10), 'plan', '사용계획서 제출기한', u, !!(u.planDate || u.n2Date));
+    if (u.n1Date && !u.planDate && (active || u.n2Date)) add(s.d2, 'n2', '2차 촉진(사용시기 지정)' + grp, u, !!u.n2Date, addDays(s.w1e, 11));
+    if (active) add(s.expire, 'exp', '연가 소멸' + grp, u, false);
+  });
+  return [...ev.values()].sort((a, b) => a.date - b.date || a.type.localeCompare(b.type));
+}
+function renderSched() {
+  const t = today(), pendingOnly = $('schPending').checked, showPast = $('schPast').checked;
+  let list = scheduleEvents().map(e => Object.assign(e, { pending: e.items.filter(i => !i.done) }));
+  if (pendingOnly) list = list.filter(e => e.type === 'exp' || e.pending.length);
+  if (!showPast) list = list.filter(e => e.date >= t || (e.type !== 'exp' && e.pending.length));
+  if (!list.length) { $('schList').innerHTML = '<div class="empty">표시할 일정이 없습니다.</div>'; return; }
+  let html = '', lastM = '';
+  list.forEach(e => {
+    const m = e.date.getFullYear() + '년 ' + (e.date.getMonth() + 1) + '월';
+    if (m !== lastM) { html += '<div class="month">' + m + '</div>'; lastM = m; }
+    const past = e.date < t, done = e.items.length - e.pending.length;
+    const shown = e.type === 'exp' ? e.items : (pendingOnly ? e.pending : e.items);
+    const who = shown.slice(0, 60).map(i => '<a data-id="' + i.u.ref.id + '" data-part="' + i.u.part + '">' + esc(i.u.name) + (i.u.label ? '(' + i.u.label.replace('분', '') + ')' : '') + (i.done ? '✓' : '') + '</a>').join('') + (shown.length > 60 ? ' 외 ' + (shown.length - 60) + '명' : '');
+    const late = past && e.type !== 'exp' && e.pending.length;
+    const range = e.from ? shortD(e.from) + ' ~ ' : '';
+    html += '<div class="ev' + (past && !late ? ' past' : '') + '"><div class="when">' + range + shortD(e.date) + '<small>' + (past ? (late ? '<span class="due-late">기한 경과</span>' : '지남') : dday(e.date)) + '</small></div>' +
+      '<div><div class="what">' + esc(e.title) + '</div><div class="who">' + who + '</div></div>' +
+      '<div class="cnt">' + (e.type === 'exp' ? '잔여 보유 <b>' + e.items.length + '</b>명' : '처리 <b>' + done + '</b> / ' + e.items.length + (e.pending.length ? '<br><span class="' + (late ? 'due-late' : 'due-now') + '">미처리 ' + e.pending.length + '</span>' : '')) + '</div></div>';
+  });
+  $('schList').innerHTML = html;
+  $('schList').querySelectorAll('a[data-id]').forEach(a => a.onclick = () => openEmp(a.dataset.id, a.dataset.part));
+}
+['schPending', 'schPast'].forEach(id => $(id).addEventListener('change', renderSched));
+$('btnSchExcel').onclick = () => {
+  if (!window.XLSX) return toast('엑셀 모듈을 불러오지 못했습니다');
+  const aoa = [['기한', '시작', '일정', '사번', '성명', '구분', '소속', '잔여일수', '처리 여부', '1차 통보일', '계획 제출일', '2차 통보일']];
+  scheduleEvents().forEach(e => e.items.forEach(i => { const u = i.u;
+    aoa.push([fmt(e.date), e.from ? fmt(e.from) : '', e.title, u.empNo, u.name, u.label || '', u.dept, remain(u), e.type === 'exp' ? '' : (i.done ? '완료' : '미처리'), u.n1Date || '', u.planDate || '', u.n2Date || '']); }));
+  if (aoa.length < 2) return toast('일정이 없습니다');
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [11, 11, 30, 9, 9, 9, 14, 8, 9, 11, 11, 11].map(w => ({ wch: w }));
+  ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: aoa.length - 1, c: aoa[0].length - 1 } }) };
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '촉진 일정');
+  XLSX.writeFile(wb, '연가촉진_일정_' + fmt(today()) + '.xlsx');
+};
+
 /* ============ 렌더 ============ */
 function render() {
   const S = DB.settings;
@@ -1020,6 +1155,7 @@ function render() {
   const page = document.querySelector('.page.active').id;
   if (page === 'page-dash') renderDash();
   if (page === 'page-emp') renderEmp();
+  if (page === 'page-sched') renderSched();
   if (page === 'page-settings') renderSettings();
 }
 window.addEventListener('afterprint', () => { $('printArea').innerHTML = ''; });
