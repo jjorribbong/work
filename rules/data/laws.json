@@ -1,6 +1,6 @@
 {
  "source": "국가법령정보센터 Open API (law.go.kr)",
- "checkedAt": "2026-10-28T18:39:04+09:00",
+ "checkedAt": "2026-11-05T09:33:09+09:00",
  "laws": {
   "강사운영규정": {
    "name": "강사운영규정",
@@ -24,6 +24,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260911",
+   "promulgated": "20260310",
    "url": "https://www.law.go.kr/법령/개인정보보호법",
    "from": [
     "대학입학전형 회피·배제 운영내규"
@@ -46,6 +47,7 @@
    "type": "대통령령",
    "current": true,
    "enforced": "20260911",
+   "promulgated": "20260910",
    "url": "https://www.law.go.kr/법령/개인정보보호법시행령",
    "from": [
     "공익신고 처리 및 신고자 보호 등에 관한 규정"
@@ -68,6 +70,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260911",
+   "promulgated": "20260310",
    "url": "https://www.law.go.kr/법령/고등교육법",
    "from": [
     "청주대학교학칙",
@@ -148,6 +151,7 @@
    "type": "대통령령",
    "current": true,
    "enforced": "20260911",
+   "promulgated": "20260908",
    "url": "https://www.law.go.kr/법령/고등교육법시행령",
    "from": [
     "청주대학교학칙",
@@ -192,12 +196,27 @@
    "textHash": "31b4e5d573043a04d66d23ae3aa29d163004f7bd",
    "articleCount": 130
   },
+  "고용상연령차별금지및고령자고용촉진에관한법률": {
+   "name": "고용상 연령차별금지 및 고령자고용촉진에 관한 법률",
+   "found": true,
+   "type": "법률",
+   "current": true,
+   "enforced": "20220610",
+   "promulgated": "20220610",
+   "url": "https://www.law.go.kr/법령/고용상연령차별금지및고령자고용촉진에관한법률",
+   "from": [],
+   "articles": {},
+   "text": "lawtext/688d6dbddd55.json",
+   "textHash": "ee4b0375052bd25179085285e40bb106d9326e54",
+   "articleCount": 41
+  },
   "공공기관의정보공개에관한법률": {
    "name": "공공기관의 정보공개에 관한 법률",
    "found": true,
    "type": "법률",
    "current": true,
    "enforced": "20231117",
+   "promulgated": "20230516",
    "url": "https://www.law.go.kr/법령/공공기관의정보공개에관한법률",
    "from": [
     "학교법인청석학원정관",
@@ -222,6 +241,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20250131",
+   "promulgated": "20250131",
    "url": "https://www.law.go.kr/법령/공교육정상화촉진및선행교육규제에관한특별법",
    "from": [
     "대학입학전형 공교육정상화 영향평가에 관한 규정"
@@ -244,6 +264,7 @@
    "type": "대통령령",
    "current": true,
    "enforced": "20261002",
+   "promulgated": "20260929",
    "url": "https://www.law.go.kr/법령/공무원수당등에관한규정",
    "from": [
     "학교법인청석학원정관",
@@ -282,6 +303,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261001",
+   "promulgated": "20260331",
    "url": "https://www.law.go.kr/법령/공익신고자보호법",
    "from": [
     "공익신고 처리 및 신고자 보호 등에 관한 규정"
@@ -297,6 +319,7 @@
    "type": "대통령령",
    "current": true,
    "enforced": "20260929",
+   "promulgated": "20260929",
    "url": "https://www.law.go.kr/법령/공익신고자보호법시행령",
    "from": [
     "공익신고 처리 및 신고자 보호 등에 관한 규정"
@@ -328,6 +351,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260219",
+   "promulgated": "20260219",
    "url": "https://www.law.go.kr/법령/교원의지위향상및교육활동보호를위한특별법",
    "from": [
     "강사 임용 등에 관한 규정",
@@ -351,6 +375,7 @@
    "type": "대통령령",
    "current": true,
    "enforced": "20241002",
+   "promulgated": "20241002",
    "url": "https://www.law.go.kr/법령/교원자격검정령",
    "from": [
     "교원양성과정운영규정"
@@ -373,6 +398,7 @@
    "type": "교육부령",
    "current": true,
    "enforced": "20260327",
+   "promulgated": "20260327",
    "url": "https://www.law.go.kr/법령/교원자격검정령시행규칙",
    "from": [
     "교원양성과정운영규정",
@@ -396,6 +422,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261002",
+   "promulgated": "20260804",
    "url": "https://www.law.go.kr/법령/교육공무원법",
    "from": [
     "교원신규임용시행세칙",
@@ -433,6 +460,7 @@
    "type": "대통령령",
    "current": true,
    "enforced": "20250919",
+   "promulgated": "20250916",
    "url": "https://www.law.go.kr/법령/교육공무원임용령",
    "from": [
     "교원인사규정"
@@ -455,6 +483,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261022",
+   "promulgated": "20260421",
    "url": "https://www.law.go.kr/법령/국가공무원법",
    "from": [
     "비전임교원의 임용 등에 관한 규정",
@@ -486,6 +515,7 @@
    "type": "대통령령",
    "current": true,
    "enforced": "20260603",
+   "promulgated": "20260519",
    "url": "https://www.law.go.kr/법령/국가를당사자로하는계약에관한법률시행령",
    "from": [
     "재무회계규정"
@@ -514,6 +544,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261002",
+   "promulgated": "20260804",
    "url": "https://www.law.go.kr/법령/국가연구개발혁신법",
    "from": [
     "연구개발사업수행에 따른 연구윤리내규"
@@ -536,6 +567,7 @@
    "type": "대통령령",
    "current": true,
    "enforced": "20260911",
+   "promulgated": "20260728",
    "url": "https://www.law.go.kr/법령/국가연구개발혁신법시행령",
    "from": [
     "연구개발사업수행에 따른 연구윤리내규"
@@ -564,6 +596,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260908",
+   "promulgated": "20260908",
    "url": "https://www.law.go.kr/법령/국가유공자등예우및지원에관한법률",
    "from": [
     "학생군사교육단 운영내규"
@@ -579,6 +612,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261008",
+   "promulgated": "20260407",
    "url": "https://www.law.go.kr/법령/국민건강보험법",
    "from": [
     "비전임교원의 임용 등에 관한 규정"
@@ -594,6 +628,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20250708",
+   "promulgated": "20250107",
    "url": "https://www.law.go.kr/법령/군인재해보상법",
    "from": [
     "학생군사교육단 운영내규"
@@ -616,6 +651,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261008",
+   "promulgated": "20260407",
    "url": "https://www.law.go.kr/법령/근로기준법",
    "from": [
     "복무규정",
@@ -653,12 +689,55 @@
    "textHash": "28b026aad59bb0758d1e2c1f175fb83515fc3e80",
    "articleCount": 133
   },
+  "근로자퇴직급여보장법": {
+   "name": "근로자퇴직급여 보장법",
+   "found": true,
+   "type": "법률",
+   "current": true,
+   "enforced": "20260918",
+   "promulgated": "20260317",
+   "url": "https://www.law.go.kr/법령/근로자퇴직급여보장법",
+   "from": [],
+   "articles": {},
+   "text": "lawtext/c454c34cbb0d.json",
+   "textHash": "37486043793ee29e1cb00ea1c5bbd7eb0f4563af",
+   "articleCount": 68
+  },
+  "근로자퇴직급여보장법시행령": {
+   "name": "근로자퇴직급여 보장법 시행령",
+   "found": true,
+   "type": "대통령령",
+   "current": true,
+   "enforced": "20260324",
+   "promulgated": "20260324",
+   "url": "https://www.law.go.kr/법령/근로자퇴직급여보장법시행령",
+   "from": [],
+   "articles": {},
+   "text": "lawtext/86ddf4173730.json",
+   "textHash": "6ba6059e052b2c4cd1956d246aa3918f44686a78",
+   "articleCount": 79
+  },
+  "기간제및단시간근로자보호등에관한법률": {
+   "name": "기간제 및 단시간근로자 보호 등에 관한 법률",
+   "found": true,
+   "type": "법률",
+   "current": true,
+   "enforced": "20210518",
+   "promulgated": "20210518",
+   "url": "https://www.law.go.kr/법령/기간제및단시간근로자보호등에관한법률",
+   "from": [],
+   "articles": {},
+   "text": "lawtext/b2cedf82dbf8.json",
+   "textHash": "331ae3abfbaafc6153be89df307165968fa61b17",
+   "articleCount": 26
+  },
   "기초연구진흥및기술개발지원에관한법률": {
    "name": "기초연구진흥 및 기술개발지원에 관한 법률",
    "found": true,
    "type": "법률",
    "current": true,
    "enforced": "20260201",
+   "promulgated": "20250131",
    "url": "https://www.law.go.kr/법령/기초연구진흥및기술개발지원에관한법률",
    "from": [
     "연구윤리 확립에 관한 규정"
@@ -681,6 +760,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260918",
+   "promulgated": "20260317",
    "url": "https://www.law.go.kr/법령/남녀고용평등과일ㆍ가정양립지원에관한법률",
    "from": [],
    "articles": {},
@@ -694,6 +774,7 @@
    "type": "대통령령",
    "current": true,
    "enforced": "20260324",
+   "promulgated": "20260324",
    "url": "https://www.law.go.kr/법령/대학교원자격기준등에관한규정",
    "from": [
     "교원인사규정",
@@ -725,6 +806,7 @@
    "type": "교육부령",
    "current": true,
    "enforced": "20220207",
+   "promulgated": "20220207",
    "url": "https://www.law.go.kr/법령/대학등록금에관한규칙",
    "from": [
     "국가장학운영규정"
@@ -753,6 +835,7 @@
    "type": "대통령령",
    "current": true,
    "enforced": "20260324",
+   "promulgated": "20260324",
    "url": "https://www.law.go.kr/법령/대학설립ㆍ운영규정",
    "from": [
     "조교 운영 규정"
@@ -768,6 +851,7 @@
    "type": "훈령",
    "current": true,
    "enforced": "20240208",
+   "promulgated": "",
    "url": "https://www.law.go.kr/행정규칙/대학재정지원사업관리운영에관한규정",
    "from": [
     "지방대학활성화사업단운영규정"
@@ -783,6 +867,7 @@
    "type": "헌법",
    "current": true,
    "enforced": "19880225",
+   "promulgated": "19871029",
    "url": "https://www.law.go.kr/법령/대한민국헌법",
    "from": [
     "인권센터운영규정"
@@ -798,6 +883,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261013",
+   "promulgated": "20261013",
    "url": "https://www.law.go.kr/법령/도로교통법",
    "from": [
     "교내 개인형 이동장치 안전관리 규정"
@@ -826,6 +912,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261027",
+   "promulgated": "20261027",
    "url": "https://www.law.go.kr/법령/동물보호법",
    "from": [
     "연구개발사업수행에 따른 연구윤리내규",
@@ -849,6 +936,7 @@
    "type": "재정경제부령",
    "current": true,
    "enforced": "20260701",
+   "promulgated": "20260701",
    "url": "https://www.law.go.kr/법령/법인세법시행규칙",
    "from": [
     "계약학과설치운영규정"
@@ -888,6 +976,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261002",
+   "promulgated": "20260804",
    "url": "https://www.law.go.kr/법령/병역법",
    "from": [
     "학생군사교육단 운영내규",
@@ -918,6 +1007,7 @@
    "type": "대통령훈령",
    "current": true,
    "enforced": "20221128",
+   "promulgated": "",
    "url": "https://www.law.go.kr/행정규칙/보안업무규정시행규칙",
    "from": [
     "보안업무 규정"
@@ -933,6 +1023,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261002",
+   "promulgated": "20260804",
    "url": "https://www.law.go.kr/법령/부패방지및국민권익위원회의설치와운영에관한법률",
    "from": [
     "학교법인청석학원정관"
@@ -955,6 +1046,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261002",
+   "promulgated": "20260804",
    "url": "https://www.law.go.kr/법령/사립학교법",
    "from": [
     "청주대학교학칙",
@@ -1011,6 +1103,7 @@
    "type": "대통령령",
    "current": true,
    "enforced": "20261002",
+   "promulgated": "20260929",
    "url": "https://www.law.go.kr/법령/사립학교법시행령",
    "from": [
     "학교법인청석학원정관"
@@ -1039,6 +1132,7 @@
    "type": "고시",
    "current": true,
    "enforced": "20261007",
+   "promulgated": "",
    "url": "https://www.law.go.kr/행정규칙/사업주직업능력개발훈련지원규정",
    "from": [
     "계약학과설치운영규정"
@@ -1054,6 +1148,7 @@
    "type": "교육부령",
    "current": true,
    "enforced": "20250719",
+   "promulgated": "20250418",
    "url": "https://www.law.go.kr/법령/사학기관재무ㆍ회계규칙",
    "from": [],
    "articles": {},
@@ -1067,6 +1162,7 @@
    "type": "교육부령",
    "current": true,
    "enforced": "20230601",
+   "promulgated": "20230531",
    "url": "https://www.law.go.kr/법령/사학기관재무ㆍ회계규칙에대한특례규칙",
    "from": [
     "학교기업의 설치·운영 규정"
@@ -1089,6 +1185,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20250621",
+   "promulgated": "20241220",
    "url": "https://www.law.go.kr/법령/산업교육진흥및산학연협력촉진에관한법률",
    "from": [
     "청주대학교학칙",
@@ -1131,6 +1228,7 @@
    "type": "고시",
    "current": true,
    "enforced": "20250722",
+   "promulgated": "",
    "url": "https://www.law.go.kr/행정규칙/산학협력단회계처리규칙",
    "from": [
     "학교기업의 설치·운영 규정"
@@ -1146,6 +1244,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260423",
+   "promulgated": "20250422",
    "url": "https://www.law.go.kr/법령/생명공학육성법",
    "from": [
     "생물안전관리규정"
@@ -1161,6 +1260,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20251001",
+   "promulgated": "20251001",
    "url": "https://www.law.go.kr/법령/생명윤리및안전에관한법률",
    "from": [
     "연구개발사업수행에 따른 연구윤리내규"
@@ -1176,6 +1276,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261002",
+   "promulgated": "20260929",
    "url": "https://www.law.go.kr/법령/성매매알선등행위의처벌에관한법률",
    "from": [
     "직원인사규정"
@@ -1191,6 +1292,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261002",
+   "promulgated": "20260929",
    "url": "https://www.law.go.kr/법령/성폭력범죄의처벌등에관한특례법",
    "from": [
     "학교법인청석학원정관",
@@ -1217,6 +1319,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260903",
+   "promulgated": "20260602",
    "url": "https://www.law.go.kr/법령/소방기본법",
    "from": [
     "교내 개인형 이동장치 안전관리 규정"
@@ -1239,6 +1342,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20240724",
+   "promulgated": "20240123",
    "url": "https://www.law.go.kr/법령/수의사법",
    "from": [
     "청주대학교 동물실험윤리위원회 규정"
@@ -1255,12 +1359,27 @@
    "textHash": "87a63beb96ab88c5c912896889879eb938ce166b",
    "articleCount": 66
   },
+  "신원보증법": {
+   "name": "신원보증법",
+   "found": true,
+   "type": "법률",
+   "current": true,
+   "enforced": "20090130",
+   "promulgated": "20090130",
+   "url": "https://www.law.go.kr/법령/신원보증법",
+   "from": [],
+   "articles": {},
+   "text": "lawtext/940d0ab626fd.json",
+   "textHash": "a480bee0e972b909bba7709297c040254cabbabe",
+   "articleCount": 8
+  },
   "실험동물에관한법률": {
    "name": "실험동물에 관한 법률",
    "found": true,
    "type": "법률",
    "current": true,
    "enforced": "20240703",
+   "promulgated": "20240102",
    "url": "https://www.law.go.kr/법령/실험동물에관한법률",
    "from": [
     "연구개발사업수행에 따른 연구윤리내규"
@@ -1294,6 +1413,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261002",
+   "promulgated": "20260929",
    "url": "https://www.law.go.kr/법령/아동ㆍ청소년의성보호에관한법률",
    "from": [
     "강사 임용 등에 관한 규정"
@@ -1316,6 +1436,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260911",
+   "promulgated": "20260310",
    "url": "https://www.law.go.kr/법령/양성평등기본법",
    "from": [
     "학교법인청석학원정관",
@@ -1339,6 +1460,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260520",
+   "promulgated": "20260219",
    "url": "https://www.law.go.kr/법령/연구실안전환경조성에관한법률",
    "from": [
     "연구실 안전환경관리 규정"
@@ -1354,6 +1476,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20251001",
+   "promulgated": "20251001",
    "url": "https://www.law.go.kr/법령/유전자변형생물체의국가간이동등에관한법률",
    "from": [
     "생물안전관리규정"
@@ -1369,6 +1492,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261002",
+   "promulgated": "20260324",
    "url": "https://www.law.go.kr/법령/의료법",
    "from": [
     "계약학과설치운영규정"
@@ -1391,6 +1515,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20251001",
+   "promulgated": "20251001",
    "url": "https://www.law.go.kr/법령/장애인등에대한특수교육법",
    "from": [],
    "articles": {},
@@ -1404,6 +1529,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20251001",
+   "promulgated": "20251001",
    "url": "https://www.law.go.kr/법령/전기용품및생활용품안전관리법",
    "from": [
     "교내 개인형 이동장치 안전관리 규정"
@@ -1419,6 +1545,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260729",
+   "promulgated": "20260428",
    "url": "https://www.law.go.kr/법령/정당법",
    "from": [
     "복무규정"
@@ -1450,6 +1577,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260918",
+   "promulgated": "20260317",
    "url": "https://www.law.go.kr/법령/조세특례제한법",
    "from": [
     "계약학과설치운영규정"
@@ -1472,6 +1600,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260701",
+   "promulgated": "20251230",
    "url": "https://www.law.go.kr/법령/중소기업창업지원법",
    "from": [
     "교원창업에관한규정",
@@ -1495,6 +1624,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260122",
+   "promulgated": "20250121",
    "url": "https://www.law.go.kr/법령/지능정보화기본법",
    "from": [
     "교원인사규정"
@@ -1517,6 +1647,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20251001",
+   "promulgated": "20251001",
    "url": "https://www.law.go.kr/법령/직업교육훈련촉진법",
    "from": [
     "학교기업의 설치·운영 규정",
@@ -1540,6 +1671,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20240724",
+   "promulgated": "20240123",
    "url": "https://www.law.go.kr/법령/직업안정법",
    "from": [
     "계약학과설치운영규정"
@@ -1554,7 +1686,8 @@
    "found": true,
    "type": "법률",
    "current": true,
-   "enforced": "20260911",
+   "enforced": "20261029",
+   "promulgated": "20260428",
    "url": "https://www.law.go.kr/법령/초ㆍ중등교육법",
    "from": [
     "학교법인청석학원정관",
@@ -1583,8 +1716,8 @@
     }
    },
    "text": "lawtext/b91608cb8507.json",
-   "textHash": "f7fdab2630e4dde4958563536b4db62e9a5f7b4d",
-   "articleCount": 115
+   "textHash": "44d80d1d30a9c26345075a6585f6660445c9646d",
+   "articleCount": 118
   },
   "최저임금법": {
    "name": "최저임금법",
@@ -1592,6 +1725,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20200526",
+   "promulgated": "20200526",
    "url": "https://www.law.go.kr/법령/최저임금법",
    "from": [
     "계약학과설치운영규정",
@@ -1608,6 +1742,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261002",
+   "promulgated": "20260804",
    "url": "https://www.law.go.kr/법령/특정범죄신고자등보호법",
    "from": [
     "공익신고 처리 및 신고자 보호 등에 관한 규정"
@@ -1630,6 +1765,7 @@
    "type": "대통령령",
    "current": true,
    "enforced": "20250312",
+   "promulgated": "20250312",
    "url": "https://www.law.go.kr/법령/평가인정학습과정운영에관한규정",
    "from": [
     "학점은행제운영규정"
@@ -1652,6 +1788,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260512",
+   "promulgated": "20251111",
    "url": "https://www.law.go.kr/법령/평생교육법",
    "from": [
     "계약학과설치운영규정"
@@ -1667,6 +1804,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260918",
+   "promulgated": "20260317",
    "url": "https://www.law.go.kr/법령/폐기물관리법",
    "from": [
     "연구개발사업수행에 따른 연구윤리내규"
@@ -1682,6 +1820,7 @@
    "type": "고시",
    "current": true,
    "enforced": "20190818",
+   "promulgated": "",
    "url": "https://www.law.go.kr/행정규칙/학교기업회계처리규칙",
    "from": [
     "학교기업의 설치·운영 규정"
@@ -1697,6 +1836,7 @@
    "type": "대통령령",
    "current": true,
    "enforced": "20171114",
+   "promulgated": "20171114",
    "url": "https://www.law.go.kr/법령/학생군사교육실시령",
    "from": [
     "학생군사교육단 운영내규"
@@ -1725,6 +1865,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20210623",
+   "promulgated": "20210323",
    "url": "https://www.law.go.kr/법령/학술진흥법",
    "from": [
     "연구윤리 확립에 관한 규정"
@@ -1759,6 +1900,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261001",
+   "promulgated": "20260331",
    "url": "https://www.law.go.kr/법령/학원의설립ㆍ운영및과외교습에관한법률",
    "from": [
     "대학입학전형 회피·배제 운영내규"
@@ -1774,6 +1916,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20240517",
+   "promulgated": "20230808",
    "url": "https://www.law.go.kr/법령/학점인정등에관한법률",
    "from": [
     "학점은행제운영규정"
@@ -1798,6 +1941,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260917",
+   "promulgated": "20260616",
    "url": "https://www.law.go.kr/법령/항공안전법",
    "from": [
     "비행교육원규정",
@@ -1844,6 +1988,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260506",
+   "promulgated": "20260506",
    "url": "https://www.law.go.kr/법령/교육기본법",
    "from": [
     "국가장학운영규정"
@@ -1866,6 +2011,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20261020",
+   "promulgated": "20261020",
    "url": "https://www.law.go.kr/법령/국민연금법",
    "from": [
     "퇴직금지급규정"
@@ -1888,6 +2034,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20221208",
+   "promulgated": "20211207",
    "url": "https://www.law.go.kr/법령/대학도서관진흥법",
    "from": [
     "청주대학교학칙",
@@ -1935,6 +2082,7 @@
    "type": "농림축산식품부령",
    "current": true,
    "enforced": "20260603",
+   "promulgated": "20250807",
    "url": "https://www.law.go.kr/법령/동물보호법시행규칙",
    "from": [
     "청주대학교 동물실험윤리위원회 규정"
@@ -1957,6 +2105,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260910",
+   "promulgated": "20260609",
    "url": "https://www.law.go.kr/법령/모자보건법",
    "from": [
     "복무규정"
@@ -1979,6 +2128,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20251111",
+   "promulgated": "20251111",
    "url": "https://www.law.go.kr/법령/문화예술진흥법",
    "from": [
     "문서규정"
@@ -2001,6 +2151,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20251001",
+   "promulgated": "20251001",
    "url": "https://www.law.go.kr/법령/실용신안법",
    "from": [
     "지적재산권관리규정"
@@ -2023,6 +2174,7 @@
    "type": "법률",
    "current": true,
    "enforced": "20260519",
+   "promulgated": "20260519",
    "url": "https://www.law.go.kr/법령/원자력안전법",
    "from": [
     "방사선작업종사자에대한보상기준규정"
@@ -2045,6 +2197,7 @@
    "type": "총리령",
    "current": true,
    "enforced": "20260908",
+   "promulgated": "20260908",
    "url": "https://www.law.go.kr/법령/원자력안전법시행규칙",
    "from": [
     "방사선작업종사자에대한보상기준규정"
@@ -2066,7 +2219,8 @@
    "found": true,
    "type": "대통령령",
    "current": true,
-   "enforced": "20260911",
+   "enforced": "20261029",
+   "promulgated": "20261027",
    "url": "https://www.law.go.kr/법령/초ㆍ중등교육법시행령",
    "from": [
     "학교법인청석학원정관"
@@ -2080,8 +2234,8 @@
     }
    },
    "text": "lawtext/711609fb9223.json",
-   "textHash": "6c944addd018f9b11554a306dda57fa463fb3409",
-   "articleCount": 176
+   "textHash": "f97c62aceebdc0adef398dcc26573e29476bed4f",
+   "articleCount": 181
   },
   "평생교육법시행령": {
    "name": "평생교육법 시행령",
@@ -2089,6 +2243,7 @@
    "type": "대통령령",
    "current": true,
    "enforced": "20260324",
+   "promulgated": "20260324",
    "url": "https://www.law.go.kr/법령/평생교육법시행령",
    "from": [
     "평생교육원규정"
