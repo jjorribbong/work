@@ -779,8 +779,10 @@ function renderDash() {
 /* ============ 직원 목록 ============ */
 // 짧은 날짜: 올해면 'M. D.', 다른 해면 'YY. M. D.'
 function shortD(d) { return (d.getFullYear() !== today().getFullYear() ? String(d.getFullYear()).slice(2) + '. ' : '') + (d.getMonth() + 1) + '. ' + d.getDate() + '.'; }
-/* 열 정렬: 제목을 누르면 오름차순 ▲ → 내림차순 ▼, 빈 값은 항상 맨 아래 */
-let SORT = (() => { try { return JSON.parse(localStorage.getItem('leavePromo.sort')) || { key: '', dir: 1 }; } catch (e) { return { key: '', dir: 1 }; } })();
+/* 열 정렬: 제목을 누르면 오름차순 ▲ → 내림차순 ▼ → 기본(처음 올린 파일 순서), 빈 값은 항상 맨 아래.
+   기본은 항상 파일 순서 — 정렬 상태는 저장하지 않음 */
+let SORT = { key: '', dir: 1 };
+try { localStorage.removeItem('leavePromo.sort'); } catch (e) {}
 const SORT_KEY = {
   empNo: u => u.empNo || null, name: u => u.name || null, dept: u => u.dept || null, pos: u => [u.jobType, u.position].filter(Boolean).join(' ') || null,
   granted: u => granted(u), deduct: u => deduct(u), used: u => used(u), remain: u => remain(u),
@@ -800,15 +802,16 @@ function sortUnits(list) {
   return v.map(x => x.u);
 }
 document.querySelectorAll('table.list th[data-sort]').forEach(th => th.onclick = () => {
-  SORT = SORT.key === th.dataset.sort ? { key: SORT.key, dir: -SORT.dir } : { key: th.dataset.sort, dir: 1 };
-  try { localStorage.setItem('leavePromo.sort', JSON.stringify(SORT)); } catch (e) {}
+  const k = th.dataset.sort;
+  SORT = SORT.key !== k ? { key: k, dir: 1 } : SORT.dir === 1 ? { key: k, dir: -1 } : { key: '', dir: 1 };
   renderEmp();
+  if (!SORT.key) toast('기본 순서(처음 올린 파일 순서)로 돌아왔습니다');
 });
 function markSort() {
   document.querySelectorAll('table.list th[data-sort]').forEach(th => {
     th.classList.toggle('sort-asc', th.dataset.sort === SORT.key && SORT.dir === 1);
     th.classList.toggle('sort-desc', th.dataset.sort === SORT.key && SORT.dir === -1);
-    th.title = th.dataset.sort === SORT.key ? (SORT.dir === 1 ? '오름차순 — 누르면 내림차순' : '내림차순 — 누르면 오름차순') : '눌러서 정렬';
+    th.title = th.dataset.sort === SORT.key ? (SORT.dir === 1 ? '오름차순 — 누르면 내림차순' : '내림차순 — 누르면 기본 순서(파일 순서)') : '눌러서 정렬';
   });
 }
 function cellDate(u, field) {
