@@ -689,6 +689,31 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
 function goto(page) { document.querySelector('nav button[data-page="' + page + '"]').click(); }
 
 /* ============ 대시보드 ============ */
+let todoFilter = '';
+// 대상별 '지금 할 일' — 법정 촉진 단계 + 2차 이후 후속 확인
+function todoOf(u, st) {
+  const t = today(), s = st.s, r = remain(u);
+  const T = (label, c, o, why, sortDate) => ({ e: u, t: label, c, o, why, sortDate });
+  if (st.k === 'need1') return T('1차 통보 필요', 'b-orange', 1, '1차 통보 기한 ' + fmtK(s.w1e) + ' (' + dday(s.w1e) + ')', s.w1e);
+  if (st.k === 'late1') return T('1차 기한 경과', 'b-red', 0, '1차 법정기간(' + fmtK(s.w1e) + ') 경과 — 보상 면제가 어려울 수 있음. 실제 통보했다면 통보일 기록', s.w1e);
+  if (st.k === 'waitPlan') return T('계획서 제출 대기', 'b-blue', 4, '계획서 제출 기한 ' + fmtK(st.due) + ' (' + dday(st.due) + ')', st.due);
+  if (st.k === 'need2') return T('2차 지정 필요', 'b-orange', 2, '계획 미제출 · 2차 지정 기한 ' + fmtK(s.d2) + ' (' + dday(s.d2) + ')', s.d2);
+  if (st.k === 'late2') return T('2차 기한 경과', 'b-red', 0, '2차 지정 기한(' + fmtK(s.d2) + ') 경과', s.d2);
+  if (st.k === 'expired' && r > 0) return T('소멸·정산 확인', 'b-red', 0, fmtK(s.expire) + ' 소멸, 촉진 기록 없음 — 미사용 ' + num(r) + '일 수당 정산 여부 확인', s.expire);
+  if (st.k === 'wait1' && s && diffDays(t, s.w1s) <= 30) return T('1차 통보 예정', 'b-gray', 6, '1차 통보기간 ' + fmtK(s.w1s) + '~' + fmtK(s.w1e) + ' (' + dday(s.w1s) + ' 시작)', s.w1s);
+  if (st.k === 'done2') {
+    if (!String(u.designText || '').trim()) return T('지정일 미입력', 'b-orange', 3, '2차 통보(' + fmtK(u.n2Date) + ')는 했으나 사용자 지정 사용일이 비어 있음', parseD(u.n2Date));
+    const chk = checkLeaveDays(u, u.designText, 'design');
+    if (chk.problems) return T('지정일 확인 필요', 'b-orange', 3, chk.html.replace(/<br>/g, ' ').replace(/<[^>]+>/g, ''), parseD(u.n2Date));
+    const passed = parseLeaveDays(u.designText).filter(x => !x.bad && x.d < t);
+    if (passed.length && r > 0) return T('지정일 경과·사용 확인', 'b-blue', 5, '지정일 ' + passed.length + '건 경과(' + passed.slice(-1)[0].key + ')인데 잔여 ' + num(r) + '일 — 사용일수 갱신(엑셀 재업로드) 또는 출근 시 노무수령 거부 기록 확인', passed.slice(-1)[0].d);
+  }
+  if (st.k === 'plan' && r > 0) {
+    const passed = parseLeaveDays(u.planText).filter(x => !x.bad && x.d < t);
+    if (passed.length) return T('계획일 경과·사용 확인', 'b-blue', 5, '사용 예정일 ' + passed.length + '건 경과(' + passed.slice(-1)[0].key + ')인데 잔여 ' + num(r) + '일 — 사용일수 갱신 확인', passed.slice(-1)[0].d);
+  }
+  return null;
+}
 function renderDash() {
   const s = schedule(null), t = today();
   $('todayLbl').textContent = '오늘 ' + fmtK(t);
@@ -718,24 +743,24 @@ function renderDash() {
     ['총 부여', num(tg), '일'],
     ['총 사용(공제 포함)', num(tu), '일'],
     ['평균 사용률', num(rate), '%', rate],
-    ['조치 필요', cnt(['need1', 'need2', 'late1', 'late2']), '건']
+    ['조치 필요', U.filter((u, i) => { const x = todoOf(u, st[i]); return x && x.o <= 3; }).length, '건']
   ].map(x => '<div class="stat"><div class="label">' + x[0] + '</div><div class="value">' + x[1] + '<small>' + x[2] + '</small></div>' +
     (x[3] != null ? '<div class="bar"><div style="width:' + Math.min(100, x[3]) + '%"></div></div>' : '') + '</div>').join('');
 
-  const todos = U.map((e, i) => ({ e, st: st[i] })).filter(x => ['need1', 'late1', 'need2', 'late2', 'waitPlan'].includes(x.st.k))
-    .sort((a, b) => STATUS[a.st.k].o - STATUS[b.st.k].o);
+  const todos = U.map((e, i) => todoOf(e, st[i])).filter(Boolean).sort((a, b) => a.o - b.o || (a.sortDate || 0) - (b.sortDate || 0));
+  const kinds = {}; todos.forEach(t => { kinds[t.t] = kinds[t.t] || { n: 0, c: t.c, o: t.o }; kinds[t.t].n++; });
+  if (todoFilter && !kinds[todoFilter]) todoFilter = '';
+  const shown = todoFilter ? todos.filter(t => t.t === todoFilter) : todos;
   $('todoCount').textContent = todos.length ? todos.length + '건' : '';
   if (!E.length) $('todoList').innerHTML = '<div class="empty">등록된 직원이 없습니다.<br><button class="btn" style="margin-top:12px" onclick="goto(\'settings\')">엑셀로 명단 불러오기</button></div>';
   else if (!todos.length) $('todoList').innerHTML = '<div class="empty">지금 처리할 일이 없습니다 👍</div>';
-  else $('todoList').innerHTML = todos.slice(0, 30).map(({ e, st }) => {
-    let why = '';
-    if (st.k === 'need1') why = '1차 통보 기한 ' + fmtK(st.s.w1e) + ' (' + dday(st.s.w1e) + ')';
-    if (st.k === 'late1') why = '1차 법정기간(' + fmtK(st.s.w1e) + ') 경과 — 보상 면제가 어려울 수 있음';
-    if (st.k === 'waitPlan') why = '계획서 제출 기한 ' + fmtK(st.due) + ' (' + dday(st.due) + ')';
-    if (st.k === 'need2') why = '계획 미제출 · 2차 지정 기한 ' + fmtK(st.s.d2) + ' (' + dday(st.s.d2) + ')';
-    if (st.k === 'late2') why = '2차 지정 기한(' + fmtK(st.s.d2) + ') 경과';
-    return '<div class="todo"><span class="badge ' + STATUS[st.k].c + '">' + STATUS[st.k].t + '</span><div style="flex:1"><span class="who">' + esc(e.name) + '</span>' + partBadge(e) + ' <span class="why">' + esc(e.dept || '') + ' · 잔여 ' + num(remain(e)) + '일</span><div class="why">' + why + '</div></div><button class="btn sm ghost" onclick="openEmp(\'' + e.id + '\',\'' + e.part + '\')">열기</button></div>';
-  }).join('') + (todos.length > 30 ? '<p class="muted" style="margin-top:8px">외 ' + (todos.length - 30) + '건 — 직원·진행관리 탭에서 확인하세요.</p>' : '');
+  else $('todoList').innerHTML = '<div class="row" style="gap:6px;margin-bottom:6px">' +
+    Object.entries(kinds).sort((a, b) => a[1].o - b[1].o).map(([t, v]) => '<button class="badge ' + v.c + '" data-tk="' + esc(t) + '" style="border:' + (todoFilter === t ? '2px solid currentColor' : '1px solid transparent') + ';cursor:pointer">' + esc(t) + ' ' + v.n + '</button>').join('') +
+    (todoFilter ? '<button class="btn sm gray" data-tk="">전체 보기</button>' : '') + '</div>' +
+    shown.slice(0, 50).map(({ e, t, c, why }) =>
+      '<div class="todo"><span class="badge ' + c + '">' + t + '</span><div style="flex:1"><span class="who">' + esc(e.name) + '</span>' + partBadge(e) + ' <span class="why">' + esc(e.dept || '') + ' · 잔여 ' + num(remain(e)) + '일</span><div class="why">' + why + '</div></div><button class="btn sm ghost" onclick="openEmp(\'' + e.id + '\',\'' + e.part + '\')">열기</button></div>'
+    ).join('') + (shown.length > 50 ? '<p class="muted" style="margin-top:8px">외 ' + (shown.length - 50) + '건 — 위 항목 버튼으로 걸러 보거나 직원·진행관리 탭에서 확인하세요.</p>' : '');
+  $('todoList').querySelectorAll('[data-tk]').forEach(bt => bt.onclick = () => { todoFilter = bt.dataset.tk; renderDash(); });
 
   const depts = {};
   E.forEach(e => { const d = e.dept || '(미지정)'; (depts[d] = depts[d] || { g: 0, u: 0, n: 0 }); depts[d].g += granted(e); depts[d].u += Math.min(consumed(e), granted(e)); depts[d].n++; });
