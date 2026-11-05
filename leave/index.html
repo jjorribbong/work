@@ -214,7 +214,7 @@
             <thead><tr>
               <th class="fx0"><input type="checkbox" id="chkAll"></th>
               <th class="fx1">사번</th><th class="fx2">성명</th><th>소속</th><th>직종/직급</th>
-              <th class="num">부여</th><th class="num">공제</th><th class="num">사용</th><th class="num">잔여</th>
+              <th class="num">연가일수</th><th class="num">공제</th><th class="num">사용</th><th class="num">잔여</th>
               <th class="bl">1차 통보기간</th><th>1차 통보일</th><th>계획 제출일</th>
               <th class="bl">2차 통보기한</th><th>2차 통보일</th><th class="bl">소멸일</th><th>상태</th>
             </tr></thead>
@@ -252,7 +252,7 @@
           <div><label class="f">제출기간 종료 후 지정 시작까지(일)</label><input type="number" min="0" max="90" id="sD2Gap"></div>
           <div class="full"><label class="check"><input type="checkbox" id="sD2Notice"> 2차 통보서에 사용계획 제출기간(지정일 변경 신청) 안내 문구 넣기</label></div>
         </div>
-        <p class="muted" style="margin-top:10px">학년도(3. 1.~2월 말일) 기준으로 운영합니다. 부여일수는 종합정보시스템 엑셀 값을 그대로 쓰며, 비어 있으면 같은 방식으로 자동 계산합니다.<br>· 근속년수 = 현재 학년도 − 입사 학년도 · 2년 이상: 15일 + (근속−1)÷2일, 최대 25일<br>· 엑셀의 사용일수는 이번 학년도 사용분만이므로, 직전 학년도에 사용(또는 연가보상비로 정산)한 월차는 연가수정일수(= 비례연차 올림분 + 미사용 월차 이월분)로 역산해 월차분에 포함합니다<br>· 직전 학년도 입사: 3. 1. 비례연차(15일 × 직전 학년도 근무일수 ÷ 365, 0.5일 단위 올림) + 소멸 전 월차 — 목록에서 '월차분'(입사 1년 되는 날 전날 소멸)과 '비례연차분'(학년도 말 소멸)으로 나누어 각각 촉진하며, 사용일수는 월차분에서 먼저 차감<br>· 이번 학년도 입사: 학년도 안에 발생할 월차(매월 1일, 최대 11일) — 1년 미만 촉진 일정 적용</p>
+        <p class="muted" style="margin-top:10px">학년도(3. 1.~2월 말일) 기준으로 운영합니다. 연가일수는 종합정보시스템 엑셀 값을 그대로 쓰며, 비어 있으면 같은 방식으로 자동 계산합니다.<br>· 근속년수 = 현재 학년도 − 입사 학년도 · 2년 이상: 15일 + (근속−1)÷2일, 최대 25일<br>· 엑셀의 사용일수는 이번 학년도 사용분만이므로, 직전 학년도에 사용(또는 연가보상비로 정산)한 월차는 연가수정일수(= 비례연차 올림분 + 미사용 월차 이월분)로 역산해 월차분에 포함합니다<br>· 직전 학년도 입사: 3. 1. 비례연차(15일 × 직전 학년도 근무일수 ÷ 365, 0.5일 단위 올림) + 소멸 전 월차 — 목록에서 '월차분'(입사 1년 되는 날 전날 소멸)과 '비례연차분'(학년도 말 소멸)으로 나누어 각각 촉진하며, 사용일수는 월차분에서 먼저 차감<br>· 이번 학년도 입사: 학년도 안에 발생할 월차(매월 1일, 최대 11일) — 1년 미만 촉진 일정 적용</p>
         <div class="row end" style="margin-top:12px"><button class="btn" id="btnSaveSettings">설정 저장</button></div>
       </div>
 
@@ -269,7 +269,7 @@
 
       <div class="card">
         <h2>엑셀 불러오기 <small>.xlsx · .xls · .csv</small></h2>
-        <p class="muted">첫 행에 제목이 있는 표를 인식합니다. <b>종합정보시스템 › 인사 › 복무관리 › 연가일수관리</b>에서 내려받은 엑셀을 그대로 올리면 됩니다(교직원번호·성명·소속부서·직종·직급·연가기준일·발령종료일·연가일수·공제일수·사용일수 인식, 잔여일수로 검증).<br>그 밖의 양식에서 인식하는 열 이름: <b>사번</b>(직원번호), <b>성명</b>(이름), <b>소속</b>(부서), <b>직급</b>(직위), <b>입사일</b>(임용일), <b>부여</b>(발생·연가일수), <b>사용</b>(사용일수), <b>1년미만</b>(Y/N).<br>사번 또는 성명+소속이 같은 직원은 기존 정보를 갱신하고 촉진 기록은 유지합니다.</p>
+        <p class="muted">첫 행에 제목이 있는 표를 인식합니다. <b>종합정보시스템 › 인사 › 복무관리 › 연가일수관리</b>에서 내려받은 엑셀을 그대로 올리면 됩니다(교직원번호·성명·소속부서·직종·직급·연가기준일·발령종료일·연가일수·공제일수·사용일수 인식, 잔여일수로 검증).<br>그 밖의 양식에서 인식하는 열 이름: <b>사번</b>(직원번호), <b>성명</b>(이름), <b>소속</b>(부서), <b>직급</b>(직위), <b>입사일</b>(임용일), <b>연가일수</b>(부여·발생), <b>사용</b>(사용일수), <b>1년미만</b>(Y/N).<br>사번 또는 성명+소속이 같은 직원은 기존 정보를 갱신하고 촉진 기록은 유지합니다.</p>
         <div class="row" style="margin-top:12px">
           <input type="file" id="fileImport" accept=".xlsx,.xls,.csv" style="display:none">
           <button class="btn" id="btnImport">파일 선택</button>
@@ -320,7 +320,7 @@
         <h3>사용 순서</h3>
         <ul>
           <li>설정에서 기관명·통보 명의·연가 기간을 입력합니다.</li>
-          <li>엑셀로 직원 명단(부여·사용일수 포함)을 불러오거나 직접 추가합니다.</li>
+          <li>엑셀로 직원 명단(연가·사용일수 포함)을 불러오거나 직접 추가합니다.</li>
           <li>1차 기간이 되면 직원을 선택해 <b>1차 통보서 인쇄</b> → 배부 후 <b>1차 통보일 기록</b>.</li>
           <li>계획서를 받은 직원은 상세 화면에서 제출일과 사용 예정일을 입력합니다.</li>
           <li>제출 기한이 지난 미제출자에게 사용일을 지정해 <b>2차 지정통보서 인쇄</b> → <b>2차 통보일 기록</b>.</li>
@@ -361,7 +361,7 @@
         <div><label class="f">직급</label><input type="text" id="ePos"></div>
         <div><label class="f">입사일(연가기준일)</label><input type="date" id="eHire"></div>
         <div><label class="f">발령(계약) 종료일 · 퇴직(예정)일</label><input type="date" id="eEnd"></div>
-        <div><label class="f">부여일수 (비우면 자동)</label><input type="number" step="0.5" min="0" id="eGranted"></div>
+        <div><label class="f">연가일수 (비우면 자동)</label><input type="number" step="0.5" min="0" id="eGranted"></div>
         <div id="wMG"><label class="f">월차분 일수 (비우면 자동)</label><input type="number" step="0.5" min="0" id="eMGranted"></div>
         <div><label class="f">공제일수</label><input type="number" step="0.5" min="0" id="eDeduct"></div>
         <div><label class="f">사용일수</label><input type="number" step="0.5" min="0" id="eUsed"></div>
@@ -740,7 +740,7 @@ function renderDash() {
   $('stats').innerHTML = [
     ['전체 직원', E.length, '명'],
     ['촉진 대상(잔여 있음)', target, '명'],
-    ['총 부여', num(tg), '일'],
+    ['총 연가일수', num(tg), '일'],
     ['총 사용(공제 포함)', num(tu), '일'],
     ['평균 사용률', num(rate), '%', rate],
     ['조치 필요', U.filter((u, i) => { const x = todoOf(u, st[i]); return x && x.o <= 3; }).length, '건']
@@ -1030,7 +1030,7 @@ function refreshModalInfo() {
     if (pm.prior) h += '월차(임용일 기준): 직전 학년도 발생 ' + pm.prior + '일 중 사용·보상 <b>' + pm.used + '일</b> · 이월 ' + pm.carried + '일 + 이번 학년도 발생 ' + pm.cur + '일' + (tmpE.fix == null ? ' (연가수정일수 없음 — 역산값)' : '') + '<br>';
     h += '<b>[' + tmp.label + ']</b> ';
   }
-  h += '부여 <b>' + num(granted(tmp)) + '일</b>' + (!split && tmpE.granted === '' ? '(자동)' : '') + (deduct(tmp) ? ' · 공제 ' + num(deduct(tmp)) + '일' : '') + ' · 사용 ' + num(used(tmp)) + '일 · 잔여 <b>' + num(remain(tmp)) + '일</b>';
+  h += '연가일수 <b>' + num(granted(tmp)) + '일</b>' + (!split && tmpE.granted === '' ? '(자동)' : '') + (deduct(tmp) ? ' · 공제 ' + num(deduct(tmp)) + '일' : '') + ' · 사용 ' + num(used(tmp)) + '일 · 잔여 <b>' + num(remain(tmp)) + '일</b>';
   if (s) h += '<br>' + (s.type === 'u1' ? '[입사일 기준] 사용기간 ' + fmtK(tmp.hireDate) + '~' + fmtK(s.expire) + ' · ' : '') + '1차 ' + fmtK(s.w1s) + '~' + fmtK(s.w1e) + ' · 2차 ' + fmtK(s.d2) + '까지 · 소멸 ' + fmtK(s.expire);
   if (st.due) h += '<br>계획서 제출 기한: ' + fmtK(st.due);
   const stl = tmpE.endDate ? settlement(tmpE) : null;
@@ -1082,10 +1082,10 @@ $('btnAdd').onclick = () => openEmp(null);
 function infoTable(e) {
   const S = DB.settings;
   return '<table><tr><th>소속</th><th>직급</th><th>사번</th><th>성명</th></tr><tr><td>' + esc(e.dept) + '</td><td>' + esc(e.position) + '</td><td>' + esc(e.empNo) + '</td><td>' + esc(e.name) + '</td></tr></table>' +
-    '<table><tr><th>연가 사용기간</th><th>부여일수</th>' + (deduct(e) ? '<th>공제일수</th>' : '') + '<th>사용일수</th><th>미사용일수</th></tr><tr><td>' + periodText(e) + '</td><td>' + num(granted(e)) + '일</td>' + (deduct(e) ? '<td>' + num(deduct(e)) + '일</td>' : '') + '<td>' + num(used(e)) + '일</td><td><b>' + num(remain(e)) + '일</b></td></tr></table>' + priorNote(e);
+    '<table><tr><th>연가 사용기간</th><th>연가일수</th>' + (deduct(e) ? '<th>공제일수</th>' : '') + '<th>사용일수</th><th>미사용일수</th></tr><tr><td>' + periodText(e) + '</td><td>' + num(granted(e)) + '일</td>' + (deduct(e) ? '<td>' + num(deduct(e)) + '일</td>' : '') + '<td>' + num(used(e)) + '일</td><td><b>' + num(remain(e)) + '일</b></td></tr></table>' + priorNote(e);
 }
 function priorNote(e) {
-  return e.part === 'm' && e.priorUsed ? '<p style="font-size:13px;margin-top:-10px">※ 부여·사용일수는 임용일 기준 월차 전체이며, 사용일수에 ' + fmtK(addDays(parseD(DB.settings.start), -1)).replace(/\.$/, '') + '. 이전 사용(연가보상 포함) ' + num(e.priorUsed) + '일이 포함되어 있습니다.</p>' : '';
+  return e.part === 'm' && e.priorUsed ? '<p style="font-size:13px;margin-top:-10px">※ 연가·사용일수는 임용일 기준 월차 전체이며, 사용일수에 ' + fmtK(addDays(parseD(DB.settings.start), -1)).replace(/\.$/, '') + '. 이전 사용(연가보상 포함) ' + num(e.priorUsed) + '일이 포함되어 있습니다.</p>' : '';
 }
 function periodText(e) {
   const s = schedule(e);
@@ -1228,7 +1228,7 @@ $('fileImport').onchange = async ev => {
 };
 $('btnTemplate').onclick = () => {
   if (!window.XLSX) return toast('엑셀 모듈을 불러오지 못했습니다');
-  const ws = XLSX.utils.aoa_to_sheet([['사번', '성명', '소속', '직급', '입사일', '부여일수', '사용일수', '1년미만'],
+  const ws = XLSX.utils.aoa_to_sheet([['사번', '성명', '소속', '직급', '입사일', '연가일수', '사용일수', '1년미만'],
     ['2015001', '홍길동', '총무팀', '주임', '2015-03-01', 20, 5, 'N']]);
   ws['!cols'] = [10, 10, 14, 10, 12, 10, 10, 8].map(w => ({ wch: w }));
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '직원명단'); XLSX.writeFile(wb, '연가촉진_명단양식.xlsx');
@@ -1236,7 +1236,7 @@ $('btnTemplate').onclick = () => {
 function exportUnits(list, fileTag) {
   if (!window.XLSX) return toast('엑셀 모듈을 불러오지 못했습니다');
   if (!list.length) return toast('내보낼 데이터가 없습니다');
-  const aoa = [['사번', '성명', '구분', '소속', '직종', '직급', '연가기준일', '발령종료일', '1년미만/비례', '부여일수', '공제일수', '사용일수', '잔여일수', '사용률(%)',
+  const aoa = [['사번', '성명', '구분', '소속', '직종', '직급', '연가기준일', '발령종료일', '1년미만/비례', '연가일수', '공제일수', '사용일수', '잔여일수', '사용률(%)',
     '1차 통보기간 시작', '1차 통보기간 종료', '1차 통보일', '계획 제출기한', '계획 제출일', '사용 예정일', '2차 통보기한', '2차 통보일', '지정 사용일', '소멸일', '상태', '절차 점검', '퇴직 정산(입사일 기준)', '메모']];
   list.forEach(e => {
     const st = status(e), c = compliance(e), g = granted(e), s = st.s;
@@ -1299,7 +1299,7 @@ $('fileRestoreXlsx').onchange = async ev => {
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '', raw: true });
     const norm = h => String(h || '').replace(/\s/g, '');
     const CM = { '사번': 'empNo', '성명': 'name', '구분': 'label', '소속': 'dept', '직종': 'jobType', '직급': 'position', '연가기준일': 'hireDate', '발령종료일': 'endDate',
-      '부여일수': 'granted', '공제일수': 'deduct', '사용일수': 'used', '1차통보일': 'n1Date', '계획제출일': 'planDate', '사용예정일': 'planText', '2차통보일': 'n2Date', '지정사용일': 'designText', '메모': 'memo' };
+      '연가일수': 'granted', '부여일수': 'granted', '공제일수': 'deduct', '사용일수': 'used', '1차통보일': 'n1Date', '계획제출일': 'planDate', '사용예정일': 'planText', '2차통보일': 'n2Date', '지정사용일': 'designText', '메모': 'memo' };
     const hi = rows.findIndex(r => r.some(c => norm(c) === '1차통보일') && r.some(c => norm(c) === '사번'));
     if (hi < 0) return toast('관리대장 엑셀이 아닙니다(사번·1차 통보일 열 없음)');
     const map = rows[hi].map(c => CM[norm(c)] || null);
@@ -1329,7 +1329,7 @@ $('fileRestoreXlsx').onchange = async ev => {
   } catch (err) { console.error(err); toast('파일을 읽지 못했습니다: ' + err.message); }
 };
 $('btnNewPeriod').onclick = () => {
-  if (!confirm('새 연가 기간을 시작합니다.\n· 기간을 1년 뒤로 이동\n· 모든 직원의 사용일수·통보 기록·계획 초기화\n· 자동계산이 아닌 부여일수는 비움(다시 입력 또는 엑셀 업로드)\n\n먼저 백업 파일을 저장하는 것을 권장합니다. 계속할까요?')) return;
+  if (!confirm('새 연가 기간을 시작합니다.\n· 기간을 1년 뒤로 이동\n· 모든 직원의 사용일수·통보 기록·계획 초기화\n· 자동계산이 아닌 연가일수는 비움(다시 입력 또는 엑셀 업로드)\n\n먼저 백업 파일을 저장하는 것을 권장합니다. 계속할까요?')) return;
   const S = DB.settings, st = addMonths(parseD(S.start), 12);
   S.start = fmt(st); S.end = fmt(addDays(addMonths(st, 12), -1));
   DB.employees.forEach(e => { Object.assign(e, { granted: '', mGranted: '', m: {}, used: 0, deduct: 0, n1Date: '', planDate: '', planText: '', n2Date: '', designText: '' });
