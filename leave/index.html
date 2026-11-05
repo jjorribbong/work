@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#2563eb">
+<title>연가사용촉진 매니저</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --blue: #2563eb; --blue-soft: #eff6ff;
+    --green: #16a34a; --green-soft: #f0fdf4;
+    --orange: #ea580c; --orange-soft: #fff7ed;
+    --red: #dc2626; --red-soft: #fef2f2;
+    --gray: #9ca3af; --gray-soft: #f3f4f6;
+    --bg: #f3f4f6; --card: #ffffff; --text: #111827; --sub: #6b7280; --border: #e5e7eb;
+  }
+  html, body { background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; }
+  #app { max-width: 1100px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+  header { background: var(--blue); color: #fff; padding: calc(14px + env(safe-area-inset-top, 0px)) 20px 0; position: sticky; top: 0; z-index: 20; }
+  header .top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  header h1 { font-size: 20px; font-weight: 700; }
+  header .sub { font-size: 12px; opacity: .85; }
+  nav { display: flex; gap: 4px; margin-top: 10px; overflow-x: auto; }
+  nav button { background: none; border: none; color: rgba(255,255,255,.75); font-size: 14px; font-weight: 600; padding: 10px 14px; border-bottom: 3px solid transparent; cursor: pointer; white-space: nowrap; }
+  nav button.active { color: #fff; border-bottom-color: #fff; }
+  main { flex: 1; padding: 16px 16px 60px; }
+  .page { display: none; } .page.active { display: block; }
+  .card { background: var(--card); border-radius: 14px; padding: 18px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .card + .card, .grid + .card, .card + .grid { margin-top: 14px; }
+  .card h2 { font-size: 16px; margin-bottom: 12px; }
+  .card h2 small { font-weight: 400; color: var(--sub); font-size: 12px; margin-left: 6px; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .stat { background: var(--card); border-radius: 14px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .stat .label { font-size: 12px; color: var(--sub); font-weight: 600; }
+  .stat .value { font-size: 24px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .stat .value small { font-size: 13px; font-weight: 600; color: var(--sub); margin-left: 2px; }
+  .bar { height: 8px; background: var(--gray-soft); border-radius: 99px; overflow: hidden; margin-top: 8px; }
+  .bar > div { height: 100%; background: var(--blue); }
+  .timeline { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .step { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; position: relative; }
+  .step.now { border-color: var(--orange); background: var(--orange-soft); }
+  .step.done { opacity: .6; }
+  .step .n { font-size: 11px; font-weight: 700; color: var(--blue); }
+  .step .t { font-weight: 700; margin: 2px 0 4px; font-size: 14px; }
+  .step .d { font-size: 13px; color: var(--sub); font-variant-numeric: tabular-nums; }
+  .step .dday { position: absolute; top: 10px; right: 12px; font-size: 12px; font-weight: 800; color: var(--orange); }
+  .btn { border: none; border-radius: 10px; padding: 10px 14px; font-size: 14px; font-weight: 700; cursor: pointer; background: var(--blue); color: #fff; white-space: nowrap; }
+  .btn.ghost { background: #fff; color: var(--blue); border: 1.5px solid var(--blue); }
+  .btn.gray { background: var(--gray-soft); color: var(--text); }
+  .btn.danger { background: #fff; color: var(--red); border: 1.5px solid var(--red); }
+  .btn.sm { padding: 6px 10px; font-size: 12px; border-radius: 8px; }
+  .btn[disabled] { opacity: .45; cursor: default; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row.end { justify-content: flex-end; }
+  .spacer { flex: 1; }
+  label.f { display: block; font-size: 12px; color: var(--sub); font-weight: 700; margin-bottom: 4px; }
+  input[type=text], input[type=number], input[type=date], select, textarea {
+    width: 100%; border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; font-size: 14px; background: #fff; color: var(--text); font-family: inherit; }
+  textarea { resize: vertical; min-height: 60px; }
+  .form { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .form .full { grid-column: 1 / -1; }
+  .check { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .toolbar input, .toolbar select { width: auto; flex: 1 1 140px; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+  table.list { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 860px; }
+  table.list th { background: #f9fafb; color: var(--sub); font-weight: 700; text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; position: sticky; top: 0; }
+  table.list td { padding: 9px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  table.list tr:last-child td { border-bottom: none; }
+  table.list tbody tr { cursor: pointer; } table.list tbody tr:hover { background: #f9fafb; }
+  table.list td.num, table.list th.num { text-align: right; }
+  .badge { display: inline-block; white-space: nowrap; padding: 3px 8px; border-radius: 99px; font-size: 12px; font-weight: 700; }
+  .b-gray { background: var(--gray-soft); color: #4b5563; }
+  .b-blue { background: var(--blue-soft); color: var(--blue); }
+  .b-green { background: var(--green-soft); color: var(--green); }
+  .b-orange { background: var(--orange-soft); color: var(--orange); }
+  .b-red { background: var(--red-soft); color: var(--red); }
+  .muted { color: var(--sub); font-size: 13px; line-height: 1.6; }
+  .empty { text-align: center; padding: 36px 16px; color: var(--sub); font-size: 14px; line-height: 1.7; }
+  .todo { display: flex; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .todo:last-child { border-bottom: none; }
+  .todo .who { font-weight: 700; } .todo .why { color: var(--sub); font-size: 13px; }
+  .help h3 { font-size: 14px; margin: 14px 0 6px; } .help h3:first-child { margin-top: 0; }
+  .help p, .help li { font-size: 13px; line-height: 1.7; color: #374151; } .help ul { padding-left: 18px; }
+  /* modal */
+  .modal-bg { position: fixed; inset: 0; background: rgba(17,24,39,.45); display: none; align-items: flex-start; justify-content: center; z-index: 50; overflow-y: auto; padding: 30px 12px; }
+  .modal-bg.open { display: flex; }
+  .modal { background: #fff; border-radius: 16px; width: 100%; max-width: 720px; padding: 20px; }
+  .modal h2 { font-size: 18px; margin-bottom: 4px; }
+  .modal .sec { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .modal .sec-title { font-size: 13px; font-weight: 800; color: var(--blue); margin-bottom: 10px; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #111827; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 14px; white-space: nowrap; z-index: 99; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  /* print */
+  #printArea { display: none; }
+  .doc { font-family: 'Batang', 'Nanum Myeongjo', serif; color: #000; padding: 20mm 18mm; page-break-after: always; min-height: 250mm; position: relative; }
+  .doc:last-child { page-break-after: auto; }
+  .doc h1 { text-align: center; font-size: 22px; letter-spacing: 2px; margin-bottom: 26px; }
+  .doc p { font-size: 14.5px; line-height: 2; text-align: justify; margin-bottom: 10px; }
+  .doc table { width: 100%; border-collapse: collapse; margin: 14px 0 18px; font-size: 14px; }
+  .doc th, .doc td { border: 1px solid #000; padding: 8px; text-align: center; }
+  .doc th { background: #f2f2f2; }
+  .doc .date { text-align: center; margin: 30px 0 14px; font-size: 15px; }
+  .doc .sign { text-align: center; font-size: 20px; font-weight: 700; letter-spacing: 3px; margin-top: 10px; }
+  .doc .receipt { margin-top: 40px; border-top: 1px dashed #000; padding-top: 14px; font-size: 14px; line-height: 2.2; }
+  .doc .law { font-size: 12px; color: #333; border: 1px solid #999; padding: 8px 10px; margin-top: 18px; line-height: 1.7; }
+  .doc .lines td { height: 34px; }
+  @media print {
+    html, body { background: #fff !important; }
+    body > *:not(#printArea) { display: none !important; }
+    #printArea { display: block; }
+    @page { size: A4; margin: 0; }
+  }
+  @media (max-width: 600px) {
+    main { padding: 12px 10px 50px; }
+    .card { padding: 14px; }
+    .stat .value { font-size: 20px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="top">
+      <h1>연가사용촉진 매니저</h1>
+      <div class="sub" id="hdrPeriod"></div>
+    </div>
+    <nav>
+      <button data-page="dash" class="active">대시보드</button>
+      <button data-page="emp">직원·진행관리</button>
+      <button data-page="settings">설정·데이터</button>
+      <button data-page="help">도움말</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- 대시보드 -->
+    <section class="page active" id="page-dash">
+      <div class="card">
+        <h2>촉진 일정 <small id="todayLbl"></small></h2>
+        <div class="timeline" id="timeline"></div>
+        <p class="muted" style="margin-top:10px">근로기준법 제61조 기준 · 1년 미만 근로자는 입사일별 일정이 따로 계산됩니다(직원 상세에서 확인).</p>
+      </div>
+      <div class="grid" id="stats" style="margin-top:14px"></div>
+      <div class="card">
+        <h2>지금 할 일 <small id="todoCount"></small></h2>
+        <div id="todoList"></div>
+      </div>
+      <div class="card">
+        <h2>부서별 연가 사용률</h2>
+        <div id="deptStats"></div>
+      </div>
+    </section>
+
+    <!-- 직원·진행관리 -->
+    <section class="page" id="page-emp">
+      <div class="card">
+        <div class="toolbar">
+          <input type="text" id="q" placeholder="이름·사번·소속 검색">
+          <select id="fDept"><option value="">전체 소속</option></select>
+          <select id="fType"><option value="">전체 직종</option></select>
+          <select id="fStatus"><option value="">전체 상태</option></select>
+          <button class="btn" id="btnAdd">+ 직원 추가</button>
+        </div>
+        <div class="toolbar" id="bulkBar">
+          <span class="muted" id="selInfo">선택 0명</span>
+          <span class="spacer"></span>
+          <button class="btn sm ghost" data-bulk="n1">1차 통보일 기록</button>
+          <button class="btn sm ghost" data-bulk="n2">2차 통보일 기록</button>
+          <button class="btn sm" data-bulk="p1">1차 통보서 인쇄</button>
+          <button class="btn sm" data-bulk="pf">사용계획서 양식 인쇄</button>
+          <button class="btn sm" data-bulk="p2">2차 지정통보서 인쇄</button>
+        </div>
+        <div class="table-wrap">
+          <table class="list">
+            <thead><tr>
+              <th><input type="checkbox" id="chkAll"></th>
+              <th>사번</th><th>성명</th><th>소속</th><th>직종/직급</th>
+              <th class="num">부여</th><th class="num">공제</th><th class="num">사용</th><th class="num">잔여</th>
+              <th>1차 통보</th><th>계획 제출</th><th>2차 지정</th><th>상태</th>
+            </tr></thead>
+            <tbody id="empBody"></tbody>
+          </table>
+        </div>
+        <p class="muted" style="margin-top:8px">행을 누르면 상세 정보·통보 기록·사용계획을 입력할 수 있습니다.</p>
+      </div>
+    </section>
+
+    <!-- 설정·데이터 -->
+    <section class="page" id="page-settings">
+      <div class="card">
+        <h2>기본 설정</h2>
+        <div class="form">
+          <div><label class="f">기관명</label><input type="text" id="sOrg"></div>
+          <div><label class="f">통보 명의 (예: ○○대학교 총장)</label><input type="text" id="sSigner"></div>
+          <div><label class="f">담당 부서</label><input type="text" id="sDept"></div>
+          <div><label class="f">연가 산정 기간 시작</label><input type="date" id="sStart"></div>
+          <div><label class="f">연가 산정 기간 종료</label><input type="date" id="sEnd"></div>
+        </div>
+        <p class="muted" style="margin-top:10px">학년도(3. 1.~2월 말일) 기준으로 운영합니다. 부여일수는 종합정보시스템 엑셀 값을 그대로 쓰며, 비어 있으면 같은 방식으로 자동 계산합니다.<br>· 근속년수 = 현재 학년도 − 입사 학년도 · 2년 이상: 15일 + (근속−1)÷2일, 최대 25일<br>· 엑셀의 사용일수는 이번 학년도 사용분만이므로, 직전 학년도에 사용(또는 연가보상비로 정산)한 월차는 연가수정일수(= 비례연차 올림분 + 미사용 월차 이월분)로 역산해 월차분에 포함합니다<br>· 직전 학년도 입사: 3. 1. 비례연차(15일 × 직전 학년도 근무일수 ÷ 365, 0.5일 단위 올림) + 소멸 전 월차 — 목록에서 '월차분'(입사 1년 되는 날 전날 소멸)과 '비례연차분'(학년도 말 소멸)으로 나누어 각각 촉진하며, 사용일수는 월차분에서 먼저 차감<br>· 이번 학년도 입사: 학년도 안에 발생할 월차(매월 1일, 최대 11일) — 1년 미만 촉진 일정 적용</p>
+        <div class="row end" style="margin-top:12px"><button class="btn" id="btnSaveSettings">설정 저장</button></div>
+      </div>
+
+      <div class="card">
+        <h2>엑셀 불러오기 <small>.xlsx · .xls · .csv</small></h2>
+        <p class="muted">첫 행에 제목이 있는 표를 인식합니다. <b>종합정보시스템 › 인사 › 복무관리 › 연가일수관리</b>에서 내려받은 엑셀을 그대로 올리면 됩니다(교직원번호·성명·소속부서·직종·직급·연가기준일·발령종료일·연가일수·공제일수·사용일수 인식, 잔여일수로 검증).<br>그 밖의 양식에서 인식하는 열 이름: <b>사번</b>(직원번호), <b>성명</b>(이름), <b>소속</b>(부서), <b>직급</b>(직위), <b>입사일</b>(임용일), <b>부여</b>(발생·연가일수), <b>사용</b>(사용일수), <b>1년미만</b>(Y/N).<br>사번 또는 성명+소속이 같은 직원은 기존 정보를 갱신하고 촉진 기록은 유지합니다.</p>
+        <div class="row" style="margin-top:12px">
+          <input type="file" id="fileImport" accept=".xlsx,.xls,.csv" style="display:none">
+          <button class="btn" id="btnImport">파일 선택</button>
+          <button class="btn ghost" id="btnTemplate">양식 내려받기</button>
+          <button class="btn ghost" id="btnExport">관리대장 엑셀 저장</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>백업 · 초기화</h2>
+        <p class="muted">모든 데이터는 이 브라우저(기기)에만 저장되며 서버로 전송되지 않습니다. 다른 PC에서 쓰거나 분실에 대비해 백업 파일을 보관하세요.</p>
+        <div class="row" style="margin-top:12px">
+          <button class="btn ghost" id="btnBackup">백업 파일 저장</button>
+          <input type="file" id="fileRestore" accept=".json" style="display:none">
+          <button class="btn ghost" id="btnRestore">백업 복원</button>
+          <button class="btn gray" id="btnSample">예시 데이터 넣기</button>
+          <span class="spacer"></span>
+          <button class="btn danger" id="btnNewPeriod">새 기간 시작(촉진 기록 초기화)</button>
+          <button class="btn danger" id="btnReset">전체 삭제</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 도움말 -->
+    <section class="page" id="page-help">
+      <div class="card help">
+        <h3>연차유급휴가 사용촉진이란? (근로기준법 제61조)</h3>
+        <p>사용자가 아래 절차를 모두 이행했는데도 근로자가 휴가를 사용하지 않아 소멸된 경우, 사용자는 미사용 휴가에 대한 금전 보상 의무를 지지 않습니다.</p>
+        <h3>1년 이상 근로자 (학년도 3. 1.~2. 28. 기준)</h3>
+        <ul>
+          <li><b>1차 촉진</b> — 기간 만료 6개월 전을 기준으로 10일 이내(9. 1.~9. 10.) 근로자별 미사용 일수를 알리고 사용 시기를 정해 통보하도록 <b>서면</b> 촉구</li>
+          <li><b>사용계획 제출</b> — 근로자는 촉구를 받은 날부터 10일 이내 사용 시기를 정해 사용자에게 통보</li>
+          <li><b>2차 촉진</b> — 근로자가 10일 이내 통보하지 않으면, 사용자가 기간 만료 2개월 전까지(12. 31.) 사용 시기를 지정해 <b>서면</b> 통보</li>
+        </ul>
+        <h3>1년 미만 근로자 (매월 1일씩, 최대 11일)</h3>
+        <p>이번 학년도 입사자는 '1년미만'으로 자동 표시되어 입사일 기준 일정이 적용됩니다. 직전 학년도 입사자는 연차가 두 종류로 나뉘어 목록에 두 줄로 표시됩니다.<br>· <b>월차분</b>: 입사 1년 미만 기간 매월 1일(최대 11일) — 입사 1년 되는 날 전날 소멸, 1차는 그 3개월 전부터 10일 이내, 2차는 1개월 전까지<br>· <b>비례연차분</b>: 3. 1.에 15일 × 직전 학년도 근무일수 ÷ 365(0.5일 단위 올림) — 학년도 일정 적용<br>예) 2025. 10. 1. 입사 → 월차 11일(2026. 9. 30. 소멸, 1차 7. 1.~7. 10., 2차 8. 31.까지) + 비례연차 6.5일(151일, 2027. 2. 28. 소멸, 1차 9. 1.~9. 10., 2차 12. 31.까지). 사용일수는 월차분에서 먼저 차감합니다.</p>
+        <ul>
+          <li>1차: 입사 1년 되는 날의 3개월 전 기준 10일 이내 / 2차: 1개월 전까지</li>
+          <li>1차 서면 촉구 <b>후에 발생한</b> 휴가(예: 7. 1. 촉구 후 8. 1.·9. 1. 발생분)는 1차: 최초 1년 근로기간이 끝나기 1개월 전 기준 5일 이내 / 2차: 10일 전까지 (제61조 제2항 각 호 단서, 이 프로그램에서는 메모로 관리)</li>
+          <li>1년 미만 기간 발생 월차는 발생 시기와 관계없이 모두 <b>최초 1년의 근로가 끝날 때</b> 소멸합니다(제60조 제7항 단서).</li>
+        </ul>
+        <h3>사용 순서</h3>
+        <ul>
+          <li>설정에서 기관명·통보 명의·연가 기간을 입력합니다.</li>
+          <li>엑셀로 직원 명단(부여·사용일수 포함)을 불러오거나 직접 추가합니다.</li>
+          <li>1차 기간이 되면 직원을 선택해 <b>1차 통보서 인쇄</b> → 배부 후 <b>1차 통보일 기록</b>.</li>
+          <li>계획서를 받은 직원은 상세 화면에서 제출일과 사용 예정일을 입력합니다.</li>
+          <li>제출 기한이 지난 미제출자에게 사용일을 지정해 <b>2차 지정통보서 인쇄</b> → <b>2차 통보일 기록</b>.</li>
+          <li>사용일수는 수시로 갱신(엑셀 재업로드 가능)하고, 대시보드의 <b>지금 할 일</b>을 확인합니다.</li>
+        </ul>
+        <h3>1년 미만 근무 후 퇴직자 정산 (입사일 기준)</h3>
+        <ul>
+          <li>입사일 기준 법정 연차는 퇴직일까지 발생한 월차(매월 1일, 최대 11일)뿐이며, 3. 1. 비례연차는 정산에서 제외됩니다.</li>
+          <li>월차는 1개월 개근한 다음 날 재직 중이어야 발생합니다. 예) 2025. 10. 1. 입사, 2026. 6. 30. 퇴직 → 8일 (7. 1. 발생분 없음)</li>
+          <li>1년 계약으로 입사 1년 되는 날 전날 계약이 끝나면 15일 연차는 발생하지 않습니다(대법원 2021다227100).</li>
+          <li>직원 상세에 발령(계약) 종료일·퇴직(예정)일을 넣으면 미사용 수당 지급 또는 초과사용 일수를 계산합니다(개근 가정).</li>
+          <li>초과사용분을 임금에서 공제하려면 근로자의 자유로운 의사에 따른 동의가 필요합니다(임금 전액지급 원칙, 근로기준법 제43조). 복무확인서와 함께 복무규정에도 근거를 두고, 퇴직 시 정산 내역을 확인받는 것을 권장합니다.</li>
+        </ul>
+        <h3>유의사항</h3>
+        <ul>
+          <li>통보는 서면(전자결재·사내 전자문서 포함)으로 해야 하며, 문자·구두 통보는 인정되지 않을 수 있습니다. 수령 확인을 받아 보관하세요.</li>
+          <li>지정된 사용일에 근로자가 출근한 경우, 노무 수령 거부 의사를 명확히 표시해야 보상 면제가 인정됩니다.</li>
+          <li>본 프로그램의 일정 계산은 업무 보조용이며, 기관 취업규칙·단체협약을 함께 확인하세요.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- 직원 상세 모달 -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div class="row"><h2 id="mTitle">직원 정보</h2><span class="spacer"></span><span id="mBadge"></span></div>
+    <div class="row" id="mParts" style="margin-top:8px"></div>
+    <p class="muted" id="mSched" style="margin-top:6px"></p>
+    <div class="sec">
+      <div class="sec-title">기본 정보</div>
+      <div class="form">
+        <div><label class="f">사번</label><input type="text" id="eEmpNo"></div>
+        <div><label class="f">성명 *</label><input type="text" id="eName"></div>
+        <div><label class="f">소속</label><input type="text" id="eDept"></div>
+        <div><label class="f">직종</label><input type="text" id="eType"></div>
+        <div><label class="f">직급</label><input type="text" id="ePos"></div>
+        <div><label class="f">입사일(연가기준일)</label><input type="date" id="eHire"></div>
+        <div><label class="f">발령(계약) 종료일 · 퇴직(예정)일</label><input type="date" id="eEnd"></div>
+        <div><label class="f">부여일수 (비우면 자동)</label><input type="number" step="0.5" min="0" id="eGranted"></div>
+        <div id="wMG"><label class="f">월차분 일수 (비우면 자동)</label><input type="number" step="0.5" min="0" id="eMGranted"></div>
+        <div><label class="f">공제일수</label><input type="number" step="0.5" min="0" id="eDeduct"></div>
+        <div><label class="f">사용일수</label><input type="number" step="0.5" min="0" id="eUsed"></div>
+        <div style="align-self:end"><label class="check"><input type="checkbox" id="eUnder1"> 1년 미만 근로자</label></div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-title" id="secT1">1차 촉진 · 사용계획</div>
+      <div class="form">
+        <div><label class="f">1차 통보(서면 촉구)일</label><input type="date" id="eN1"></div>
+        <div><label class="f">사용계획 제출일</label><input type="date" id="ePlanDate"></div>
+        <div class="full"><label class="f">근로자 제출 사용 예정일 (예: 2026-08-14, 2026-09-25)</label><textarea id="ePlanText"></textarea></div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-title" id="secT2">2차 촉진 (미제출자 사용시기 지정)</div>
+      <div class="form">
+        <div><label class="f">2차 지정 통보일</label><input type="date" id="eN2"></div>
+        <div class="full"><label class="f">사용자 지정 사용일</label><textarea id="eDesignText"></textarea></div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="form">
+        <div class="full"><label class="f">메모</label><textarea id="eMemo"></textarea></div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:18px">
+      <button class="btn danger sm" id="mDelete">삭제</button>
+      <span class="spacer"></span>
+      <button class="btn ghost sm" id="mP1">1차 통보서</button>
+      <button class="btn ghost sm" id="mPF">계획서 양식</button>
+      <button class="btn ghost sm" id="mP2">2차 통보서</button>
+    </div>
+    <div class="row end" style="margin-top:10px">
+      <button class="btn gray" id="mCancel">닫기</button>
+      <button class="btn" id="mSave">저장</button>
+    </div>
+  </div>
+</div>
+
+<div id="printArea"></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+'use strict';
+/* ============ 저장소 ============ */
+const KEY = 'leavePromo.v1';
+// 학년도 기준(3. 1. ~ 다음 해 2월 말일) — 오늘이 속한 학년도
+const _t = new Date(), curAY = _t.getMonth() >= 2 ? _t.getFullYear() : _t.getFullYear() - 1;
+function ayEnd(y) { return new Date(y + 1, 2, 0); } // 다음 해 2월 말일(윤년 자동)
+function defaultData() {
+  const e = ayEnd(curAY);
+  return {
+    settings: { v: 2, org: '', signer: '', dept: '인사팀',
+      start: curAY + '-03-01', end: e.getFullYear() + '-02-' + String(e.getDate()).padStart(2, '0') },
+    employees: []
+  };
+}
+let DB = load();
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem(KEY));
+    if (d && d.settings && Array.isArray(d.employees)) {
+      if (!d.settings.v) { // v1(달력연도 기본값) → 학년도 기준으로 전환
+        if (/-01-01$/.test(d.settings.start || '') && /-12-31$/.test(d.settings.end || '')) { const df = defaultData().settings; d.settings.start = df.start; d.settings.end = df.end; }
+        d.employees.forEach(e => { if (e.under1 === false) e.under1 = null; });
+        d.settings.v = 2;
+      }
+      delete d.settings.calcBase;
+      return { settings: Object.assign(defaultData().settings, d.settings), employees: d.employees };
+    }
+  } catch (e) {}
+  return defaultData();
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(DB)); }
+  catch (e) { toast('저장 실패: 브라우저 저장공간을 확인하세요'); }
+}
+
+/* ============ 날짜 ============ */
+const pad = n => String(n).padStart(2, '0');
+function parseD(s) { if (!s) return null; const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; }
+function fmt(d) { return d ? d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) : ''; }
+function fmtK(d) { if (typeof d === 'string') d = parseD(d); return d ? d.getFullYear() + '. ' + (d.getMonth() + 1) + '. ' + d.getDate() + '.' : ''; }
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+function addMonths(d, n) {
+  const y = d.getFullYear(), m = d.getMonth() + n, day = d.getDate();
+  const last = new Date(y, m + 1, 0).getDate();
+  return new Date(y, m, Math.min(day, last));
+}
+function today() { const t = new Date(); return new Date(t.getFullYear(), t.getMonth(), t.getDate()); }
+function diffDays(a, b) { return Math.round((b - a) / 86400000); }
+function dday(d) { const n = diffDays(today(), d); return n === 0 ? 'D-DAY' : n > 0 ? 'D-' + n : 'D+' + (-n); }
+function normDate(v) {
+  if (v == null || v === '') return '';
+  if (v instanceof Date && !isNaN(v)) return fmt(v);
+  if (typeof v === 'number' && v > 20000 && v < 80000) { // 엑셀 일련번호
+    const d = new Date(Math.round((v - 25569) * 86400000));
+    return fmt(new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  }
+  const m = /(\d{4})\s*[.\-\/년]\s*(\d{1,2})\s*[.\-\/월]\s*(\d{1,2})/.exec(String(v));
+  if (m) return m[1] + '-' + pad(+m[2]) + '-' + pad(+m[3]);
+  const m2 = /^(\d{4})(\d{2})(\d{2})$/.exec(String(v).trim());
+  return m2 ? m2[1] + '-' + m2[2] + '-' + m2[3] : '';
+}
+
+/* ============ 연가·일정 계산 ============ */
+// 학년도: 시작일(3. 1.)을 기준으로 해당 날짜가 속한 학년도
+function acadYear(d) {
+  const st = parseD(DB.settings.start) || new Date(2000, 2, 1);
+  return d >= new Date(d.getFullYear(), st.getMonth(), st.getDate()) ? d.getFullYear() : d.getFullYear() - 1;
+}
+// 근속년수 = 현재 학년도 − 입사(연가기준일) 학년도 (종합정보시스템 산정 방식)
+function tenure(e) {
+  const hire = parseD(e.hireDate), st = parseD(DB.settings.start);
+  return hire && st ? acadYear(st) - acadYear(hire) : null;
+}
+// 이번 학년도 안에 발생하는 1년 미만 월차 수 (입사 후 매월 1일, 최대 11일)
+function monthlyInPeriod(e) {
+  const hire = parseD(e.hireDate), st = parseD(DB.settings.start), en = parseD(DB.settings.end);
+  if (!hire || !st || !en) return 0;
+  let n = 0;
+  for (let k = 1; k <= 11; k++) { const d = addMonths(hire, k); if (d >= st && d <= en) n++; }
+  return n;
+}
+function isUnder1(e) { return e.under1 == null ? tenure(e) === 0 : !!e.under1; }
+function isProrated(e) { return tenure(e) === 1; }
+const ceilHalf = x => Math.ceil(Math.round(x * 1e6) / 1e6 * 2) / 2;
+// 비례연차 = 15일 × 직전 학년도 근무일수 ÷ 365, 0.5일 단위 올림
+function proratedCalc(e) {
+  const hire = parseD(e.hireDate), st = parseD(DB.settings.start);
+  if (!hire || !st || hire >= st) return 0;
+  return ceilHalf(15 * diffDays(hire, st) / 365);
+}
+/* 촉진 단위(unit): 보통 직원 1명 = 1단위.
+   직전 학년도 입사자(비례)는 소멸일이 다른 두 단위로 나눔
+   - 월차분: 입사 1년 미만 기간 발생 월차, 입사 1년 되는 날 전날 소멸(1년 미만 촉진 일정)
+   - 비례연차분: 3. 1. 부여, 학년도 말 소멸(학년도 촉진 일정)
+   사용·공제일수는 먼저 소멸하는 월차분에서 먼저 차감 */
+const REC = ['n1Date', 'planDate', 'planText', 'n2Date', 'designText'];
+const BLANK_REC = { n1Date: '', planDate: '', planText: '', n2Date: '', designText: '' };
+/* 직전 학년도 월차: 종합정보시스템 사용일수에는 이번 학년도 사용분만 있으므로
+   직전 학년도 사용 월차 = 직전 학년도 발생 월차 − 이월 월차
+   이월 월차 = 연가수정일수 − 비례연차 0.5일 올림분 (연가수정일수가 없으면 연가일수에서 역산) */
+function priorMonthly(e) {
+  const hire = parseD(e.hireDate), st = parseD(DB.settings.start);
+  let prior = 0, cur = 0;
+  if (hire && st) for (let k = 1; k <= 11; k++) { const d = addMonths(hire, k); if (d < st) prior++; else cur++; }
+  if (!prior || tenure(e) !== 1) return { prior, cur, carried: 0, used: 0 };
+  let carried;
+  if (e.fix != null && e.fix !== '') {
+    const raw = 15 * diffDays(hire, st) / 365;
+    carried = Math.round((+e.fix - (proratedCalc(e) - raw)) * 2) / 2; // 반차(0.5일) 단위
+  } else carried = Math.round((granted(e) - proratedCalc(e) - cur) * 2) / 2;
+  carried = Math.max(0, Math.min(prior, carried));
+  // 이미 소멸한 월차(입사 1년이 학년도 시작 전에 끝난 경우)는 제외
+  if (addMonths(hire, 12) <= st) return { prior, cur, carried: 0, used: 0, expired: true };
+  return { prior, cur, carried, used: prior - carried };
+}
+function isSplit(e) { return e.under1 == null && isProrated(e); }
+function splitParts(e) {
+  const G = granted(e), P = Math.min(G, proratedCalc(e));
+  const manual = e.mGranted !== '' && e.mGranted != null && !isNaN(+e.mGranted);
+  const M = manual ? Math.max(0, Math.min(G, +e.mGranted)) : Math.max(0, Math.min(11, G - P));
+  return { M, P: G - M };
+}
+function units(e) {
+  if (!isSplit(e)) return [Object.assign({}, e, { ref: e, part: '', key: e.id })];
+  const { M, P } = splitParts(e), D = deduct(e), U = used(e);
+  const dm = Math.min(D, M), um = Math.min(U, M - dm);
+  const out = [];
+  const pm = priorMonthly(e);
+  if (M > 0 || (e.m && e.m.n1Date)) out.push(Object.assign({}, e, BLANK_REC, e.m || {}, { ref: e, part: 'm', key: e.id + ':m', label: '월차분',
+    granted: M + pm.used, deduct: dm, used: um + pm.used, priorUsed: pm.used, under1: true })); // 임용일 기준: 발생 전체, 사용 = 직전+이번 학년도
+  if (P > 0 || !out.length) out.push(Object.assign({}, e, { ref: e, part: 'p', key: e.id + ':p', label: '비례연차분', granted: P, deduct: D - dm, used: U - um, under1: false }));
+  return out;
+}
+/* 1년 미만 근무 후 퇴직자 입사일 기준 정산 (복무확인서 기준)
+   - 법정 연차: 퇴직일까지 발생한 월차(입사 후 매월 같은 날 발생, 그 날 재직 필요, 최대 11일, 개근 가정)
+   - 사용: 이번 학년도 사용·공제 + 직전 학년도에 이미 쓴 월차(직전 학년도 발생 월차 − 이월된 월차)
+   - 3. 1. 비례연차는 입사일 기준 정산에서 제외 */
+function settlement(e, endStr) {
+  const hire = parseD(e.hireDate), end = parseD(endStr || e.endDate), st = parseD(DB.settings.start);
+  if (!hire || !end || !st || end < hire) return null;
+  if (end >= addMonths(hire, 12)) return { over1: true };
+  let accrued = 0, prior = 0, curAll = 0;
+  for (let k = 1; k <= 11; k++) { const d = addMonths(hire, k); if (d <= end) accrued++; if (d < st) prior++; else curAll++; }
+  const priorUsed = isSplit(e) ? priorMonthly(e).used : 0;
+  const usedTotal = consumed(e) + priorUsed;
+  return { over1: false, accrued, priorUsed, usedTotal, diff: accrued - usedTotal };
+}
+function settleText(r) {
+  if (!r) return '';
+  if (r.over1) return '1년 이상 근속 — 학년도 기준과 입사일 기준을 비교해 유리한 쪽으로 정산';
+  return '입사일 기준 발생 ' + num(r.accrued) + '일 − 사용 ' + num(r.usedTotal) + '일' + (r.priorUsed ? '(직전 학년도 사용·보상 ' + num(r.priorUsed) + '일 포함)' : '') + ' = ' +
+    (r.diff > 0 ? '미사용 ' + num(r.diff) + '일 연차수당 지급' : r.diff < 0 ? '초과사용 ' + num(-r.diff) + '일 (복무확인서에 따라 정산)' : '과부족 없음');
+}
+function allUnits() { return DB.employees.flatMap(units); }
+function setRec(u, field, val) { if (u.part === 'm') (u.ref.m = u.ref.m || {})[field] = val; else u.ref[field] = val; }
+const partBadge = u => u.part ? ' <span class="badge ' + (u.part === 'm' ? 'b-blue' : 'b-gray') + '">' + u.label + '</span>' : '';
+function autoGranted(e) {
+  const n = tenure(e);
+  if (n == null || n < 0) return null;
+  if (n === 0) return monthlyInPeriod(e); // 이번 학년도 입사: 월차(최대 11일)
+  if (n === 1) { // 직전 학년도 입사: 3. 1. 비례연차 + 아직 소멸 전인 월차(최대 11일, 이미 쓴 월차는 직접 반영)
+    const hire = parseD(e.hireDate), st = parseD(DB.settings.start);
+    return proratedCalc(e) + (addMonths(hire, 12) > st ? 11 : 0);
+  }
+  return Math.min(25, 15 + Math.floor((n - 1) / 2));
+}
+function granted(e) {
+  if (e.granted !== '' && e.granted != null && !isNaN(+e.granted)) return +e.granted;
+  const a = autoGranted(e); return a == null ? 0 : a;
+}
+function used(e) { return +e.used || 0; }
+function deduct(e) { return +e.deduct || 0; }
+function consumed(e) { return used(e) + deduct(e); } // 사용 + 공제
+function remain(e) { return Math.max(0, granted(e) - consumed(e)); }
+function endsEarly(e) { const s = schedule(e), d = parseD(e.endDate); return !!(s && d && d < s.expire); }
+
+// 촉진 일정: base = 휴가 소멸일 다음날(=만료 기준일)
+function schedule(e) {
+  let base, type;
+  if (e && isUnder1(e) && parseD(e.hireDate)) {
+    base = addMonths(parseD(e.hireDate), 12); type = 'u1';
+    const w1s = addMonths(base, -3);
+    return { type, expire: addDays(base, -1), w1s, w1e: addDays(w1s, 9), d2: addDays(addMonths(base, -1), -1) };
+  }
+  const end = parseD(DB.settings.end);
+  if (!end) return null;
+  base = addDays(end, 1); type = 'gen';
+  const w1s = addMonths(base, -6);
+  return { type, expire: end, w1s, w1e: addDays(w1s, 9), d2: addDays(addMonths(base, -2), -1) };
+}
+
+const STATUS = {
+  done0:   { t: '소진 완료',        c: 'b-green', o: 9 },
+  wait1:   { t: '1차 통보 예정',    c: 'b-gray', o: 6 },
+  need1:   { t: '1차 통보 필요',    c: 'b-orange', o: 1 },
+  late1:   { t: '1차 기한 경과',    c: 'b-red', o: 0 },
+  waitPlan:{ t: '계획 제출 대기',   c: 'b-blue', o: 4 },
+  plan:    { t: '계획 제출 완료',   c: 'b-green', o: 8 },
+  need2:   { t: '2차 지정 필요',    c: 'b-orange', o: 2 },
+  late2:   { t: '2차 기한 경과',    c: 'b-red', o: 0 },
+  done2:   { t: '2차 지정 완료',    c: 'b-green', o: 7 },
+  expired: { t: '기간 만료',        c: 'b-gray', o: 10 }
+};
+function status(e) {
+  const s = schedule(e), t = today();
+  if (remain(e) <= 0) return { k: 'done0', s };
+  if (!s) return { k: 'wait1', s };
+  if (e.n2Date) return { k: 'done2', s };
+  if (e.planDate) return { k: 'plan', s };
+  if (!e.n1Date) {
+    if (t > s.expire) return { k: 'expired', s };
+    if (t < s.w1s) return { k: 'wait1', s };
+    if (t <= s.w1e) return { k: 'need1', s };
+    return { k: 'late1', s };
+  }
+  const due = addDays(parseD(e.n1Date), 10);
+  if (t <= due) return { k: 'waitPlan', s, due };
+  if (t <= s.d2) return { k: 'need2', s, due };
+  return { k: 'late2', s, due };
+}
+// 보상 면제 요건 점검
+function compliance(e) {
+  const s = schedule(e); if (!s) return null;
+  const n1 = parseD(e.n1Date), n2 = parseD(e.n2Date), pl = parseD(e.planDate);
+  const issues = [];
+  if (!n1) return { ok: false, issues: ['1차 통보 기록 없음'] };
+  if (n1 < s.w1s || n1 > s.w1e) issues.push('1차 통보일이 법정 기간(' + fmtK(s.w1s) + '~' + fmtK(s.w1e) + ')을 벗어남');
+  if (pl) { if (diffDays(n1, pl) > 10) issues.push('계획 제출이 10일을 초과함(2차 지정 필요 여부 확인)'); }
+  else if (n2) { if (n2 > s.d2) issues.push('2차 통보일이 기한(' + fmtK(s.d2) + ')을 지남'); }
+  else issues.push('계획 미제출 · 2차 지정 기록 없음');
+  return { ok: issues.length === 0, issues };
+}
+
+/* ============ 유틸 ============ */
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const num = n => (Math.round(n * 10) / 10).toLocaleString('ko-KR');
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2200); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+
+/* ============ 탭 ============ */
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('active', x === b));
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + b.dataset.page));
+  render();
+});
+function goto(page) { document.querySelector('nav button[data-page="' + page + '"]').click(); }
+
+/* ============ 대시보드 ============ */
+function renderDash() {
+  const s = schedule(null), t = today();
+  $('todayLbl').textContent = '오늘 ' + fmtK(t);
+  if (s) {
+    const steps = [
+      { n: 'STEP 1', t: '1차 촉진 (서면 촉구)', d: fmtK(s.w1s) + ' ~ ' + fmtK(s.w1e), from: s.w1s, to: s.w1e },
+      { n: 'STEP 2', t: '근로자 사용계획 제출', d: '1차 통보 후 10일 이내', from: addDays(s.w1s, 1), to: addDays(s.w1e, 10) },
+      { n: 'STEP 3', t: '2차 촉진 (사용시기 지정)', d: fmtK(s.d2) + '까지', from: addDays(s.w1e, 11), to: s.d2 },
+      { n: 'END', t: '연가 사용기간 만료', d: fmtK(s.expire), from: addDays(s.d2, 1), to: s.expire }
+    ];
+    $('timeline').innerHTML = steps.map(x => {
+      const cls = t > x.to ? 'done' : (t >= x.from ? 'now' : '');
+      const dd = t <= x.to ? '<span class="dday">' + dday(t < x.from ? x.from : x.to) + '</span>' : '';
+      return '<div class="step ' + cls + '">' + dd + '<div class="n">' + x.n + '</div><div class="t">' + x.t + '</div><div class="d">' + x.d + '</div></div>';
+    }).join('');
+  } else $('timeline').innerHTML = '<p class="muted">설정에서 연가 산정 기간을 입력하세요.</p>';
+
+  const E = DB.employees;
+  const tg = E.reduce((a, e) => a + granted(e), 0), tu = E.reduce((a, e) => a + Math.min(consumed(e), granted(e)), 0);
+  const rate = tg ? tu / tg * 100 : 0;
+  const U = allUnits(), st = U.map(status);
+  const cnt = k => st.filter(x => k.includes(x.k)).length;
+  const target = E.filter(e => remain(e) > 0).length;
+  $('stats').innerHTML = [
+    ['전체 직원', E.length, '명'],
+    ['촉진 대상(잔여 있음)', target, '명'],
+    ['총 부여', num(tg), '일'],
+    ['총 사용(공제 포함)', num(tu), '일'],
+    ['평균 사용률', num(rate), '%', rate],
+    ['조치 필요', cnt(['need1', 'need2', 'late1', 'late2']), '건']
+  ].map(x => '<div class="stat"><div class="label">' + x[0] + '</div><div class="value">' + x[1] + '<small>' + x[2] + '</small></div>' +
+    (x[3] != null ? '<div class="bar"><div style="width:' + Math.min(100, x[3]) + '%"></div></div>' : '') + '</div>').join('');
+
+  const todos = U.map((e, i) => ({ e, st: st[i] })).filter(x => ['need1', 'late1', 'need2', 'late2', 'waitPlan'].includes(x.st.k))
+    .sort((a, b) => STATUS[a.st.k].o - STATUS[b.st.k].o);
+  $('todoCount').textContent = todos.length ? todos.length + '건' : '';
+  if (!E.length) $('todoList').innerHTML = '<div class="empty">등록된 직원이 없습니다.<br><button class="btn" style="margin-top:12px" onclick="goto(\'settings\')">엑셀로 명단 불러오기</button></div>';
+  else if (!todos.length) $('todoList').innerHTML = '<div class="empty">지금 처리할 일이 없습니다 👍</div>';
+  else $('todoList').innerHTML = todos.slice(0, 30).map(({ e, st }) => {
+    let why = '';
+    if (st.k === 'need1') why = '1차 통보 기한 ' + fmtK(st.s.w1e) + ' (' + dday(st.s.w1e) + ')';
+    if (st.k === 'late1') why = '1차 법정기간(' + fmtK(st.s.w1e) + ') 경과 — 보상 면제가 어려울 수 있음';
+    if (st.k === 'waitPlan') why = '계획서 제출 기한 ' + fmtK(st.due) + ' (' + dday(st.due) + ')';
+    if (st.k === 'need2') why = '계획 미제출 · 2차 지정 기한 ' + fmtK(st.s.d2) + ' (' + dday(st.s.d2) + ')';
+    if (st.k === 'late2') why = '2차 지정 기한(' + fmtK(st.s.d2) + ') 경과';
+    return '<div class="todo"><span class="badge ' + STATUS[st.k].c + '">' + STATUS[st.k].t + '</span><div style="flex:1"><span class="who">' + esc(e.name) + '</span>' + partBadge(e) + ' <span class="why">' + esc(e.dept || '') + ' · 잔여 ' + num(remain(e)) + '일</span><div class="why">' + why + '</div></div><button class="btn sm ghost" onclick="openEmp(\'' + e.id + '\',\'' + e.part + '\')">열기</button></div>';
+  }).join('') + (todos.length > 30 ? '<p class="muted" style="margin-top:8px">외 ' + (todos.length - 30) + '건 — 직원·진행관리 탭에서 확인하세요.</p>' : '');
+
+  const depts = {};
+  E.forEach(e => { const d = e.dept || '(미지정)'; (depts[d] = depts[d] || { g: 0, u: 0, n: 0 }); depts[d].g += granted(e); depts[d].u += Math.min(consumed(e), granted(e)); depts[d].n++; });
+  const dl = Object.entries(depts).sort((a, b) => (a[1].u / (a[1].g || 1)) - (b[1].u / (b[1].g || 1)));
+  $('deptStats').innerHTML = dl.length ? dl.map(([d, v]) => {
+    const r = v.g ? v.u / v.g * 100 : 0;
+    return '<div style="margin:8px 0"><div class="row" style="font-size:13px"><b>' + esc(d) + '</b><span class="muted">' + v.n + '명</span><span class="spacer"></span><span style="font-variant-numeric:tabular-nums">' + num(v.u) + ' / ' + num(v.g) + '일 · <b>' + num(r) + '%</b></span></div><div class="bar"><div style="width:' + r + '%"></div></div></div>';
+  }).join('') : '<p class="muted">데이터가 없습니다.</p>';
+}
+
+/* ============ 직원 목록 ============ */
+const selected = new Set();
+Object.entries(STATUS).forEach(([k, v]) => $('fStatus').insertAdjacentHTML('beforeend', '<option value="' + k + '">' + v.t + '</option>'));
+['q', 'fDept', 'fType', 'fStatus'].forEach(id => $(id).addEventListener('input', renderEmp));
+function filtered() {
+  const q = $('q').value.replace(/\s/g, '').toLowerCase(), fd = $('fDept').value, ft = $('fType').value, fs = $('fStatus').value;
+  return allUnits().filter(e => {
+    if (q && !((e.name || '') + (e.empNo || '') + (e.dept || '')).replace(/\s/g, '').toLowerCase().includes(q)) return false;
+    if (fd && (e.dept || '') !== fd) return false;
+    if (ft && (e.jobType || '') !== ft) return false;
+    if (fs && status(e).k !== fs) return false;
+    return true;
+  });
+}
+function renderEmp() {
+  const depts = [...new Set(DB.employees.map(e => e.dept || ''))].filter(Boolean).sort();
+  const cur = $('fDept').value;
+  $('fDept').innerHTML = '<option value="">전체 소속</option>' + depts.map(d => '<option' + (d === cur ? ' selected' : '') + '>' + esc(d) + '</option>').join('');
+  const types = [...new Set(DB.employees.map(e => e.jobType || ''))].filter(Boolean).sort();
+  const curT = $('fType').value;
+  $('fType').innerHTML = '<option value="">전체 직종</option>' + types.map(d => '<option' + (d === curT ? ' selected' : '') + '>' + esc(d) + '</option>').join('');
+  $('fType').style.display = types.length ? '' : 'none';
+  const list = filtered(), keys = new Set(allUnits().map(u => u.key));
+  [...selected].forEach(k => { if (!keys.has(k)) selected.delete(k); });
+  if (!list.length) {
+    $('empBody').innerHTML = '<tr><td colspan="13"><div class="empty">' + (DB.employees.length ? '조건에 맞는 직원이 없습니다.' : '직원을 추가하거나 설정·데이터 탭에서 엑셀을 불러오세요.') + '</div></td></tr>';
+  } else {
+    $('empBody').innerHTML = list.map(e => {
+      const st = status(e), S = STATUS[st.k];
+      const auto = (e.ref.granted === '' || e.ref.granted == null) ? ' title="자동계산"' : '';
+      const tag = e.part ? partBadge(e) : (isUnder1(e) ? ' <span class="badge b-gray">1년미만</span>' : '');
+      return '<tr data-id="' + e.ref.id + '" data-part="' + e.part + '"><td onclick="event.stopPropagation()"><input type="checkbox" class="chk" data-key="' + e.key + '"' + (selected.has(e.key) ? ' checked' : '') + '></td>' +
+        '<td>' + esc(e.empNo) + '</td><td><b>' + esc(e.name) + '</b>' + tag + (endsEarly(e) ? ' <span class="badge b-orange" title="소멸일 전 계약(발령) 종료">~' + esc(e.endDate.slice(5)) + ' 종료</span>' : '') + '</td><td>' + esc(e.dept) + '</td><td>' + esc([e.jobType, e.position].filter(Boolean).join(' · ')) + '</td>' +
+        '<td class="num"' + auto + '>' + num(granted(e)) + (auto ? '*' : '') + '</td><td class="num">' + (deduct(e) ? num(deduct(e)) : '') + '</td><td class="num">' + num(used(e)) + '</td><td class="num"><b>' + num(remain(e)) + '</b></td>' +
+        '<td>' + (e.n1Date || '-') + '</td><td>' + (e.planDate || '-') + '</td><td>' + (e.n2Date || '-') + '</td>' +
+        '<td><span class="badge ' + S.c + '">' + S.t + '</span></td></tr>';
+    }).join('');
+  }
+  $('empBody').querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => openEmp(tr.dataset.id, tr.dataset.part));
+  $('empBody').querySelectorAll('.chk').forEach(c => c.onchange = () => { c.checked ? selected.add(c.dataset.key) : selected.delete(c.dataset.key); updSel(); });
+  $('chkAll').checked = list.length > 0 && list.every(e => selected.has(e.key));
+  updSel();
+}
+$('chkAll').onchange = () => { filtered().forEach(e => $('chkAll').checked ? selected.add(e.key) : selected.delete(e.key)); renderEmp(); };
+function updSel() {
+  $('selInfo').textContent = '선택 ' + selected.size + '건';
+  document.querySelectorAll('[data-bulk]').forEach(b => b.disabled = selected.size === 0);
+}
+document.querySelectorAll('[data-bulk]').forEach(b => b.onclick = () => {
+  const list = allUnits().filter(u => selected.has(u.key));
+  const k = b.dataset.bulk, td = fmt(today());
+  if (k === 'n1' || k === 'n2') {
+    const field = k === 'n1' ? 'n1Date' : 'n2Date';
+    const targets = list.filter(u => !u[field] && remain(u) > 0);
+    if (!targets.length) return toast('기록할 대상이 없습니다(이미 기록됨 또는 잔여 0일)');
+    const inp = prompt(targets.length + '건의 ' + (k === 'n1' ? '1차 통보일' : '2차 지정 통보일') + '을 기록합니다.\n통보한 날짜를 입력하세요 (YYYY-MM-DD)', td);
+    if (inp == null) return;
+    const dv = normDate(inp.trim());
+    if (!dv) return toast('날짜 형식이 올바르지 않습니다');
+    targets.forEach(u => setRec(u, field, dv)); save(); render(); toast(targets.length + '건 ' + dv + ' 기록 완료');
+  } else {
+    const docs = list.filter(u => remain(u) > 0);
+    if (!docs.length) return toast('잔여 연가가 있는 대상이 없습니다');
+    printDocs(docs, k);
+  }
+});
+
+/* ============ 직원 모달 ============ */
+let editing = null, editingPart = '';
+const FB = { empNo: 'eEmpNo', name: 'eName', dept: 'eDept', jobType: 'eType', position: 'ePos', hireDate: 'eHire', endDate: 'eEnd', granted: 'eGranted', mGranted: 'eMGranted', deduct: 'eDeduct', used: 'eUsed', memo: 'eMemo' };
+const FR = { n1Date: 'eN1', planDate: 'ePlanDate', planText: 'ePlanText', n2Date: 'eN2', designText: 'eDesignText' };
+function openEmp(id, part) {
+  const e = id ? DB.employees.find(x => x.id === id) : { id: null };
+  if (!e) return;
+  editing = e;
+  const us = e.id ? units(e) : [];
+  editingPart = us.some(u => u.part === part) ? part : (us[0] ? us[0].part : '');
+  Object.entries(FB).forEach(([k, el]) => $(el).value = e[k] == null ? '' : e[k]);
+  const rec = editingPart === 'm' ? (e.m || {}) : e;
+  Object.entries(FR).forEach(([k, el]) => $(el).value = rec[k] == null ? '' : rec[k]);
+  $('eUnder1').checked = e.id || e.hireDate ? isUnder1(e) : false;
+  $('mTitle').textContent = id ? e.name + ' 님' : '직원 추가';
+  $('mDelete').style.display = id ? '' : 'none';
+  ['mP1', 'mPF', 'mP2'].forEach(b => $(b).style.display = id ? '' : 'none');
+  $('mParts').innerHTML = us.length > 1 ? us.map(u => '<button class="btn sm ' + (u.part === editingPart ? '' : 'ghost') + '" data-part="' + u.part + '">' + u.label + '</button>').join('') : '';
+  $('mParts').querySelectorAll('button').forEach(b => b.onclick = () => { if (b.dataset.part !== editingPart && commitModal()) openEmp(editing.id, b.dataset.part); });
+  refreshModalInfo();
+  $('modalBg').classList.add('open');
+}
+function readForm() {
+  const o = {}, rec = {};
+  Object.entries(FB).forEach(([k, el]) => o[k] = $(el).value.trim());
+  Object.entries(FR).forEach(([k, el]) => rec[k] = $(el).value.trim());
+  const autoU = tenure(Object.assign({}, editing, { hireDate: o.hireDate })) === 0;
+  o.under1 = $('eUnder1').checked === autoU ? null : $('eUnder1').checked; // 자동 판정과 같으면 자동 유지
+  if (o.granted !== '') o.granted = +o.granted;
+  if (o.mGranted !== '') o.mGranted = +o.mGranted;
+  o.used = o.used === '' ? 0 : +o.used;
+  o.deduct = o.deduct === '' ? 0 : +o.deduct;
+  return { o, rec };
+}
+function applyForm(target, f) {
+  Object.assign(target, f.o);
+  if (editingPart === 'm' && isSplit(target)) target.m = Object.assign({}, target.m || {}, f.rec);
+  else Object.assign(target, f.rec);
+  return target;
+}
+function currentUnit(emp) { const us = units(emp); return us.find(u => u.part === editingPart) || us[0]; }
+function refreshModalInfo() {
+  const tmpE = applyForm(Object.assign({}, editing, { m: Object.assign({}, editing.m || {}) }), readForm());
+  const tmp = currentUnit(tmpE);
+  const split = isSplit(tmpE);
+  $('wMG').style.display = split ? '' : 'none';
+  $('secT1').textContent = '1차 촉진 · 사용계획' + (tmp.part ? ' — ' + tmp.label : '');
+  $('secT2').textContent = '2차 촉진 (미제출자 사용시기 지정)' + (tmp.part ? ' — ' + tmp.label : '');
+  const st = status(tmp), s = st.s, c = compliance(tmp);
+  $('mBadge').innerHTML = '<span class="badge ' + STATUS[st.k].c + '">' + STATUS[st.k].t + '</span>';
+  let h = '';
+  if (split) {
+    const sp = splitParts(tmpE);
+    const pm = priorMonthly(tmpE);
+    h += '직전 학년도 입사 · 이번 학년도 연가일수 <b>' + num(granted(tmpE)) + '일</b> = 월차 잔여 ' + num(sp.M) + '일 + 비례연차 ' + num(sp.P) + '일 (계산값 ' + num(proratedCalc(tmpE)) + '일)<br>';
+    if (pm.prior) h += '월차(임용일 기준): 직전 학년도 발생 ' + pm.prior + '일 중 사용·보상 <b>' + pm.used + '일</b> · 이월 ' + pm.carried + '일 + 이번 학년도 발생 ' + pm.cur + '일' + (tmpE.fix == null ? ' (연가수정일수 없음 — 역산값)' : '') + '<br>';
+    h += '<b>[' + tmp.label + ']</b> ';
+  }
+  h += '부여 <b>' + num(granted(tmp)) + '일</b>' + (!split && tmpE.granted === '' ? '(자동)' : '') + (deduct(tmp) ? ' · 공제 ' + num(deduct(tmp)) + '일' : '') + ' · 사용 ' + num(used(tmp)) + '일 · 잔여 <b>' + num(remain(tmp)) + '일</b>';
+  if (s) h += '<br>' + (s.type === 'u1' ? '[입사일 기준] 사용기간 ' + fmtK(tmp.hireDate) + '~' + fmtK(s.expire) + ' · ' : '') + '1차 ' + fmtK(s.w1s) + '~' + fmtK(s.w1e) + ' · 2차 ' + fmtK(s.d2) + '까지 · 소멸 ' + fmtK(s.expire);
+  if (st.due) h += '<br>계획서 제출 기한: ' + fmtK(st.due);
+  const stl = tmpE.endDate ? settlement(tmpE) : null;
+  if (stl && !stl.over1) h += '<br><b>퇴직 정산(' + fmtK(tmpE.endDate) + ' 종료 시, 입사일 기준)</b>: ' + settleText(stl);
+  if (endsEarly(tmp)) h += '<br><span style="color:var(--orange)">⚠ 소멸일 전 ' + fmtK(tmp.endDate) + ' 발령(계약) 종료 — 퇴직 시 미사용 연가는 정산 대상이므로 종료 전 사용을 권장하세요.</span>';
+  if (c && remain(tmp) > 0 && (tmp.n1Date || today() > s.w1e)) h += '<br>' + (c.ok ? '<span style="color:var(--green);font-weight:700">✔ 사용촉진 절차 이행 완료 (보상 면제 요건 충족)</span>' : '<span style="color:var(--red)">⚠ ' + c.issues.map(esc).join(' / ') + '</span>');
+  $('mSched').innerHTML = h;
+}
+document.querySelectorAll('#modalBg input, #modalBg textarea').forEach(el => el.addEventListener('input', refreshModalInfo));
+function closeModal() { $('modalBg').classList.remove('open'); editing = null; }
+$('mCancel').onclick = closeModal;
+$('modalBg').onclick = ev => { if (ev.target === $('modalBg')) closeModal(); };
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && editing) closeModal(); });
+function commitModal() {
+  const f = readForm();
+  if (!f.o.name) { toast('성명을 입력하세요'); return null; }
+  if (!editing.id) { editing = Object.assign({ id: uid() }, editing); DB.employees.push(editing); }
+  applyForm(editing, f);
+  save(); render();
+  return currentUnit(editing);
+}
+$('mSave').onclick = () => { if (commitModal()) { closeModal(); toast('저장되었습니다'); } };
+$('mDelete').onclick = () => {
+  if (!confirm(editing.name + ' 님을 삭제할까요?')) return;
+  DB.employees = DB.employees.filter(e => e !== editing); save(); closeModal(); render(); toast('삭제되었습니다');
+};
+$('mP1').onclick = () => { const u = commitModal(); if (u) printDocs([u], 'p1'); };
+$('mPF').onclick = () => { const u = commitModal(); if (u) printDocs([u], 'pf'); };
+$('mP2').onclick = () => { const u = commitModal(); if (u) printDocs([u], 'p2'); };
+$('btnAdd').onclick = () => openEmp(null);
+
+/* ============ 통보서 인쇄 ============ */
+function infoTable(e) {
+  const S = DB.settings;
+  return '<table><tr><th>소속</th><th>직급</th><th>사번</th><th>성명</th></tr><tr><td>' + esc(e.dept) + '</td><td>' + esc(e.position) + '</td><td>' + esc(e.empNo) + '</td><td>' + esc(e.name) + '</td></tr></table>' +
+    '<table><tr><th>연가 사용기간</th><th>부여일수</th>' + (deduct(e) ? '<th>공제일수</th>' : '') + '<th>사용일수</th><th>미사용일수</th></tr><tr><td>' + periodText(e) + '</td><td>' + num(granted(e)) + '일</td>' + (deduct(e) ? '<td>' + num(deduct(e)) + '일</td>' : '') + '<td>' + num(used(e)) + '일</td><td><b>' + num(remain(e)) + '일</b></td></tr></table>' + priorNote(e);
+}
+function priorNote(e) {
+  return e.part === 'm' && e.priorUsed ? '<p style="font-size:13px;margin-top:-10px">※ 부여·사용일수는 임용일 기준 월차 전체이며, 사용일수에 ' + fmtK(addDays(parseD(DB.settings.start), -1)).replace(/\.$/, '') + '. 이전 사용(연가보상 포함) ' + num(e.priorUsed) + '일이 포함되어 있습니다.</p>' : '';
+}
+function periodText(e) {
+  const s = schedule(e);
+  if (s && s.type === 'u1') return fmtK(e.hireDate) + ' ~ ' + fmtK(s.expire);
+  return fmtK(DB.settings.start) + ' ~ ' + fmtK(DB.settings.end);
+}
+function docSub(e) {
+  if (e.part === 'm') return '<p style="text-align:center;margin-top:-16px">(입사 1년 미만 기간 발생 연차휴가분)</p>';
+  if (e.part === 'p') return '<p style="text-align:center;margin-top:-16px">(' + fmtK(DB.settings.start) + ' 부여 비례연차분)</p>';
+  return '';
+}
+function signBlock(dateStr) {
+  const S = DB.settings;
+  return '<div class="date">' + fmtK(dateStr || fmt(today())) + '</div><div class="sign">' + esc(S.signer || (S.org ? S.org + '장' : '대표자')) + ' (인)</div>';
+}
+function docP1(e) {
+  const S = DB.settings, d = e.n1Date || fmt(today()), due = addDays(parseD(d), 10), sc = schedule(e);
+  return '<div class="doc"><h1>미사용 연가 일수 통지 및 사용시기 지정 요청</h1>' + docSub(e) +
+    '<p>' + esc(S.org || '') + ' ' + esc(e.dept || '') + ' ' + esc(e.name) + ' 귀하</p>' + infoTable(e) +
+    '<p>「근로기준법」 제61조 제1항 제1호에 따라, 귀하의 연가 사용기간 중 미사용 연가가 위와 같이 <b>' + num(remain(e)) + '일</b> 남아 있음을 알려 드립니다.</p>' +
+    '<p>이 통지를 받은 날부터 <b>10일 이내(' + fmtK(due) + '까지)</b> 미사용 연가의 사용 시기를 정하여 별지 「연가 사용계획서」를 ' + esc(S.dept || '인사 담당 부서') + '에 제출하여 주시기 바랍니다.</p>' +
+    '<p>기한 내 사용 시기를 통보하지 않을 경우, 같은 조 제1항 제2호에 따라 ' + fmtK(sc ? sc.d2 : '') + '까지 기관이 사용 시기를 지정하여 서면으로 통보하며, 지정된 날에 연가를 사용하지 않아 소멸되는 연가에 대해서는 금전 보상 의무가 없음을 알려 드립니다.</p>' +
+    signBlock(d) +
+    '<div class="receipt">위 통지서를 수령하였음을 확인합니다.<br>수령일: 　　　　년 　　월 　　일　　　　수령자: ' + esc(e.name) + ' 　　　　(서명)</div></div>';
+}
+function docPF(e) {
+  const S = DB.settings, rows = Math.max(5, Math.min(12, Math.ceil(remain(e))));
+  let tr = ''; for (let i = 1; i <= rows; i++) tr += '<tr class="lines"><td>' + i + '</td><td></td><td></td><td></td></tr>';
+  return '<div class="doc"><h1>연가 사용계획서</h1>' + docSub(e) + infoTable(e) +
+    '<table><tr><th style="width:10%">연번</th><th style="width:35%">사용 예정일(기간)</th><th style="width:15%">일수</th><th>비고</th></tr>' + tr + '</table>' +
+    '<p>「근로기준법」 제61조 제1항 제1호에 따른 미사용 연가 사용 시기 지정 요청에 대하여, 위와 같이 연가 사용 시기를 정하여 제출합니다.</p>' +
+    '<div class="date">　　　　년 　　월 　　일</div><div style="text-align:center;font-size:15px">제출자: ' + esc(e.dept || '') + ' ' + esc(e.name) + ' 　　　(서명)</div>' +
+    '<p style="margin-top:30px">' + esc(S.signer || S.org || '') + ' 귀하</p></div>';
+}
+function docP2(e) {
+  const S = DB.settings, d = e.n2Date || fmt(today());
+  const days = (e.designText || '').split(/[\n,]+/).map(x => x.trim()).filter(Boolean);
+  let tr = days.length ? days.map((x, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(x) + '</td></tr>').join('')
+    : Array.from({ length: Math.max(3, Math.min(10, Math.ceil(remain(e)))) }, (_, i) => '<tr class="lines"><td>' + (i + 1) + '</td><td></td></tr>').join('');
+  return '<div class="doc"><h1>미사용 연가 사용시기 지정 통보</h1>' + docSub(e) +
+    '<p>' + esc(S.org || '') + ' ' + esc(e.dept || '') + ' ' + esc(e.name) + ' 귀하</p>' + infoTable(e) +
+    '<p>귀하는 ' + (e.n1Date ? fmtK(e.n1Date) + '자 ' : '') + '미사용 연가 사용시기 지정 요청을 받은 날부터 10일 이내에 사용 시기를 통보하지 아니하였으므로, 「근로기준법」 제61조 제1항 제2호에 따라 미사용 연가 <b>' + num(remain(e)) + '일</b>의 사용 시기를 아래와 같이 지정하여 통보합니다.</p>' +
+    '<table><tr><th style="width:15%">연번</th><th>지정 사용일</th></tr>' + tr + '</table>' +
+    '<p>지정된 날에 연가를 사용하지 아니하여 소멸되는 연가에 대해서는 금전 보상 의무가 없음을 알려 드립니다.</p>' +
+    signBlock(d) +
+    '<div class="receipt">위 통보서를 수령하였음을 확인합니다.<br>수령일: 　　　　년 　　월 　　일　　　　수령자: ' + esc(e.name) + ' 　　　　(서명)</div></div>';
+}
+function printDocs(list, kind) {
+  const fn = { p1: docP1, pf: docPF, p2: docP2 }[kind];
+  if (kind === 'p2') {
+    const noDesign = list.filter(e => !e.designText).length;
+    if (noDesign && !confirm(noDesign + '건은 지정 사용일이 입력되지 않아 빈 칸으로 인쇄됩니다. 계속할까요?')) return;
+  }
+  $('printArea').innerHTML = list.map(fn).join('');
+  setTimeout(() => window.print(), 50);
+}
+
+/* ============ 설정 ============ */
+function renderSettings() {
+  const S = DB.settings;
+  $('sOrg').value = S.org; $('sSigner').value = S.signer; $('sDept').value = S.dept;
+  $('sStart').value = S.start; $('sEnd').value = S.end;
+}
+$('sStart').addEventListener('change', () => {
+  const st = parseD($('sStart').value); if (!st) return;
+  $('sEnd').value = fmt(addDays(addMonths(st, 12), -1));
+});
+$('btnSaveSettings').onclick = () => {
+  const st = parseD($('sStart').value), en = parseD($('sEnd').value);
+  if (!st || !en || en <= st) return toast('연가 산정 기간을 확인하세요');
+  Object.assign(DB.settings, { org: $('sOrg').value.trim(), signer: $('sSigner').value.trim(), dept: $('sDept').value.trim(),
+    start: fmt(st), end: fmt(en) });
+  save(); render(); toast('설정이 저장되었습니다');
+};
+
+/* ============ 엑셀 ============ */
+// 종합정보시스템 > 인사 > 복무관리 > 연가일수관리 엑셀 열 이름 포함
+const COLS = {
+  skip: ['사용일수(결재)', '근속년수', '제외기간', '제외일수', '이월일수', '보상일수'],
+  empNo: ['사번', '교직원번호', '직원번호', '교번', '번호'], name: ['성명', '이름', '직원명'], dept: ['소속부서', '소속', '부서', '학과', '부서명'],
+  jobType: ['직종'], position: ['직급', '직위', '직책'], empStatus: ['재직구분'],
+  hireDate: ['연가기준일', '입사일', '임용일', '입사일자', '임용일자', '최초임용일'], endDate: ['발령종료일', '계약종료일', '종료일'],
+  granted: ['연가일수', '부여', '발생', '부여일수', '총연가', '발생일수'], deduct: ['공제일수', '공제'],
+  used: ['사용일수', '사용', '사용연가'], remainFile: ['잔여일수', '잔여'], fix: ['연가수정일수', '수정일수'], note: ['비고'],
+  under1: ['1년미만', '1년 미만']
+};
+function mapHeader(h) {
+  const t = String(h || '').replace(/\s/g, '');
+  for (const [k, names] of Object.entries(COLS)) if (names.some(n => t === n.replace(/\s/g, ''))) return k === 'skip' ? null : k;
+  if (COLS.skip.some(n => t.includes(n))) return null;
+  for (const [k, names] of Object.entries(COLS)) if (names.some(n => n.length > 1 && t.includes(n.replace(/\s/g, '')))) return k;
+  return null;
+}
+$('btnImport').onclick = () => { if (!window.XLSX) return toast('엑셀 모듈을 불러오지 못했습니다(인터넷 연결 확인)'); $('fileImport').click(); };
+$('fileImport').onchange = async ev => {
+  const f = ev.target.files[0]; ev.target.value = ''; if (!f) return;
+  try {
+    const wb = XLSX.read(await f.arrayBuffer(), { type: 'array', cellDates: true });
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '', raw: true });
+    let hi = -1, map = null;
+    for (let i = 0; i < Math.min(rows.length, 15); i++) {
+      const m = rows[i].map(mapHeader);
+      if (m.includes('name')) { hi = i; map = m; break; }
+    }
+    if (hi < 0) return toast('"성명" 열을 찾지 못했습니다. 양식을 확인하세요');
+    let added = 0, updated = 0, skipped = 0; const mismatch = [];
+    for (const r of rows.slice(hi + 1)) {
+      const o = {};
+      map.forEach((k, i) => { if (k && o[k] == null) o[k] = r[i]; });
+      const name = String(o.name || '').trim(); if (!name) continue;
+      if (o.empStatus && /퇴직|퇴사/.test(String(o.empStatus))) { skipped++; continue; }
+      const rec = { name, empNo: String(o.empNo || '').trim(), dept: String(o.dept || '').trim(), position: String(o.position || '').trim(), hireDate: normDate(o.hireDate) };
+      if (map.includes('jobType')) rec.jobType = String(o.jobType || '').trim();
+      if (map.includes('endDate')) rec.endDate = normDate(o.endDate);
+      if (map.includes('deduct')) rec.deduct = parseFloat(o.deduct) || 0;
+      if (map.includes('fix')) rec.fix = parseFloat(o.fix) || 0;
+      if (o.granted !== undefined && o.granted !== '' && !isNaN(parseFloat(o.granted))) rec.granted = parseFloat(o.granted);
+      if (o.used !== undefined && o.used !== '' && !isNaN(parseFloat(o.used))) rec.used = parseFloat(o.used);
+      if (o.under1 !== undefined) rec.under1 = /^(y|yes|o|예|true|1|해당|○)$/i.test(String(o.under1).trim());
+      const ex = DB.employees.find(e => rec.empNo ? e.empNo === rec.empNo : (e.name.replace(/\s/g, '') === name.replace(/\s/g, '') && (e.dept || '') === rec.dept));
+      const target = ex || Object.assign({ id: uid(), granted: '', used: 0, under1: null }, rec);
+      if (ex) { Object.assign(ex, rec); updated++; } else { DB.employees.push(target); added++; }
+      if (o.note && String(o.note).trim() && !target.memo) target.memo = String(o.note).trim();
+      if (o.remainFile !== undefined && o.remainFile !== '' && Math.abs(remain(target) - parseFloat(o.remainFile)) > 0.001) mismatch.push(name);
+    }
+    save(); render();
+    let msg = '불러오기 완료: 신규 ' + added + '명 · 갱신 ' + updated + '명' + (skipped ? ' · 퇴직 제외 ' + skipped + '명' : '');
+    if (mismatch.length) msg += '\n\n※ 파일의 잔여일수와 계산값이 다른 직원 ' + mismatch.length + '명: ' + mismatch.slice(0, 10).join(', ') + (mismatch.length > 10 ? ' 외' : '');
+    alert(msg);
+  } catch (err) { console.error(err); toast('파일을 읽지 못했습니다: ' + err.message); }
+};
+$('btnTemplate').onclick = () => {
+  if (!window.XLSX) return toast('엑셀 모듈을 불러오지 못했습니다');
+  const ws = XLSX.utils.aoa_to_sheet([['사번', '성명', '소속', '직급', '입사일', '부여일수', '사용일수', '1년미만'],
+    ['2015001', '홍길동', '총무팀', '주임', '2015-03-01', 20, 5, 'N']]);
+  ws['!cols'] = [10, 10, 14, 10, 12, 10, 10, 8].map(w => ({ wch: w }));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '직원명단'); XLSX.writeFile(wb, '연가촉진_명단양식.xlsx');
+};
+$('btnExport').onclick = () => {
+  if (!window.XLSX) return toast('엑셀 모듈을 불러오지 못했습니다');
+  if (!DB.employees.length) return toast('직원 데이터가 없습니다');
+  const aoa = [['사번', '성명', '구분', '소속', '직종', '직급', '연가기준일', '발령종료일', '1년미만/비례', '부여일수', '공제일수', '사용일수', '잔여일수', '사용률(%)', '1차 통보일', '계획 제출일', '사용 예정일', '2차 통보일', '지정 사용일', '상태', '절차 점검', '퇴직 정산(입사일 기준)', '메모']];
+  allUnits().forEach(e => {
+    const st = status(e), c = compliance(e), g = granted(e);
+    aoa.push([e.empNo, e.name, e.label || '', e.dept, e.jobType || '', e.position, e.hireDate, e.endDate || '', e.part ? '비례' : (isUnder1(e) ? 'Y' : ''), g, deduct(e), used(e), remain(e), g ? Math.round(Math.min(consumed(e), g) / g * 1000) / 10 : 0,
+      e.n1Date || '', e.planDate || '', e.planText || '', e.n2Date || '', e.designText || '', STATUS[st.k].t,
+      remain(e) <= 0 ? '' : (c ? (c.ok ? '이행 완료' : c.issues.join(' / ')) : ''), e.part === 'p' ? '' : (e.endDate ? settleText(settlement(e.ref)) : ''), e.memo || '']);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [10, 10, 10, 14, 10, 12, 12, 12, 7, 9, 9, 9, 9, 9, 12, 12, 24, 12, 24, 14, 30, 20].map(w => ({ wch: w }));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '연가촉진 관리대장');
+  XLSX.writeFile(wb, '연가촉진_관리대장_' + fmt(today()) + '.xlsx');
+};
+
+/* ============ 백업 ============ */
+$('btnBackup').onclick = () => download('연가촉진_백업_' + fmt(today()) + '.json', new Blob([JSON.stringify(DB, null, 1)], { type: 'application/json' }));
+$('btnRestore').onclick = () => $('fileRestore').click();
+$('fileRestore').onchange = async ev => {
+  const f = ev.target.files[0]; ev.target.value = ''; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (!d || !d.settings || !Array.isArray(d.employees)) throw new Error('형식 오류');
+    if (!confirm('현재 데이터를 백업 파일(' + d.employees.length + '명)로 바꿀까요?')) return;
+    DB = { settings: Object.assign(defaultData().settings, d.settings), employees: d.employees };
+    save(); render(); toast('복원되었습니다');
+  } catch (err) { toast('백업 파일을 읽지 못했습니다'); }
+};
+$('btnNewPeriod').onclick = () => {
+  if (!confirm('새 연가 기간을 시작합니다.\n· 기간을 1년 뒤로 이동\n· 모든 직원의 사용일수·통보 기록·계획 초기화\n· 자동계산이 아닌 부여일수는 비움(다시 입력 또는 엑셀 업로드)\n\n먼저 백업 파일을 저장하는 것을 권장합니다. 계속할까요?')) return;
+  const S = DB.settings, st = addMonths(parseD(S.start), 12);
+  S.start = fmt(st); S.end = fmt(addDays(addMonths(st, 12), -1));
+  DB.employees.forEach(e => { Object.assign(e, { granted: '', mGranted: '', m: {}, used: 0, deduct: 0, n1Date: '', planDate: '', planText: '', n2Date: '', designText: '' });
+    e.under1 = null; });
+  save(); render(); toast('새 기간이 시작되었습니다');
+};
+$('btnReset').onclick = () => {
+  if (!confirm('모든 직원과 설정을 삭제합니다. 되돌릴 수 없습니다. 계속할까요?')) return;
+  DB = defaultData(); save(); selected.clear(); render(); toast('삭제되었습니다');
+};
+$('btnSample').onclick = () => {
+  if (DB.employees.length && !confirm('기존 데이터 뒤에 예시 직원 8명을 추가합니다.')) return;
+  const S = DB.settings, w1 = schedule(null).w1s, t = fmt(today());
+  const n1 = today() >= w1 ? fmt(w1) : '';
+  const later = d => fmt(addDays(parseD(n1), d));
+  const y = parseD(S.start).getFullYear();
+  const sample = [
+    ['S001', '김민준', '총무팀', '팀장', (y - 20) + '-03-01', '', 6, n1, n1 ? later(5) : '', '2차 없음'],
+    ['S002', '이서연', '총무팀', '주임', (y - 6) + '-09-01', '', 15, '', '', ''],
+    ['S003', '박지호', '학사지원팀', '과장', (y - 11) + '-03-01', '', 4, n1, '', ''],
+    ['S004', '최수아', '학사지원팀', '주임', (y - 3) + '-01-02', '', 9, n1, n1 ? later(8) : '', ''],
+    ['S005', '정도윤', '기획예산팀', '대리', (y - 8) + '-07-01', '', 2, '', '', ''],
+    ['S006', '강하은', '기획예산팀', '주임', (y - 2) + '-03-01', '', 1, n1, '', ''],
+    ['S007', '윤시우', '입학팀', '팀장', (y - 25) + '-03-01', '', 12, n1, '', ''],
+    ['S008', '한지민', '입학팀', '사원', fmt(addMonths(today(), -5)), '', 1, '', '', '']
+  ];
+  sample.forEach(r => DB.employees.push({ id: uid(), empNo: r[0], name: r[1], dept: r[2], position: r[3], hireDate: r[4], granted: r[5], used: r[6],
+    n1Date: r[7], planDate: r[8], planText: r[8] ? fmt(addDays(today(), 20)) + ', ' + fmt(addDays(today(), 34)) : '', n2Date: '', designText: '', memo: '', under1: null }));
+  save(); render(); toast('예시 데이터가 추가되었습니다');
+};
+
+/* ============ 렌더 ============ */
+function render() {
+  const S = DB.settings;
+  $('hdrPeriod').textContent = (S.org ? S.org + ' · ' : '') + '연가기간 ' + fmtK(S.start) + ' ~ ' + fmtK(S.end);
+  const page = document.querySelector('.page.active').id;
+  if (page === 'page-dash') renderDash();
+  if (page === 'page-emp') renderEmp();
+  if (page === 'page-settings') renderSettings();
+}
+window.addEventListener('afterprint', () => { $('printArea').innerHTML = ''; });
+render();
+</script>
+</body>
+</html>
