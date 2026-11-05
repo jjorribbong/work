@@ -164,6 +164,7 @@
   </header>
 
   <main>
+    <div id="backupBar" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:12px;font-size:13.5px;align-items:center;gap:10px;flex-wrap:wrap"></div>
     <!-- 대시보드 -->
     <section class="page active" id="page-dash">
       <div class="card">
@@ -259,16 +260,21 @@
 
       <div class="card">
         <h2>백업 · 초기화</h2>
-        <p class="muted">모든 데이터는 이 브라우저(기기)에만 저장되며 서버로 전송되지 않습니다. 다른 PC에서 쓰거나 분실에 대비해 백업 파일을 보관하세요.</p>
+        <p class="muted">모든 데이터는 이 브라우저(기기)에만 저장되며 서버로 전송되지 않습니다. 인터넷 사용 기록·사이트 데이터 삭제, PC 교체 시 사라지므로 <b>입력 작업 후 백업 파일을 업무용 드라이브에 보관</b>하세요.</p>
+        <p class="muted" id="backupInfo" style="margin-top:6px"></p>
+        <p class="muted" id="persistInfo" style="margin-top:2px"></p>
         <div class="row" style="margin-top:12px">
-          <button class="btn ghost" id="btnBackup">백업 파일 저장</button>
+          <button class="btn" id="btnBackup">백업 파일 저장</button>
           <input type="file" id="fileRestore" accept=".json" style="display:none">
           <button class="btn ghost" id="btnRestore">백업 복원</button>
+          <input type="file" id="fileRestoreXlsx" accept=".xlsx,.xls" style="display:none">
+          <button class="btn ghost" id="btnRestoreXlsx">관리대장 엑셀로 복원</button>
           <button class="btn gray" id="btnSample">예시 데이터 넣기</button>
           <span class="spacer"></span>
           <button class="btn danger" id="btnNewPeriod">새 기간 시작(촉진 기록 초기화)</button>
           <button class="btn danger" id="btnReset">전체 삭제</button>
         </div>
+        <p class="muted" style="margin-top:10px">「관리대장 엑셀로 복원」: 백업 파일이 없을 때, 이 프로그램에서 내려받은 관리대장 엑셀의 1차 통보일·계획 제출일·사용 예정일·2차 통보일·지정 사용일·메모를 사번(+구분)으로 찾아 되살립니다. 먼저 종합정보시스템 연가일수관리 엑셀을 불러온 뒤 실행하세요(직원이 없으면 엑셀 내용으로 새로 등록).</p>
       </div>
     </section>
 
@@ -410,9 +416,28 @@ function load() {
   } catch (e) {}
   return defaultData();
 }
-function save() {
+function save(noCount) {
   try { localStorage.setItem(KEY, JSON.stringify(DB)); }
-  catch (e) { toast('저장 실패: 브라우저 저장공간을 확인하세요'); }
+  catch (e) { toast('저장 실패: 브라우저 저장공간을 확인하세요'); return; }
+  if (!noCount) { META.changes = (META.changes || 0) + 1; saveMeta(); }
+  requestPersist();
+  if (typeof renderBackupBar === 'function') renderBackupBar();
+}
+/* 백업 상태(마지막 백업일·이후 변경 건수) — 데이터와 별도 저장 */
+const META_KEY = 'leavePromo.meta';
+let META = (() => { try { return JSON.parse(localStorage.getItem(META_KEY)) || {}; } catch (e) { return {}; } })();
+function saveMeta() { try { localStorage.setItem(META_KEY, JSON.stringify(META)); } catch (e) {} }
+/* 브라우저 영구 저장 요청: 용량 정리 등으로 브라우저가 임의 삭제하지 않도록 */
+let persistState = null;
+function requestPersist() {
+  if (persistState === true || !navigator.storage || !navigator.storage.persist || !DB.employees.length) return;
+  navigator.storage.persisted().then(p => p || navigator.storage.persist()).then(p => { persistState = !!p; renderPersist(); }).catch(() => {});
+}
+function renderPersist() {
+  const el = document.getElementById('persistInfo'); if (!el) return;
+  el.innerHTML = !navigator.storage || !navigator.storage.persist ? '이 브라우저는 영구 저장 요청을 지원하지 않습니다.'
+    : persistState ? '<span style="color:var(--green);font-weight:700">✔ 영구 저장 허용됨</span> — 브라우저가 용량 정리 등으로 임의 삭제하지 않습니다(사용자가 사이트 데이터를 직접 지우면 삭제됨).'
+    : '영구 저장 미허용 — 브라우저가 판단해 허용합니다. 즐겨찾기 추가·자주 방문 시 허용될 가능성이 높아집니다. 백업 파일을 꼭 보관하세요.';
 }
 
 /* ============ 날짜 ============ */
@@ -1048,7 +1073,26 @@ $('btnEmpExcel').onclick = () => {
 };
 
 /* ============ 백업 ============ */
-$('btnBackup').onclick = () => download('연가촉진_백업_' + fmt(today()) + '.json', new Blob([JSON.stringify(DB, null, 1)], { type: 'application/json' }));
+function doBackup() {
+  download('연가촉진_백업_' + fmt(today()) + '.json', new Blob([JSON.stringify(DB, null, 1)], { type: 'application/json' }));
+  META.lastBackup = new Date().toISOString(); META.changes = 0; saveMeta(); renderBackupBar();
+  toast('백업 파일을 저장했습니다. 업무용 드라이브에 보관하세요');
+}
+$('btnBackup').onclick = doBackup;
+// 백업 알림: 변경이 있는데 백업한 적 없거나 7일 지났거나 변경 20건 이상이면 상단 경고
+function renderBackupBar() {
+  const bar = $('backupBar'); if (!bar) return;
+  const n = META.changes || 0, last = META.lastBackup ? new Date(META.lastBackup) : null;
+  const days = last ? Math.floor((Date.now() - last) / 86400000) : null;
+  const lastTxt = last ? (days === 0 ? '오늘' : days + '일 전') + ' (' + fmtK(fmt(last)) + ')' : '없음';
+  const info = $('backupInfo'); if (info) info.innerHTML = '마지막 백업: <b>' + lastTxt + '</b> · 이후 변경 <b>' + n + '건</b>';
+  const warn = DB.employees.length && n > 0 && (!last || days >= 7 || n >= 20);
+  if (!warn) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  bar.style.background = 'var(--orange-soft)'; bar.style.border = '1px solid #fed7aa';
+  bar.innerHTML = '<span>⚠ 마지막 백업: <b>' + lastTxt + '</b> · 이후 변경 <b>' + n + '건</b> — 데이터는 이 브라우저에만 저장됩니다.</span><span class="spacer"></span><button class="btn sm" id="barBackup">지금 백업</button>';
+  $('barBackup').onclick = doBackup;
+}
 $('btnRestore').onclick = () => $('fileRestore').click();
 $('fileRestore').onchange = async ev => {
   const f = ev.target.files[0]; ev.target.value = ''; if (!f) return;
@@ -1057,8 +1101,45 @@ $('fileRestore').onchange = async ev => {
     if (!d || !d.settings || !Array.isArray(d.employees)) throw new Error('형식 오류');
     if (!confirm('현재 데이터를 백업 파일(' + d.employees.length + '명)로 바꿀까요?')) return;
     DB = { settings: Object.assign(defaultData().settings, d.settings), employees: d.employees };
-    save(); render(); toast('복원되었습니다');
+    save(true); META.changes = 0; META.lastBackup = META.lastBackup || new Date().toISOString(); saveMeta(); render(); toast('복원되었습니다');
   } catch (err) { toast('백업 파일을 읽지 못했습니다'); }
+};
+$('btnRestoreXlsx').onclick = () => { if (!window.XLSX) return toast('엑셀 모듈을 불러오지 못했습니다'); $('fileRestoreXlsx').click(); };
+$('fileRestoreXlsx').onchange = async ev => {
+  const f = ev.target.files[0]; ev.target.value = ''; if (!f) return;
+  try {
+    const wb = XLSX.read(await f.arrayBuffer(), { type: 'array', cellDates: true });
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '', raw: true });
+    const norm = h => String(h || '').replace(/\s/g, '');
+    const CM = { '사번': 'empNo', '성명': 'name', '구분': 'label', '소속': 'dept', '직종': 'jobType', '직급': 'position', '연가기준일': 'hireDate', '발령종료일': 'endDate',
+      '부여일수': 'granted', '공제일수': 'deduct', '사용일수': 'used', '1차통보일': 'n1Date', '계획제출일': 'planDate', '사용예정일': 'planText', '2차통보일': 'n2Date', '지정사용일': 'designText', '메모': 'memo' };
+    const hi = rows.findIndex(r => r.some(c => norm(c) === '1차통보일') && r.some(c => norm(c) === '사번'));
+    if (hi < 0) return toast('관리대장 엑셀이 아닙니다(사번·1차 통보일 열 없음)');
+    const map = rows[hi].map(c => CM[norm(c)] || null);
+    const data = rows.slice(hi + 1).map(r => { const o = {}; map.forEach((k, i) => { if (k && o[k] === undefined) o[k] = r[i]; }); return o; }).filter(o => String(o.empNo || '').trim() && String(o.name || '').trim());
+    if (!confirm('관리대장 ' + data.length + '건의 통보 기록을 복원합니다.\n엑셀에 값이 있는 칸만 반영하고 빈 칸은 현재 값을 유지합니다. 계속할까요?')) return;
+    let restored = 0, created = 0; const notFound = [];
+    data.forEach(o => {
+      const no = String(o.empNo).trim(), lbl = String(o.label || '').trim();
+      let emp = DB.employees.find(e => e.empNo === no);
+      if (!emp) {
+        if (lbl) { notFound.push(o.name + '(' + lbl + ')'); return; } // 비례 대상은 원본 일수 재구성 불가 → 연가일수관리 엑셀 먼저
+        emp = { id: uid(), empNo: no, name: String(o.name).trim(), dept: String(o.dept || ''), jobType: String(o.jobType || ''), position: String(o.position || ''),
+          hireDate: normDate(o.hireDate), endDate: normDate(o.endDate), granted: o.granted === '' ? '' : +o.granted, deduct: +o.deduct || 0, used: +o.used || 0, under1: null };
+        DB.employees.push(emp); created++;
+      }
+      const u = units(emp).find(x => (x.label || '') === lbl) || (lbl ? null : units(emp)[0]);
+      if (!u) { notFound.push(o.name + (lbl ? '(' + lbl + ')' : '')); return; }
+      let any = false;
+      ['n1Date', 'planDate', 'n2Date'].forEach(k => { const d = normDate(o[k]); if (d && u[k] !== d) { setRec(u, k, d); any = true; } });
+      ['planText', 'designText'].forEach(k => { const v = String(o[k] == null ? '' : o[k]).trim(); if (v && (u[k] || '') !== v) { setRec(u, k, v); any = true; } });
+      const memo = String(o.memo == null ? '' : o.memo).trim(); if (memo && !emp.memo) { emp.memo = memo; any = true; }
+      if (any) restored++;
+    });
+    save(); render();
+    alert('복원 완료: ' + restored + '건 기록 반영' + (created ? ' · 직원 ' + created + '명 새로 등록' : '') +
+      (notFound.length ? '\n\n찾지 못한 대상 ' + notFound.length + '건(종합정보시스템 엑셀을 먼저 불러온 뒤 다시 실행): ' + notFound.slice(0, 10).join(', ') + (notFound.length > 10 ? ' 외' : '') : ''));
+  } catch (err) { console.error(err); toast('파일을 읽지 못했습니다: ' + err.message); }
 };
 $('btnNewPeriod').onclick = () => {
   if (!confirm('새 연가 기간을 시작합니다.\n· 기간을 1년 뒤로 이동\n· 모든 직원의 사용일수·통보 기록·계획 초기화\n· 자동계산이 아닌 부여일수는 비움(다시 입력 또는 엑셀 업로드)\n\n먼저 백업 파일을 저장하는 것을 권장합니다. 계속할까요?')) return;
@@ -1156,9 +1237,10 @@ function render() {
   if (page === 'page-dash') renderDash();
   if (page === 'page-emp') renderEmp();
   if (page === 'page-sched') renderSched();
-  if (page === 'page-settings') renderSettings();
+  if (page === 'page-settings') { renderSettings(); renderBackupBar(); renderPersist(); }
 }
 window.addEventListener('afterprint', () => { $('printArea').innerHTML = ''; });
+renderBackupBar(); renderPersist(); requestPersist();
 render();
 </script>
 </body>
