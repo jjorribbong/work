@@ -88,6 +88,11 @@
   table.list input.cell-date { width: 128px; padding: 4px 6px; font-size: 12.5px; border-radius: 7px; }
   table.list input.cell-date.done { background: var(--green-soft); border-color: #bbf7d0; }
   table.list th[data-sort] { cursor: pointer; user-select: none; }
+  #thTip { position: fixed; z-index: 60; max-width: 340px; background: #111827; color: #f9fafb; font-size: 12.5px; line-height: 1.65; padding: 10px 12px; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,.25); pointer-events: none; opacity: 0; transition: opacity .12s; white-space: normal; font-weight: 400; }
+  #thTip.show { opacity: 1; }
+  #thTip b { color: #fff; } #thTip .t { font-weight: 800; font-size: 13px; margin-bottom: 4px; display: block; }
+  #thTip .s { color: #9ca3af; font-size: 11.5px; margin-top: 6px; display: block; }
+  #thTip .o { color: #fdba74; } #thTip .r { color: #fca5a5; }
   table.list th[data-sort]:hover { color: var(--text); }
   table.list th[data-sort]::after { content: ' ↕'; font-size: 10px; opacity: .35; }
   table.list th.sort-asc::after { content: ' ▲'; opacity: 1; color: var(--blue); }
@@ -418,6 +423,7 @@
 
 <div id="printArea"></div>
 <div class="toast" id="toast"></div>
+<div id="thTip"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
@@ -811,9 +817,45 @@ function markSort() {
   document.querySelectorAll('table.list th[data-sort]').forEach(th => {
     th.classList.toggle('sort-asc', th.dataset.sort === SORT.key && SORT.dir === 1);
     th.classList.toggle('sort-desc', th.dataset.sort === SORT.key && SORT.dir === -1);
-    th.title = th.dataset.sort === SORT.key ? (SORT.dir === 1 ? '오름차순 — 누르면 내림차순' : '내림차순 — 누르면 기본 순서(파일 순서)') : '눌러서 정렬';
   });
 }
+/* 열 제목 설명(마우스 오버) — 연가일수 ~ 상태 */
+function colTip(key) {
+  const S = DB.settings, g = schedule(null), k = d => d ? fmtK(d).slice(6) : '';
+  const per = fmtK(S.start) + ' ~ ' + fmtK(S.end);
+  const T = {
+    granted: ['연가일수', '이번 연가 기간(' + per + ')의 연가일수입니다. 종합정보시스템 연가일수 값(임용일 기준 산정)을 그대로 씁니다.<br>· <b>월차분</b>: 입사 1년 미만 기간에 발생한 월차 전체(직전 학년도 사용·보상분 포함)<br>· <b>비례연차분</b>: ' + k(parseD(S.start)) + ' 부여 비례연차<br>· 숫자 옆 * 는 값이 없어 자동 계산한 값'],
+    deduct: ['공제', '연가에서 차감되는 공제일수입니다(종합정보시스템 공제일수). 잔여 = 연가일수 − 공제 − 사용.'],
+    used: ['사용', '이번 연가 기간에 사용한 일수입니다(종합정보시스템 사용일수).<br>· 비례 대상자는 먼저 소멸하는 <b>월차분에서 먼저 차감</b><br>· 월차분은 직전 학년도 사용·보상분 포함'],
+    remain: ['잔여', '연가일수 − 공제 − 사용 = <b>미사용 일수</b>. 사용촉진(통보·지정)의 대상이 되는 일수이며, 0이면 촉진 대상이 아닙니다.'],
+    w1: ['1차 통보기간', '법정 <b>1차 촉진(서면 촉구)</b> 기간입니다. 이 기간에 미사용 일수를 알리고 사용 시기를 정해 제출하도록 서면으로 요청해야 합니다(근로기준법 제61조).<br>· 일반: 소멸 6개월 전 기준 10일 이내 (' + (g ? k(g.w1s) + '~' + k(g.w1e) : '') + ')<br>· 1년 미만·월차분: 입사 1년 되는 날 3개월 전 기준 10일 이내<br><span class="o">주황</span> 진행 중·30일 이내 · <span class="r">빨강</span> 지났는데 미처리'],
+    n1: ['1차 통보일', '미사용 연가 통지 및 사용시기 지정 요청서를 <b>실제로 준 날</b>입니다. 칸에서 바로 입력합니다. 1차 통보기간 안이어야 보상 면제 요건을 갖춥니다.'],
+    plan: ['계획 제출일', '근로자가 <b>연가 사용계획서를 낸 날</b>입니다. 1차 통보를 받은 날부터 10일 이내에 내면 2차 촉진이 필요 없습니다. 사용 예정일은 행을 눌러 상세에서 입력합니다.'],
+    d2: ['2차 통보기한', '계획서를 내지 않은 직원에게 사용자가 <b>사용 시기를 지정해 서면 통보</b>해야 하는 법정 기한입니다.<br>· 일반: 소멸 2개월 전까지 (' + (g ? k(g.d2) : '') + ')<br>· 1년 미만·월차분: 입사 1년 되는 날 1개월 전까지<br><span class="o">주황</span> 진행 중·30일 이내 · <span class="r">빨강</span> 지났는데 미처리'],
+    n2: ['2차 통보일', '사용시기 지정 통보서를 <b>실제로 준 날</b>입니다. 지정 사용일은 행을 눌러 상세에서 입력하며, 자동 제안은 2차 통보일 + 사용계획 제출기간(' + (+S.d2PlanDays || 0) + '일) + ' + (+S.d2Gap || 0) + '일부터입니다.'],
+    exp: ['소멸일', '이 날까지 쓰지 않으면 연가가 소멸합니다.<br>· 일반·비례연차분: 연가 기간 말일 (' + (g ? k(g.expire) : '') + ')<br>· 1년 미만·월차분: 입사 1년 되는 날 전날<br>촉진 절차를 모두 이행하지 않았으면 소멸한 미사용분은 수당 정산 대상입니다.'],
+    status: ['상태', '촉진 진행 단계입니다.<br>1차 통보 예정 → <b>1차 통보 필요</b> → 계획서 제출 대기 → 계획 제출 완료 또는 <b>2차 지정 필요</b> → 2차 지정 완료<br>· <span class="r">기한 경과</span>: 법정 기한이 지났는데 기록 없음<br>· 소진 완료: 잔여 0일 · 기간 만료: 촉진 기록 없이 소멸']
+  };
+  return T[key];
+}
+(function () {
+  const tip = $('thTip');
+  document.querySelectorAll('table.list th[data-sort]').forEach(th => {
+    th.addEventListener('mouseenter', () => {
+      const t = colTip(th.dataset.sort), sortHint = '<span class="s">누르면 정렬: 오름차순 ▲ → 내림차순 ▼ → 기본(파일 순서)</span>';
+      if (!t) { th.title = '눌러서 정렬 (오름차순 → 내림차순 → 기본 순서)'; return; }
+      tip.innerHTML = '<span class="t">' + t[0] + '</span>' + t[1] + sortHint;
+      const r = th.getBoundingClientRect();
+      tip.style.left = '0px'; tip.style.top = '0px'; tip.classList.add('show');
+      const w = tip.offsetWidth, h = tip.offsetHeight;
+      let left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
+      let top = r.bottom + 8; if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 8);
+      tip.style.left = left + 'px'; tip.style.top = top + 'px';
+    });
+    th.addEventListener('mouseleave', () => tip.classList.remove('show'));
+    th.addEventListener('click', () => tip.classList.remove('show'));
+  });
+})();
 function cellDate(u, field) {
   return '<input type="date" class="cell-date' + (u[field] ? ' done' : '') + '" data-key="' + u.key + '" data-field="' + field + '" value="' + esc(u[field] || '') + '">';
 }
