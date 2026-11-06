@@ -62,8 +62,7 @@ python seowon/tools/law_check.py --seed rules/data/laws.json --rules seowon/data
   --out seowon/data/laws.json --text-dir seowon/data/lawtext
 ```
 
-지금 올라 있는 `data/laws.json`은 이 방법으로 만든 것입니다(국가법령정보센터 자료 기준일은 `laws.json`의 `lawDataAt`).
-학교 PC에서 인증키로 한 번 실행하면 `unchecked` 법령까지 모두 확인됩니다.
+지금 올라 있는 `data/laws.json`·`data/lawtext/`는 학교 PC에서 인증키로 실행한 결과입니다(2026-11-06, 인용 법령 121개 중 현행 101개 확인).
 
 ## 한 번에 업데이트하기 (업데이트 프로그램)
 
