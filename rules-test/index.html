@@ -1745,6 +1745,8 @@ function articleTags(rule, art) {
       tags.push(`<span class="badge b-green">하위 · ${esc(e.from.rule.title)}</span>`);
     }
   }
+  // 자동 점검 표시(대상 미지정 위임, ⚠ 점검)는 검증 메뉴와 같이 승인받은 사람에게만 보인다
+  if (reviewGate) return tags.join('');
   for (const u of ck.analysis.unnamed) if (u.article === art) { tags.push(`<span class="badge ${u.kind === 'head' ? 'b-gray' : 'b-amber'}">대상 미지정 위임</span>`); break; }
   const iss = ck.issues.filter(i => i.article === art && i.level !== 'info');
   if (iss.length) tags.push(`<span class="badge b-red">⚠ ${iss.map(i => esc(ISSUE_TYPE[i.type])).join(', ')}</span>`);
@@ -1759,7 +1761,7 @@ function openRule(id, artKey, q) {
   const matchers = q ? E.makeMatchers(q, $('#ignoreSpace').checked) : null;
   if (!isSame || matchers) {
     const rel = E.relations(getChecked().analysis, rule);
-    const issues = getChecked().issues.filter(i => i.rule === rule && i.level !== 'info').length;
+    const issues = reviewGate ? 0 : getChecked().issues.filter(i => i.rule === rule && i.level !== 'info').length;
     const chg = latestChangeOf(rule.title);
     let lastChap = '';
     lawRefs = [];
