@@ -358,6 +358,7 @@
 
     <!-- 검증 -->
     <section class="page" id="page-verify">
+      <div id="verifyGate" class="hidden"></div>
       <div class="seg" id="verifySeg" style="margin-top:0">
         <button data-v="check" class="on">전체 검토</button>
         <button data-v="law">상위법 비교</button>
@@ -1089,7 +1090,7 @@ const VERDICT = { violation: ['검토: 법령 위반·불일치', 'b-red'], outd
 // 소속·교직원번호·성명으로 신청하고 관리자가 카카오톡으로 승인한다. 승인 뒤에는 교직원번호·성명으로 어느 기기에서든
 // 접속하고, 기기마다 만든 비밀 키(reviewDevice)로 그 기기를 확인한다. 새 기기 접속은 관리자에게 알림이 간다.
 let reviewApi = '';
-let reviewGate = null; // null(승인 불필요·승인됨) | {state:'none'|'대기'|'거절'|'회수'|'만료'|'error', msg, id, mode}
+let reviewGate = { state: 'loading' }; // null(승인됨) | {state:'none'|'대기'|'거절'|'회수'|'만료'|'error', msg, id, mode}
 let reviewUser = null; // 승인된 사람 {name, expires}
 async function reviewCall(body) {
   const r = await fetch(reviewApi, { method: 'POST', body: JSON.stringify(body) }); // text/plain이라 사전 요청 없이 보낸다
@@ -1254,10 +1255,20 @@ const ISSUE_TYPE = {
   'basis-mismatch': '위임 근거 불일치', 'basis-weak': '근거 조항 확인', 'delegate-no-backref': '위임 근거 미표기', 'unresolved-delegation': '하위규정 미확인',
 };
 
+// 승인 전에는 검증 메뉴 전체(전체 검토·상위법 비교·동일·유사)를 가리고 신청 화면만 보인다.
+function applyVerifyGate() {
+  const gated = !!reviewGate;
+  $('#verifyGate').classList.toggle('hidden', !gated);
+  $('#verifyGate').innerHTML = gated ? reviewGateHtml() : '';
+  $('#verifySeg').classList.toggle('hidden', gated);
+  const cur = ($('#verifySeg button.on') || {}).dataset || {};
+  ['check', 'law', 'dup'].forEach(k => $('#verify-' + k).classList.toggle('hidden', gated || k !== (cur.v || 'check')));
+}
 function renderCheck() {
+  applyVerifyGate();
   const box = $('#verify-check');
   if (!index) { emptyState(box); return; }
-  if (reviewGate) { box.innerHTML = reviewGateHtml(); return; }
+  if (reviewGate) { box.innerHTML = ''; return; }
   const list = manualListHtml();
   box.innerHTML = `
     <div class="card">
@@ -1278,9 +1289,10 @@ function reviewGateHtml() {
   const inp = (id, label, ph, mode) => `<label class="small" style="display:block;margin:10px 0 4px">${label}</label>
     <input id="${id}" type="text" placeholder="${ph}"${mode ? ` inputmode="${mode}"` : ''} autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:15px">`;
   const btn = (act, label, primary) => `<button data-gate="${act}" style="margin:12px 8px 0 0;padding:10px 16px;border-radius:8px;border:1px solid ${primary ? 'var(--accent, #1a73e8)' : 'var(--border)'};background:${primary ? 'var(--accent, #1a73e8)' : 'var(--card)'};color:${primary ? '#fff' : 'var(--text)'};font-size:14px">${label}</button>`;
-  const head = `<h2>규정 전체 검토 의견 열람</h2>
-    <p class="muted small">검토 의견은 담당 부서 확인 전의 내부 자료라 승인받은 교직원만 볼 수 있습니다. 신청하면 관리자가 카카오톡으로 확인한 뒤 승인하며, 승인은 365일 동안 유효합니다.</p>`;
+  const head = `<h2>검증 메뉴 열람</h2>
+    <p class="muted small">검증 메뉴(전체 검토·상위법 비교·동일·유사)는 담당 부서 확인 전의 내부 검토 자료라 승인받은 교직원만 볼 수 있습니다. 신청하면 관리자가 카카오톡으로 확인한 뒤 승인하며, 승인은 365일 동안 유효합니다.</p>`;
   const note = g.msg ? `<div class="issue" style="margin-top:10px">${esc(g.msg)}</div>` : '';
+  if (g.state === 'loading') return `<div class="card">${head}<div class="muted small" style="margin-top:10px">열람 권한을 확인하고 있습니다…</div></div>`;
   if (g.state === 'setup') return `<div class="card">${head}<div class="issue" style="margin-top:10px">열람 승인 절차를 준비하고 있습니다. 준비가 끝나면 이 화면에서 신청할 수 있습니다.</div></div>`;
   if (g.state === 'none' && g.mode === 'login') return `<div class="card">${head}${note}
     <h3 style="margin:14px 0 0;font-size:15px">승인받은 분 접속</h3>
@@ -1326,16 +1338,22 @@ async function reviewGateAction(act) {
   renderCheck();
 }
 
-$('#verify-check').addEventListener('click', e => {
+function gateClick(e) {
   const g = e.target.closest('[data-gate]');
-  if (g) { e.preventDefault(); g.disabled = true; reviewGateAction(g.dataset.gate); return; }
+  if (!g) return false;
+  e.preventDefault(); g.disabled = true; reviewGateAction(g.dataset.gate);
+  return true;
+}
+$('#verifyGate').addEventListener('click', gateClick);
+$('#verify-check').addEventListener('click', e => {
+  if (gateClick(e)) return;
   if (e.target.closest('#manualCsv')) { downloadManualXlsx(); return; }
   const o = e.target.closest('[data-open]');
   if (o) openRule(o.dataset.open, o.dataset.art);
 });
 
 segment($('#verifySeg'), v => {
-  ['check', 'law', 'dup'].forEach(k => $('#verify-' + k).classList.toggle('hidden', k !== v));
+  ['check', 'law', 'dup'].forEach(k => $('#verify-' + k).classList.toggle('hidden', !!reviewGate || k !== v));
 });
 
 /* ---------- 검증: 상위법 비교 ---------- */
@@ -2136,7 +2154,8 @@ $('#btnPaste').addEventListener('click', () => {
 (async function init() {
   renderRecent();
   fetchLawCatalog().then(t => { lawCatalog = t; renderLawPick(); });
-  fetchReviews().then(rv => { reviews = rv; if (rv || reviewGate) renderCheck(); });
+  applyVerifyGate();
+  fetchReviews().then(rv => { reviews = rv; renderCheck(); });
   fetchLawChanges().then(lc => {
     lawChanges = lc;
     if (!lc || !lc.events.length) return;
