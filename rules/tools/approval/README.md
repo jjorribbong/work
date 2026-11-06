@@ -19,15 +19,15 @@
 - 교직원번호·성명은 비밀번호가 아니므로, 남의 번호를 아는 사람이 접속할 수 있습니다. 새 기기 알림으로 이를 확인합니다.
 - 회수: 카카오톡 [회수] 버튼 또는 시트에서 **상태**를 `회수`로 바꾸면 그 사람의 모든 기기가 바로 막힙니다.
 
-> 검토 의견 원본(`reviews.json`)이 공개 저장소에 남아 있으면 이 승인 절차는 의미가 없습니다. 아래 1단계에서 반드시 옮기십시오.
+> 검토 의견 원본(`reviews.json`)은 공개 저장소에 두지 않습니다. `review_queue.js`도 공개 폴더에는 쓰지 않도록 막혀 있습니다.
 
 ## 설치 (관리자, 한 번)
 
 ### 1. 검토 의견을 비공개 저장소로 옮기기
 
 1. GitHub에서 **비공개(Private)** 저장소를 만듭니다. 예: `jjorribbong/cju-rules-reviews`
-2. `rules/data/reviews.json`을 그 저장소의 `reviews.json`으로 올립니다.
-3. 공개 저장소(gh-pages)의 `rules/data/reviews.json`을 지웁니다. 과거 커밋 기록에도 남아 있으므로 기록 정리 여부를 정합니다.
+2. 1·2·3묶음 전체 검토 의견이 든 `reviews.json`(따로 전달)을 그 저장소 맨 위에 올립니다.
+   공개 저장소의 `rules/data/reviews.json`은 이미 지웠습니다. 과거 커밋 기록·이전 PR 화면에는 남아 있습니다.
 4. GitHub → Settings → Developer settings → **Fine-grained tokens** → 새 토큰
    - Repository access: 위 비공개 저장소 하나만
    - Permissions: **Contents: Read-only**
@@ -78,7 +78,7 @@
 }
 ```
 
-주소가 비어 있으면 앱은 예전처럼 `data/reviews.json`을 읽습니다.
+주소가 비어 있으면 앱은 '열람 승인 절차를 준비하고 있습니다'로 표시하고 의견은 보여 주지 않습니다.
 
 ### 5. 매일 자동 검토 작업 바꾸기
 
