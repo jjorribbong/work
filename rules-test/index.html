@@ -1111,7 +1111,8 @@ async function fetchReviewsGated() {
     const res = await reviewCall({ action: 'data', id: acc.id, key: reviewDeviceKey() });
     if (res.ok && res.reviews && res.reviews.items) { reviewGate = null; reviewUser = { name: res.name, expires: res.expires }; return res.reviews; }
     if (res.reset) { store.set('reviewAccess', null); reviewGate = { state: 'none', mode: 'login', msg: res.error }; return null; }
-    reviewGate = { state: res.status || 'error', msg: res.error, id: acc.id };
+    // 상태(대기·거절·회수·만료)는 화면이 정해진 문구로 안내하므로 서버 문구는 겹쳐 쓰지 않는다
+    reviewGate = { state: res.status || 'error', msg: res.status ? '' : res.error, id: acc.id };
   } catch (e) {
     reviewGate = { state: 'error', msg: '승인 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주십시오.', id: acc.id };
   }
@@ -1319,7 +1320,11 @@ async function reviewGateAction(act) {
   const fail = (msg, mode) => { reviewGate = { state: 'none', mode, msg }; renderCheck(); };
   if (act === 'mode-login' || act === 'mode-request') { reviewGate = { state: 'none', mode: act.slice(5) }; renderCheck(); return; }
   if (act === 'reset' || act === 'logout') { store.set('reviewAccess', null); reviews = null; reviewUser = null; reviewGate = { state: 'none', mode: act === 'logout' ? 'login' : '' }; renderCheck(); return; }
-  if (act === 'recheck') { reviews = await fetchReviewsGated(); renderCheck(); return; }
+  if (act === 'recheck') {
+    reviews = await fetchReviewsGated();
+    if (reviewGate && reviewGate.state === '대기') reviewGate.msg = `아직 승인되지 않았습니다. (${new Date().toTimeString().slice(0, 5)} 확인)`;
+    renderCheck(); return;
+  }
   if (act !== 'request' && act !== 'login') return;
   const mode = act === 'login' ? 'login' : '';
   const body = { action: act, no: v('rgNo'), name: v('rgName'), key: reviewDeviceKey() };
