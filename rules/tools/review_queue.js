@@ -99,13 +99,16 @@ function manualCtx() {
   return { index: E.buildIndex(read('rules.json').rules, L), laws: L };
 }
 
+// 검토 의견 파일: 기본은 data/reviews.json. 공개 저장소에 두지 않을 때는 REVIEWS_FILE에 비공개 저장소의 파일 경로를 준다.
+const REVIEWS_FILE = process.env.REVIEWS_FILE ? path.resolve(process.env.REVIEWS_FILE) : path.join(DATA, 'reviews.json');
+
 function loadReviews() {
-  const f = path.join(DATA, 'reviews.json');
+  const f = REVIEWS_FILE;
   return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : { items: {} };
 }
 
 function saveReviews(rv) {
-  fs.writeFileSync(path.join(DATA, 'reviews.json'), JSON.stringify(rv, null, 1) + '\n');
+  fs.writeFileSync(REVIEWS_FILE, JSON.stringify(rv, null, 1) + '\n');
 }
 
 function queue(outDir) {
