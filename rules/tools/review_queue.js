@@ -17,7 +17,7 @@
  * 판정.json: { "키": { "verdict": "outdated|check|ok|violation", "summary": "…", "reason": "…", "suggestion": "…" }, … }
  *
  * 검토 의견 파일 위치: 환경 변수 REVIEWS_FILE로 지정한다(예: REVIEWS_FILE=/tmp/reviews/reviews.json).
- * 검토 의견은 비공개 저장소에 두므로, 지정하지 않으면 queue는 빈 의견으로 계산하고 apply는 쓰지 않고 멈춘다.
+ * 검토 의견은 비공개 저장소에 두므로, 지정하지 않거나 공개 폴더(rules/data/)를 가리키면 실행하지 않고 멈춘다.
  */
 const fs = require('fs');
 const path = require('path');
@@ -102,21 +102,23 @@ function manualCtx() {
   return { index: E.buildIndex(read('rules.json').rules, L), laws: L };
 }
 
-const REVIEWS_FILE = process.env.REVIEWS_FILE ? path.resolve(process.env.REVIEWS_FILE) : '';
+// 검토 의견 파일: 담당 부서 확인 전의 내부 자료라 공개 저장소(gh-pages)에 두지 않습니다.
+// 비공개 저장소의 파일 경로를 REVIEWS_FILE로 줍니다(예: REVIEWS_FILE=/tmp/reviews/reviews.json).
+const REVIEWS_FILE = (() => {
+  const f = process.env.REVIEWS_FILE ? path.resolve(process.env.REVIEWS_FILE) : '';
+  if (!f || f.startsWith(path.resolve(DATA) + path.sep)) {
+    console.error('검토 의견은 공개 저장소에 둘 수 없습니다. 비공개 저장소의 reviews.json 경로를 REVIEWS_FILE로 지정하십시오.');
+    process.exit(2);
+  }
+  return f;
+})();
 
 function loadReviews() {
-  if (!REVIEWS_FILE) {
-    console.error('REVIEWS_FILE이 지정되지 않아 빈 검토 의견으로 계산합니다.');
-    return { items: {} };
-  }
-  return fs.existsSync(REVIEWS_FILE) ? JSON.parse(fs.readFileSync(REVIEWS_FILE, 'utf8')) : { items: {} };
+  const f = REVIEWS_FILE;
+  return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : { items: {} };
 }
 
 function saveReviews(rv) {
-  if (!REVIEWS_FILE) {
-    console.error('REVIEWS_FILE이 지정되지 않아 저장하지 않습니다. 예: REVIEWS_FILE=/tmp/reviews/reviews.json');
-    process.exit(2);
-  }
   fs.writeFileSync(REVIEWS_FILE, JSON.stringify(rv, null, 1) + '\n');
 }
 
