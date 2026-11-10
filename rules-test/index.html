@@ -1105,16 +1105,21 @@ function reviewDeviceKey() {
   return k;
 }
 async function fetchReviewsGated() {
+  // 서버의 열람 방식이 '공개'이면 신청 없이 바로 의견을 받는다(관리자 시트 '설정' B1 스위치).
   const acc = store.get('reviewAccess', null);
-  if (!acc || !acc.id) { reviewGate = { state: 'none' }; return null; }
   try {
-    const res = await reviewCall({ action: 'data', id: acc.id, key: reviewDeviceKey() });
-    if (res.ok && res.reviews && res.reviews.items) { reviewGate = null; reviewUser = { name: res.name, expires: res.expires }; return res.reviews; }
+    const res = await reviewCall(acc && acc.id ? { action: 'data', id: acc.id, key: reviewDeviceKey() } : { action: 'data' });
+    if (res.ok && res.reviews && res.reviews.items) {
+      reviewGate = null;
+      reviewUser = res.mode === '공개' ? null : { name: res.name, expires: res.expires };
+      return res.reviews;
+    }
+    if (!acc || !acc.id) { reviewGate = { state: 'none' }; return null; }
     if (res.reset) { store.set('reviewAccess', null); reviewGate = { state: 'none', mode: 'login', msg: res.error }; return null; }
     // 상태(대기·거절·회수·만료)는 화면이 정해진 문구로 안내하므로 서버 문구는 겹쳐 쓰지 않는다
     reviewGate = { state: res.status || 'error', msg: res.status ? '' : res.error, id: acc.id };
   } catch (e) {
-    reviewGate = { state: 'error', msg: '승인 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주십시오.', id: acc.id };
+    reviewGate = { state: 'error', msg: '승인 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주십시오.', id: acc && acc.id };
   }
   return null;
 }
