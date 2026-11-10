@@ -7,7 +7,9 @@
  *  3. 승인된 사람은 교직원번호·성명으로 어느 기기에서든 접속합니다. 처음 보는 기기에서 접속하면
  *     관리자에게 [회수] 버튼이 달린 '새 기기 접속' 알림을 보냅니다.
  *  4. 승인된 사람에게만 검토 의견(reviews.json)을 내려줍니다.
- *     '설정' 시트 B1 칸이 '공개'이면 승인 없이 누구에게나 내려줍니다(열람 방식 전환 스위치). 원본은 비공개 GitHub 저장소에 두고
+ *     '설정' 시트 B1 칸이 '공개'이면 승인 없이 누구에게나 내려줍니다(열람 방식 전환 스위치).
+ *  5. '접속기록' 시트에 신청·처리·접속·열람·실패를 남기고(1년 보관), 승인·거절·회수를 확정하면
+ *     카카오톡으로 처리 결과를 알리며, 매일 아침 대기 중인 신청이 있으면 알려 줍니다. 원본은 비공개 GitHub 저장소에 두고
  *     이 스크립트만 읽기 전용 토큰으로 읽습니다.
  *
  * 설치 방법은 같은 폴더의 README.md를 보십시오. 비밀값은 모두 '스크립트 속성'에 넣고 코드에는 적지 않습니다.
@@ -23,6 +25,7 @@
  *  REVIEWS_PATH          예: reviews.json
  *  REVIEWS_REF           (선택) 브랜치, 기본 main
  *  APPROVAL_DAYS         (선택) 승인 유효 기간(일), 기본 365
+ *  LOG_DAYS              (선택) 접속기록 보관 기간(일), 기본 365
  */
 
 const SHEET = '신청';
@@ -79,6 +82,57 @@ function viewMode_() {
   return m;
 }
 
+// 접속기록: 누가 언제 접속·열람했는지와 실패한 시도를 남깁니다.
+const LOG_SHEET = '접속기록';
+const LOG_COLS = ['일시', '구분', '신청번호', '성명', '소속', '교직원번호', '기기', '비고'];
+function logSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(LOG_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(LOG_SHEET);
+    sh.getRange(1, 1, sh.getMaxRows(), LOG_COLS.length).setNumberFormat('@');
+    sh.appendRow(LOG_COLS);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+const devTag = key => key ? sha256(String(key)).slice(0, 6) : '';
+// r: 신청 행(없으면 null), info: {no, name, dept} 보충, key: 기기 키
+function log_(kind, r, key, note, info) {
+  try {
+    const v = r ? r.v : [];
+    const i = info || {};
+    logSheet().appendRow([nowStr(), kind, r ? v[C['신청번호']] : '', r ? v[C['성명']] : (i.name || ''), r ? v[C['소속']] : (i.dept || ''),
+      r ? v[C['교직원번호']] : (i.no || ''), devTag(key), note || '']);
+  } catch (err) { console.error('접속기록 실패', err); }
+}
+// 같은 사람·같은 기기의 열람은 10분에 한 번만 남깁니다.
+function logView_(r, key) {
+  const c = CacheService.getScriptCache(), k = 'seen.' + r.v[C['신청번호']] + '.' + devTag(key);
+  if (c.get(k)) return;
+  c.put(k, '1', 600);
+  log_('열람', r, key);
+}
+function purgeLogs_() {
+  const sh = logSheet(), n = sh.getLastRow() - 1;
+  if (n < 1) return 0;
+  const days = Number(prop('LOG_DAYS') || 365);
+  const cut = Utilities.formatDate(new Date(Date.now() - days * 864e5), 'Asia/Seoul', 'yyyy-MM-dd');
+  const dates = sh.getRange(2, 1, n, 1).getValues().map(r => dstr(r[0]).slice(0, 10));
+  let k = 0;
+  while (k < dates.length && dates[k] && dates[k] < cut) k++;   // 오래된 기록은 위쪽에 모여 있습니다
+  if (k) sh.deleteRows(2, k);
+  return k;
+}
+// '신청' 시트 줄 색: 대기 노랑, 승인 초록, 거절·회수 회색
+function colorRules_(sh) {
+  const rng = sh.getRange(2, 1, sh.getMaxRows() - 1, COLS.length);
+  const col = String.fromCharCode(65 + C['상태']);
+  const rule = (v, bg) => SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(`=$${col}2="${v}"`).setBackground(bg).setRanges([rng]).build();
+  sh.setConditionalFormatRules([rule(ST.WAIT, '#fff3cd'), rule(ST.OK, '#d4edda'), rule(ST.NO, '#e2e3e5'), rule(ST.OFF, '#e2e3e5')]);
+  return sh;
+}
+
 function sheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(SHEET);
@@ -88,6 +142,7 @@ function sheet() {
     sh.appendRow(COLS);
     sh.setFrozenRows(1);
     sh.hideColumns(C['기기키'] + 1);
+    colorRules_(sh);
   }
   return sh;
 }
@@ -174,8 +229,10 @@ function request_(b) {
   const prev = findByNo(no);
   if (prev && [ST.WAIT, ST.OK].includes(statusOf(prev))) {
     // 이미 대기·승인 중인 번호: 성명이 맞으면 이 기기를 붙이고 기존 신청으로 안내합니다.
-    if (normName(prev.v[C['성명']]) !== name) { failed(no); return { ok: false, error: '이미 신청된 교직원번호입니다. 교직원번호와 성명을 확인해 주십시오.' }; }
-    if (addDevice(prev, key) && statusOf(prev) === ST.OK) notifyNewDevice_(prev);
+    if (normName(prev.v[C['성명']]) !== name) { failed(no); log_('신청 실패', null, key, '이미 신청된 번호, 성명 불일치', { no, name, dept }); return { ok: false, error: '이미 신청된 교직원번호입니다. 교직원번호와 성명을 확인해 주십시오.' }; }
+    const isNew = addDevice(prev, key);
+    log_(isNew ? '새 기기 접속' : '접속', prev, key, '신청 화면에서 기존 신청에 연결(' + statusOf(prev) + ')');
+    if (isNew && statusOf(prev) === ST.OK) { try { notifyNewDevice_(prev); } catch (err) { console.error('카카오 알림 실패', err); } }
     return answer(prev, { existing: true });
   }
   const { sh, rows } = allRows();
@@ -187,6 +244,7 @@ function request_(b) {
     [C['성명']]: name, [C['사유']]: reason, [C['상태']]: ST.WAIT, [C['기기수']]: '1', [C['기기키']]: sha256(key).slice(0, 32) });
   sh.appendRow(row);
   SpreadsheetApp.flush();
+  log_('신청', { v: row }, key, reason);
   let notified = true;
   try { notifyRequest_(id, dept, no, name, reason); } catch (err) { notified = false; console.error('카카오 알림 실패', err); }
   return { ok: true, id, status: ST.WAIT, name, notified };
@@ -197,15 +255,18 @@ function login_(b) {
   const no = normNo(b.no), name = normName(b.name), key = String(b.key || '');
   if (!no || !name) return { ok: false, error: '교직원번호와 성명을 적어 주십시오.' };
   if (key.length < 32) return { ok: false, error: '앱을 새로고침한 뒤 다시 시도해 주십시오.' };
-  if (locked(no)) return { ok: false, error: '입력이 여러 번 맞지 않아 잠시 막혔습니다. 1시간 뒤에 다시 시도해 주십시오.' };
+  if (locked(no)) { log_('접속 차단', null, key, '시도 횟수 초과(1시간)', { no, name }); return { ok: false, error: '입력이 여러 번 맞지 않아 잠시 막혔습니다. 1시간 뒤에 다시 시도해 주십시오.' }; }
   const r = findByNo(no);
   if (!r || normName(r.v[C['성명']]) !== name) {
     const n = failed(no);
+    log_('접속 실패', null, key, (r ? '성명 불일치' : '신청 내역 없음') + ` (${n}회)`, { no, name });
     return { ok: false, error: `신청 내역이 없거나 교직원번호·성명이 맞지 않습니다.${n >= MAX_FAILS ? ' 1시간 동안 막힙니다.' : ''}` };
   }
   const st = statusOf(r);
-  if (st !== ST.OK && st !== ST.WAIT) return { ok: false, status: st, error: MSG[st] || '열람 권한이 없습니다.' };
-  if (addDevice(r, key) && st === ST.OK) {
+  if (st !== ST.OK && st !== ST.WAIT) { log_('접속 거부', r, key, st); return { ok: false, status: st, error: MSG[st] || '열람 권한이 없습니다.' }; }
+  const isNew = addDevice(r, key);
+  log_(isNew ? '새 기기 접속' : '접속', r, key, st);
+  if (isNew && st === ST.OK) {
     try { notifyNewDevice_(r); } catch (err) { console.error('카카오 알림 실패', err); }
   }
   return answer(r);
@@ -219,8 +280,9 @@ function data_(b) {
   if (!r || !devices(r).includes(sha256(String(b.key || '')).slice(0, 32)))
     return { ok: false, reset: true, error: '이 기기의 접속 정보가 없습니다. 교직원번호와 성명으로 다시 접속해 주십시오.' };
   const st = statusOf(r);
-  if (st !== ST.OK) return { ok: false, status: st, error: MSG[st] || '열람 권한이 없습니다.' };
+  if (st !== ST.OK) { if (st !== ST.WAIT) log_('열람 거부', r, b.key, st); return { ok: false, status: st, error: MSG[st] || '열람 권한이 없습니다.' }; }
   r.sh.getRange(r.row, C['최근조회'] + 1).setValue(nowStr());
+  logView_(r, b.key);
   return { ok: true, mode: '승인', name: r.v[C['성명']], expires: dstr(r.v[C['만료일']]).slice(0, 10), reviews: loadReviews_() };
 }
 
@@ -247,6 +309,7 @@ function doGet(e) {
   const p = e.parameter || {};
   if (p.code && p.state) return kakaoCallback_(p);
   if (p.action === 'decide') return decide_(p);
+  if (p.action === 'pending') return pendingPage_(p);
   if (p.action === 'kakao_setup') return kakaoSetup_(p);
   return page_('규정집 검토 의견 승인 서버', '이 주소는 앱이 쓰는 서버입니다.');
 }
@@ -280,7 +343,39 @@ function decide_(p) {
   const days = Number(prop('APPROVAL_DAYS') || 365);
   const exp = D.to === ST.OK ? Utilities.formatDate(new Date(Date.now() + days * 864e5), 'Asia/Seoul', 'yyyy-MM-dd') : dstr(r.v[C['만료일']]);
   r.sh.getRange(r.row, C['상태'] + 1, 1, 3).setValues([[D.to, nowStr(), exp]]);
+  r.v[C['상태']] = D.to;
+  log_(D.done.replace('했습니다', ' 처리'), r, '', '관리자');
+  try {
+    const mark = { [ST.OK]: '✅ 승인 완료', [ST.NO]: '❌ 거절', [ST.OFF]: '⛔ 회수' }[D.to];
+    sendKakao_(`${mark}\n${r.v[C['성명']]} / ${r.v[C['소속']]}\n교직원번호 ${r.v[C['교직원번호']]}\n신청번호 ${p.id}${D.to === ST.OK ? `\n${exp}까지 열람` : ''}\n남은 대기 ${pendingRows_().length}건`,
+      pendingUrl_(), '대기 목록');
+  } catch (err) { console.error('처리 결과 알림 실패', err); }
   return page_(D.done, `${who}${D.to === ST.OK ? `<br>${exp}까지 열람할 수 있습니다.` : ''}`);
+}
+
+/* ---------- 대기 목록 (카카오톡 버튼으로 엶) ---------- */
+function pendingRows_() {
+  const { sh, rows } = allRows();
+  return rows.map((v, i) => rowObj(sh, rows, i)).filter(r => r.v[C['상태']] === ST.WAIT);
+}
+const pendingUrl_ = () => `${webUrl()}?action=pending&sig=${sign('pending', 'list')}`;
+function pendingPage_(p) {
+  if (p.sig !== sign('pending', 'list')) return page_('열 수 없습니다', '링크가 올바르지 않습니다.');
+  const list = pendingRows_();
+  if (!list.length) return page_('대기 중인 신청 없음', '모든 신청을 처리했습니다.');
+  const btn = (id, d, label, color) => `<a href="${webUrl()}?action=decide&id=${encodeURIComponent(id)}&d=${d}&sig=${sign(id, d)}" target="_top" style="display:inline-block;margin:6px 6px 0 0;padding:8px 14px;border-radius:8px;background:${color};color:#fff;text-decoration:none">${label}</a>`;
+  return page_(`대기 중인 신청 ${list.length}건`, list.map(r => {
+    const v = r.v, id = v[C['신청번호']];
+    return `<div style="border:1px solid #ddd;border-radius:10px;padding:10px 12px;margin:10px 0"><b>${h(v[C['성명']])}</b> · ${h(v[C['소속']])} · 교직원번호 ${h(v[C['교직원번호']])}<br>
+      <span style="color:#666;font-size:14px">신청 ${h(dstr(v[C['신청일시']]))} · 사유: ${h(v[C['사유']]) || '-'}</span><br>${btn(id, 'approve', '승인', '#1a73e8')}${btn(id, 'reject', '거절', '#d93025')}</div>`;
+  }).join(''));
+}
+// 매일 아침 실행: 대기 중인 신청이 있을 때만 카카오톡으로 알립니다.
+function remindPending() {
+  const list = pendingRows_();
+  if (!list.length) return;
+  const names = list.slice(0, 5).map(r => `· ${r.v[C['성명']]} (${r.v[C['소속']]}, ${dstr(r.v[C['신청일시']]).slice(5, 10)})`).join('\n');
+  sendKakao_(`[규정집 승인 대기 ${list.length}건]\n${names}${list.length > 5 ? `\n외 ${list.length - 5}건` : ''}`, pendingUrl_(), '대기 목록에서 처리');
 }
 
 /* ---------- 카카오 '나에게 보내기' ---------- */
@@ -355,16 +450,21 @@ function notifyNewDevice_(r) {
 /* ---------- 관리자 편의 ---------- */
 // 매주 실행 트리거로 걸어 두면 카카오 갱신 토큰(유효 2개월)이 끊기지 않습니다.
 function keepKakaoAlive() {
+  try { purgeLogs_(); } catch (err) { console.error('접속기록 정리 실패', err); }
   CacheService.getScriptCache().remove('kakao.access');
   accessToken_();
 }
 // 편집기에서 한 번 실행: 시트 만들기, 주간 토큰 갱신 트리거 설치
 function setup() {
-  sheet();
+  colorRules_(sheet());
   settingSheet();
+  logSheet();
   signSecret();
-  if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'keepKakaoAlive'))
-    ScriptApp.newTrigger('keepKakaoAlive').timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(9).create();
+  const has = f => ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === f);
+  if (!has('keepKakaoAlive'))
+    ScriptApp.newTrigger('keepKakaoAlive').timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(9).inTimezone('Asia/Seoul').create();
+  if (!has('remindPending'))
+    ScriptApp.newTrigger('remindPending').timeBased().everyDays(1).atHour(9).inTimezone('Asia/Seoul').create();
 }
 // 편집기에서 실행해 카카오 알림이 오는지 시험합니다.
 function testKakao() {
