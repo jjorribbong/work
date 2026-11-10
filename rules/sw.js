@@ -1,6 +1,6 @@
 // 오프라인에서도 열리도록 앱 파일과 마지막으로 받은 데이터를 캐시한다.
 // 항상 네트워크를 먼저 시도해 최신 버전을 쓰고, 실패하면 캐시를 쓴다.
-const CACHE = 'cju-rules-v1';
+const CACHE = 'cju-rules-v2'; // v2: 예전에 캐시된 공개 검토 의견(data/reviews.json)을 지운다
 const SHELL = ['./', 'index.html', 'engine.js', 'manifest.webmanifest', 'icon.svg', 'data/sample.json',
   'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'];
 

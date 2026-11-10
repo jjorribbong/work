@@ -113,7 +113,12 @@ python rules/tools/law_check.py --oc 인증키 --debug 고등교육법   # API �
   - **기산점 다름**: 법 "안 날부터" ↔ 규정 "받은 날부터" 등
   - **요건(호) 누락 의심**: 법 조문의 호 목록 중 규정에 대응하는 호가 없음("그 밖에 대통령령으로…" 같은 포괄 호와 삭제된 호는 제외)
 
-**검토 의견** (`data/reviews.json`)
+**검토 의견** (비공개 저장소의 `reviews.json`, 공개 저장소에는 두지 않음)
+
+> 검토 의견은 담당 부서 확인 전의 내부 자료라 공개 저장소(gh-pages)에 두지 않습니다. 앱은 `review-access.json`에 적힌
+> 승인 서버에서만 의견을 받고, 승인 전에는 열람 신청 화면을 보여 줍니다. 관리자는 카카오톡으로 승인합니다.
+> 서버 주소가 비어 있으면 '준비 중'으로 표시합니다. 승인 전에는 검증 메뉴 전체가 가려지며, 관리자 시트의 '설정' B1 칸으로
+> 승인/공개를 바꿀 수 있습니다. 설치·운영은 `tools/approval/README.md`.
 
 자동 점검이 찾은 후보를 Claude가 원문(규정·법령)을 읽고 판단한 의견입니다. 항목마다
 `검토: 개정 필요 / 확인 필요 / 문제 없음`, 이유, 제안을 담고 앱의 해당 항목 아래에 표시합니다.
@@ -122,12 +127,13 @@ python rules/tools/law_check.py --oc 인증키 --debug 고등교육법   # API �
 **재검토 대기**로 흐리게 표시합니다.
 
 **매일 자동 재검토**: 매일 새벽 예약된 Claude 작업이 `tools/review_queue.js queue`로 새 후보·원문이 바뀐 항목·해결된 항목을 찾고,
-있으면 그 항목만 원문을 읽어 판단한 뒤 `review_queue.js apply`로 `reviews.json`을 갱신해 gh-pages에 바로 반영합니다.
+있으면 그 항목만 원문을 읽어 판단한 뒤 `review_queue.js apply`로 비공개 저장소의 `reviews.json`을 갱신합니다.
+`REVIEWS_FILE`을 주지 않거나 공개 폴더(`rules/data/`)를 가리키면 도구가 멈춥니다.
 바뀐 것이 없으면 아무것도 하지 않습니다. 법률 자문이 아니며 최종 판단은 담당 부서가 합니다.
 
 ```bash
-node rules/tools/review_queue.js queue --out /tmp/q   # 대기열: /tmp/q/queue.txt, queue.json
-node rules/tools/review_queue.js apply 판정.json      # 판정 반영(지문·검토일 기록, 해결된 항목 삭제)
+REVIEWS_FILE=/tmp/reviews/reviews.json node rules/tools/review_queue.js queue --out /tmp/q   # 대기열: /tmp/q/queue.txt, queue.json
+REVIEWS_FILE=/tmp/reviews/reviews.json node rules/tools/review_queue.js apply 판정.json      # 판정 반영(지문·검토일 기록, 해결된 항목 삭제)
 ```
 
 ## 상위법 개정 알림
@@ -172,4 +178,4 @@ node rules/tools/review_queue.js apply 판정.json      # 판정 반영(지문·
 - `data/changes.json`: 개정 이력 (업데이트 프로그램이 규정 변경 시 추가)
 - `data/topics.json`: 분야별 기본 법령 목록(상위법 비교의 '분야')
 - `data/lawtext/`: 법령 전체 조문 (업데이트 프로그램이 올림)
-- `data/reviews.json`: 검토 의견 (Claude 검토)
+- `review-access.json`: 검토 의견 승인 서버 주소 (검토 의견 자체는 비공개 저장소)
