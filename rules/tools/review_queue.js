@@ -15,6 +15,9 @@
  * 해결됨으로 지우지 않고, 규정 조문이나 대상 법령 조문이 바뀌면 재검토 대기열에 다시 넣는다.
  *
  * 판정.json: { "키": { "verdict": "outdated|check|ok|violation", "summary": "…", "reason": "…", "suggestion": "…" }, … }
+ *
+ * 검토 의견 파일 위치: 환경 변수 REVIEWS_FILE로 지정한다(예: REVIEWS_FILE=/tmp/reviews/reviews.json).
+ * 검토 의견은 비공개 저장소에 두므로, 지정하지 않거나 공개 폴더(rules/data/)를 가리키면 실행하지 않고 멈춘다.
  */
 const fs = require('fs');
 const path = require('path');
