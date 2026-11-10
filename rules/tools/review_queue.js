@@ -15,6 +15,9 @@
  * 해결됨으로 지우지 않고, 규정 조문이나 대상 법령 조문이 바뀌면 재검토 대기열에 다시 넣는다.
  *
  * 판정.json: { "키": { "verdict": "outdated|check|ok|violation", "summary": "…", "reason": "…", "suggestion": "…" }, … }
+ *
+ * 검토 의견 파일 위치: 환경 변수 REVIEWS_FILE로 지정한다(예: REVIEWS_FILE=/tmp/reviews/reviews.json).
+ * 검토 의견은 비공개 저장소에 두므로, 지정하지 않으면 queue는 빈 의견으로 계산하고 apply는 쓰지 않고 멈춘다.
  */
 const fs = require('fs');
 const path = require('path');
@@ -99,13 +102,22 @@ function manualCtx() {
   return { index: E.buildIndex(read('rules.json').rules, L), laws: L };
 }
 
+const REVIEWS_FILE = process.env.REVIEWS_FILE ? path.resolve(process.env.REVIEWS_FILE) : '';
+
 function loadReviews() {
-  const f = path.join(DATA, 'reviews.json');
-  return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : { items: {} };
+  if (!REVIEWS_FILE) {
+    console.error('REVIEWS_FILE이 지정되지 않아 빈 검토 의견으로 계산합니다.');
+    return { items: {} };
+  }
+  return fs.existsSync(REVIEWS_FILE) ? JSON.parse(fs.readFileSync(REVIEWS_FILE, 'utf8')) : { items: {} };
 }
 
 function saveReviews(rv) {
-  fs.writeFileSync(path.join(DATA, 'reviews.json'), JSON.stringify(rv, null, 1) + '\n');
+  if (!REVIEWS_FILE) {
+    console.error('REVIEWS_FILE이 지정되지 않아 저장하지 않습니다. 예: REVIEWS_FILE=/tmp/reviews/reviews.json');
+    process.exit(2);
+  }
+  fs.writeFileSync(REVIEWS_FILE, JSON.stringify(rv, null, 1) + '\n');
 }
 
 function queue(outDir) {
