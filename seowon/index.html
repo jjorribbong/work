@@ -1103,8 +1103,23 @@ function reviewHtml(key, hash) {
   return `<div class="review${stale ? ' stale' : ''}">${stale ? '<div class="small" style="margin-bottom:4px"><span class="badge b-gray">재검토 대기</span> 검토한 뒤 원문이 바뀌었습니다. 다음 검토에서 다시 판단합니다.</div>' : ''}<span class="badge ${cls}">${label}</span> ${esc(v.summary || '')}
     ${v.reason ? `<div class="muted small" style="margin-top:4px">${esc(v.reason)}</div>` : ''}
     ${v.suggestion ? `<div class="small" style="margin-top:4px"><b>제안</b> ${esc(v.suggestion)}</div>` : ''}
+    ${amendHtml(v)}
     <div class="muted small" style="margin-top:4px">검토일자 ${esc(v.at || reviews.reviewedAt || '')}</div></div>`;
 }
+
+// 개정안(신구대비): 현행 문구와 개정 문구를 나란히, 바뀐 글자를 표시한다
+function amendHtml(v) {
+  if (!v.amend || !v.amend.length) return '';
+  return `<div class="amend" style="margin-top:8px"><div class="small"><b>개정안</b> <span class="muted">(현행 → 개정)</span></div>
+    ${v.amend.map(a => {
+      const [l, r] = diffHtml(a.before || '', a.after || '');
+      return `<div class="pair" style="margin-top:6px">${a.where ? `<div class="hd"><b>${esc(a.where)}</b></div>` : ''}
+        <div class="side diff" style="white-space:pre-wrap"><span class="lab-old">현행</span><br>${l}</div>
+        <div class="side diff" style="white-space:pre-wrap"><span class="lab-new">개정안</span><br>${r}</div></div>`;
+    }).join('')}
+    ${v.amendNote ? `<div class="muted small" style="margin-top:4px">※ ${esc(v.amendNote)}</div>` : ''}</div>`;
+}
+const amendText = (v, side) => (v.amend || []).map(a => (a.where ? `[${a.where}] ` : '') + (a[side] || '')).join('\n\n');
 
 // 전체 검토 의견(키 manual|…): 규정 전체를 읽고 찾은 의견. 규정·조로 찾는다.
 function manualReviews(rule, art) {
@@ -1214,11 +1229,11 @@ function xlsxBlob(sheetName, rows, widths) {
   ]);
 }
 function downloadManualXlsx() {
-  const head = ['규정', '조문', '점검 종류', '관련 법령', '법령 조문', '판정', '요지', '근거', '개선 제안', '검토일자'];
+  const head = ['규정', '조문', '점검 종류', '관련 법령', '법령 조문', '판정', '요지', '근거', '개선 제안', '현행', '개정안', '개정안 확인사항', '검토일자'];
   const rows = manualAll().map(([, v]) => [v.rule, v.article, kindLabel(v.kind) || '전체 검토', v.ref.law || '', v.ref.lawArt ? E.artLabel(v.ref.lawArt) : '',
-    VERDICT_TEXT[v.verdict] || v.verdict, v.summary, v.reason, v.suggestion, v.at || reviews.reviewedAt || '']);
+    VERDICT_TEXT[v.verdict] || v.verdict, v.summary, v.reason, v.suggestion, amendText(v, 'before'), amendText(v, 'after'), v.amendNote || '', v.at || reviews.reviewedAt || '']);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(xlsxBlob('전체검토', [head, ...rows], [24, 18, 16, 26, 12, 14, 40, 70, 50, 12]));
+  a.href = URL.createObjectURL(xlsxBlob('전체검토', [head, ...rows], [24, 18, 16, 26, 12, 14, 40, 70, 50, 50, 50, 30, 12]));
   a.download = `규정_전체검토_${new Date().toISOString().slice(0, 10)}.xlsx`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);

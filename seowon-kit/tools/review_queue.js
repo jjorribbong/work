@@ -14,7 +14,9 @@
  * 판정에 ref: {rule: 규정명, art: 조 키(예: "37", "41-2"), law: 법령명(없으면 생략), lawArt: 법령 조 키} 를 함께 준다.
  * 해결됨으로 지우지 않고, 규정 조문이나 대상 법령 조문이 바뀌면 재검토 대기열에 다시 넣는다.
  *
- * 판정.json: { "키": { "verdict": "outdated|check|ok|violation", "summary": "…", "reason": "…", "suggestion": "…" }, … }
+ * 판정.json: { "키": { "verdict": "outdated|check|ok|violation", "summary": "…", "reason": "…", "suggestion": "…",
+ *              "amend": [{ "where": "제3조제9호", "before": "현행 문구(원문 그대로)", "after": "개정 문구" }], "amendNote": "…" }, … }
+ * 개정 필요·확인 필요 판정에는 amend(신구대비 개정안)를 함께 줍니다. before는 규정 원문과 글자 그대로 같아야 합니다.
  */
 const fs = require('fs');
 const path = require('path');
@@ -164,7 +166,9 @@ function apply(file) {
     if (!c) { console.error('후보에 없는 키라 건너뜀:', key); continue; }
     if (!['outdated', 'check', 'ok', 'violation'].includes(v.verdict)) { console.error('알 수 없는 판정이라 건너뜀:', key, v.verdict); continue; }
     rv.items[key] = Object.fromEntries(Object.entries({ verdict: v.verdict, summary: v.summary, reason: v.reason, suggestion: v.suggestion,
-      rule: c.rule, article: c.art, kind: c.cat, hash: c.hash, ref: c.ref, at }).filter(([, x]) => x));
+      rule: c.rule, article: c.art, kind: c.cat, hash: c.hash, ref: c.ref, at,
+      // 개정안(신구대비): [{where, before: 현행 문구, after: 개정 문구}], amendNote: 확정 전 확인할 점
+      amend: v.amend || (rv.items[key] && v.keepAmend !== false ? rv.items[key].amend : undefined), amendNote: v.amendNote }).filter(([, x]) => x && (!Array.isArray(x) || x.length)));
     n++;
   }
   // 더는 후보가 아닌(규정·법 개정으로 해결된) 항목은 지운다

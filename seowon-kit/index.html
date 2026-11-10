@@ -1103,8 +1103,23 @@ function reviewHtml(key, hash) {
   return `<div class="review${stale ? ' stale' : ''}">${stale ? '<div class="small" style="margin-bottom:4px"><span class="badge b-gray">재검토 대기</span> 검토한 뒤 원문이 바뀌었습니다. 다음 검토에서 다시 판단합니다.</div>' : ''}<span class="badge ${cls}">${label}</span> ${esc(v.summary || '')}
     ${v.reason ? `<div class="muted small" style="margin-top:4px">${esc(v.reason)}</div>` : ''}
     ${v.suggestion ? `<div class="small" style="margin-top:4px"><b>제안</b> ${esc(v.suggestion)}</div>` : ''}
+    ${amendHtml(v)}
     <div class="muted small" style="margin-top:4px">검토일자 ${esc(v.at || reviews.reviewedAt || '')}</div></div>`;
 }
+
+// 개정안(신구대비): 현행 문구와 개정 문구를 나란히, 바뀐 글자를 표시한다
+function amendHtml(v) {
+  if (!v.amend || !v.amend.length) return '';
+  return `<div class="amend" style="margin-top:8px"><div class="small"><b>개정안</b> <span class="muted">(현행 → 개정)</span></div>
+    ${v.amend.map(a => {
+      const [l, r] = diffHtml(a.before || '', a.after || '');
+      return `<div class="pair" style="margin-top:6px">${a.where ? `<div class="hd"><b>${esc(a.where)}</b></div>` : ''}
+        <div class="side diff" style="white-space:pre-wrap"><span class="lab-old">현행</span><br>${l}</div>
+        <div class="side diff" style="white-space:pre-wrap"><span class="lab-new">개정안</span><br>${r}</div></div>`;
+    }).join('')}
+    ${v.amendNote ? `<div class="muted small" style="margin-top:4px">※ ${esc(v.amendNote)}</div>` : ''}</div>`;
+}
+const amendText = (v, side) => (v.amend || []).map(a => (a.where ? `[${a.where}] ` : '') + (a[side] || '')).join('\n\n');
 
 // 전체 검토 의견(키 manual|…): 규정 전체를 읽고 찾은 의견. 규정·조로 찾는다.
 function manualReviews(rule, art) {
@@ -1120,8 +1135,21 @@ function manualReviewHtml(rule, art, key, v) {
   return reviewHtml(key, hash);
 }
 const VERDICT_ORDER = { violation: 0, outdated: 1, check: 2, ok: 3 };
+// 자동 점검 후보에 대한 의견(키 종류|규정|조|…)은 ref가 없어 키에서 규정·조를 찾는다
+function reviewRef(k, v) {
+  if (v.ref) return v.ref;
+  return { rule: v.rule, art: k.split('|')[2] || '', auto: true };
+}
+const KIND_LABEL = { 'content:items': '요건(호) 누락 의심', 'content:duty': '의무 완화 의심', 'content:permit': '금지 사항 허용 의심', 'content:start': '기산점 다름',
+  'limit:above': '법 최대 기준 초과', 'limit:below': '법 최소 기준 미달', 'limit:diff': '법과 숫자 다름' };
+function kindLabel(kind) {
+  if (!kind) return '';
+  if (kind.startsWith('issue:')) return ISSUE_TYPE[kind.slice(6)] || '';
+  return KIND_LABEL[kind] || (kind.startsWith('content:') ? '내용 분석' : kind.startsWith('limit:') ? '법 숫자 기준' : '');
+}
 function manualAll() {
-  const all = reviews ? Object.entries(reviews.items).filter(([k, v]) => k.startsWith('manual|') && v.ref) : [];
+  const all = reviews ? Object.entries(reviews.items).filter(([k, v]) => (k.startsWith('manual|') && v.ref) || (!k.startsWith('manual|') && v.rule))
+    .map(([k, v]) => [k, Object.assign({}, v, { ref: reviewRef(k, v) })]) : [];
   const artNum = a => String(a).split('-').map(Number);
   return all.sort((x, y) => x[1].rule.localeCompare(y[1].rule, 'ko')
     || (artNum(x[1].ref.art)[0] - artNum(y[1].ref.art)[0]) || ((artNum(x[1].ref.art)[1] || 0) - (artNum(y[1].ref.art)[1] || 0)));
@@ -1146,7 +1174,7 @@ function manualListHtml() {
         <div class="list">${list.map(([k, v]) => {
           const art = rule && rule.articles.find(a => a.key === String(v.ref.art));
           return `<div class="issue" ${rule ? `data-open="${esc(rule.id)}" data-art="${esc(String(v.ref.art))}"` : ''}>
-            <div class="where">${esc(v.article)}${v.ref.law ? ` ↔ 「${esc(v.ref.law)}」 ${esc(E.artLabel(v.ref.lawArt))}` : ''}</div>
+            <div class="where">${esc(v.article)}${v.ref.law ? ` ↔ 「${esc(v.ref.law)}」 ${esc(E.artLabel(v.ref.lawArt))}` : ''}${kindLabel(v.kind) ? ` <span class="badge b-gray">${esc(kindLabel(v.kind))}</span>` : ''}</div>
             ${rule ? manualReviewHtml(rule, art, k, v) : reviewHtml(k)}
           </div>`;
         }).join('')}</div></details>`;
@@ -1201,11 +1229,11 @@ function xlsxBlob(sheetName, rows, widths) {
   ]);
 }
 function downloadManualXlsx() {
-  const head = ['규정', '조문', '관련 법령', '법령 조문', '판정', '요지', '근거', '개선 제안', '검토일자'];
-  const rows = manualAll().map(([, v]) => [v.rule, v.article, v.ref.law || '', v.ref.lawArt ? E.artLabel(v.ref.lawArt) : '',
-    VERDICT_TEXT[v.verdict] || v.verdict, v.summary, v.reason, v.suggestion, v.at || reviews.reviewedAt || '']);
+  const head = ['규정', '조문', '점검 종류', '관련 법령', '법령 조문', '판정', '요지', '근거', '개선 제안', '현행', '개정안', '개정안 확인사항', '검토일자'];
+  const rows = manualAll().map(([, v]) => [v.rule, v.article, kindLabel(v.kind) || '전체 검토', v.ref.law || '', v.ref.lawArt ? E.artLabel(v.ref.lawArt) : '',
+    VERDICT_TEXT[v.verdict] || v.verdict, v.summary, v.reason, v.suggestion, amendText(v, 'before'), amendText(v, 'after'), v.amendNote || '', v.at || reviews.reviewedAt || '']);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(xlsxBlob('전체검토', [head, ...rows], [24, 18, 26, 12, 14, 40, 70, 50, 12]));
+  a.href = URL.createObjectURL(xlsxBlob('전체검토', [head, ...rows], [24, 18, 16, 26, 12, 14, 40, 70, 50, 50, 50, 30, 12]));
   a.download = `규정_전체검토_${new Date().toISOString().slice(0, 10)}.xlsx`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -1226,7 +1254,8 @@ function renderCheck() {
     <div class="card">
       <h2>규정 전체 검토</h2>
       <ul class="muted small legend">
-        <li>규정 전문을 읽고 상위 법령과 대조해 찾은 의견입니다${reviews && reviews.fullReview ? ` (${esc(reviews.fullReview)})` : ''}.</li>
+        ${reviews && reviews.demo ? `<li><span class="badge b-amber">데모</span> ${esc(reviews.demo)}</li>` : ''}
+        <li>자동 점검(상위법 비교·인용 상태)이 찾은 후보와 규정 전문을 원문(규정·법령)과 대조해 판단한 의견입니다${reviews && reviews.fullReview ? ` (${esc(reviews.fullReview)})` : ''}.</li>
         <li>규정별로 묶어 위반·개정 필요가 있는 규정부터 보여 줍니다. 규정을 펼쳐 의견을 누르면 해당 조문으로 갑니다.</li><li><b>엑셀 다운로드</b>로 전체 의견을 엑셀 파일(.xlsx)로 받을 수 있습니다.</li>
         <li>규정이나 법령이 바뀐 항목은 '재검토 대기'로 표시되고 다음 검토 때 다시 판단합니다.</li>
         <li>검토 의견은 법률 자문이 아닙니다.</li>
