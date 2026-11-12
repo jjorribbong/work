@@ -289,7 +289,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>남서울대학교 규정집</h1>
+    <h1>남서울대학교 규정집 <span style="font-size:12px;font-weight:700;background:rgba(255,255,255,.22);padding:2px 8px;border-radius:999px;vertical-align:middle">데모</span></h1>
     <div class="sub" id="headerSub">규정 검색 · 위임조항 · 동일내용 검증</div>
   </header>
   <div class="sample-banner" id="sampleBanner">예시 데이터입니다 — 실제 남서울대학교 규정이 아닙니다</div>
@@ -413,6 +413,13 @@
         <button class="btn btn-ghost" id="btnExport">현재 데이터 JSON으로 저장</button>
         <button class="btn btn-ghost" id="btnSample">예시 데이터로 체험하기</button>
         <button class="btn btn-danger-ghost" id="btnClear">저장된 데이터 모두 삭제</button>
+      </div>
+      <div class="card guide">
+        <h2>안내 매뉴얼 · 담당자 꾸러미</h2>
+        <div class="muted small">
+          화면별 사용법, 검토 의견 읽는 법, 데모 검토 결과(주요 규정 20개)는 <a href="docs/안내매뉴얼.docx" download>안내 매뉴얼(Word)</a>에 있습니다.
+          학교 GitHub 계정에 독립된 앱을 만들 때는 <a href="docs/nsu-kit.zip" download>담당자 꾸러미(nsu-kit.zip)</a>를 받아 압축을 풀고 Claude Code에서 "CLAUDE.md대로 만들어줘"라고 하면 됩니다.
+        </div>
       </div>
       <div class="card guide">
         <h2>데이터 업데이트 안내</h2>
