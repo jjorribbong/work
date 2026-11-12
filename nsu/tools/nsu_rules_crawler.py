@@ -79,6 +79,7 @@ class Client:
 
 # ---------------- 목록(분류 트리) ----------------
 
+LAW_COPY_RE = re.compile(r'^제\s*\d+\s*편\s*고등교육기관\s*관련\s*법령')
 CODE_RE = re.compile(r'^\s*(\d+(?:-\d+)+)\s+(.*)$')
 
 
@@ -244,6 +245,13 @@ def crawl(args):
     log('분류 트리 읽는 중...')
     nodes = walk_tree(c)
     log(f'  규정 {len(nodes)}개')
+    if not args.include_law_copies:
+        # 제10편 '고등교육기관 관련 법령'은 국가 법령(고등교육법·사립학교법 등)을 옮겨 둔 사본이다. 규정에 넣으면
+        # 「고등교육법」 인용이 국가법령정보센터 현행 법령 대신 이 사본으로 연결되어 상위법 비교가 되지 않으므로 뺀다.
+        law_copies = [n for n in nodes if LAW_COPY_RE.match(n['part'])]
+        if law_copies:
+            log(f'  법령 사본(제10편) {len(law_copies)}건은 뺍니다(--include-law-copies 로 포함).')
+        nodes = [n for n in nodes if not LAW_COPY_RE.match(n['part'])]
     if args.limit:
         nodes = nodes[:args.limit]
     if args.cache:
@@ -335,6 +343,7 @@ def main():
     ap.add_argument('--cache', default='', help='받은 본문 HTML을 저장해 다시 쓰는 폴더')
     ap.add_argument('--changes', default='', help='최근 개정 이력(changes.json)도 만들 경로')
     ap.add_argument('--history-days', type=int, default=120, help='--changes: 최근 며칠 안의 개정을 담을지')
+    ap.add_argument('--include-law-copies', action='store_true', help="제10편 '고등교육기관 관련 법령'(국가 법령 사본)도 담기")
     ap.add_argument('--limit', type=int, default=0, help='최대 수집 규정 수(시험용)')
     args = ap.parse_args()
     crawl(args)
