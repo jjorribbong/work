@@ -94,6 +94,15 @@ node nsu/tools/review_queue.js apply 판정.json      # 판정 반영
 - 별표·서식은 규정마다 따로 올라 있는 파일을 그대로 받고, 현행 원문·신구대비표 HWP도 함께 받을 수 있습니다.
 - 브라우저 저장소 이름이 달라(`nsurules.*`, `nsu-rules`) 같은 기기에서 청주대·서원대 앱과 데이터가 섞이지 않습니다.
 
+## 안내 매뉴얼 · 담당자 꾸러미
+
+- `docs/안내매뉴얼.docx`: 설치, 화면별 사용법, 검토 의견 읽는 법, 데모 검토 결과(주요 규정 20개), 업데이트·이관 방법
+- `docs/nsu-kit.zip`: 학교 자체 저장소에 앱을 새로 만드는 꾸러미(서원대 `seowon-kit`과 같은 구성). 앱 코드, 수집·법령 확인·업데이트 프로그램,
+  Claude 작업 지침(`CLAUDE.md`), 담당자 안내(`README.md`), 사이트 구조(`docs/site-structure.md`), 수집 점검(`tools/check_data.js`),
+  데모 검토 의견(`docs/demo-reviews.json`), 안내 매뉴얼. 저장소 루트(GitHub Pages `main` 브랜치) 배치 기준이며,
+  업데이트 프로그램은 저장소를 화면에서 입력받습니다.
+- 앱의 데이터 탭에도 두 파일의 받기 링크가 있습니다.
+
 ## 파일
 
 - `index.html`, `engine.js`, `sw.js`, `manifest.webmanifest`, `icon.svg`: 앱
