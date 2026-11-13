@@ -201,6 +201,16 @@ class Doc:
                 return
         raise ValueError(f'셀 없음 {row},{col}')
 
+    # ---- 별표·별지 삭제: 제목을 '(삭  제)' 표기로 바꾸고 다음 별표·별지 전까지의 내용(표 포함) 제거
+    def delete_annex(self, title, new_title):
+        tops = [p for n in self.secs for p in self.roots[n].findall('hp:p', NS)]
+        hit = [p for p in tops if norm(ptext(p)) == norm(title)]
+        if len(hit) != 1: raise ValueError(f'별표 제목 일치 {len(hit)}회: {title}')
+        h = hit[0]; set_ptext(h, new_title)
+        q = h.getnext()
+        while q is not None and q.tag == Q('p') and not re.match(r'^\s*[【\[<]\s*(별표|별지)', ptext(q)):
+            nxt = q.getnext(); q.getparent().remove(q); q = nxt
+
     # ---- 머리 변경일
     def set_revision_date(self, line):
         top = self.paras(include_cells=False)[:8]
