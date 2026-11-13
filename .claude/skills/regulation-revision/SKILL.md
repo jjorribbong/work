@@ -28,7 +28,8 @@ description: 청주대학교 규정 개정 업무 지침. 규정 개정, 규정 
    - **자동 다운로드**: `python3 -I .claude/skills/regulation-revision/scripts/cju_rule_download.py "규정명" regulation/input/{YYYYMMDD}_{규정명}/`
      (제목 검색 → 정확히 일치하는 규정의 "전문다운로드" .hwp 저장. 출력되는 최종개정일을 요청서·검증보고에 기록)
    - 받은 파일은 HWP5 바이너리(.hwp)다. 본문 대조용 텍스트는 `python3 -I .claude/skills/regulation-revision/scripts/hwp2txt.py 파일.hwp > 원문.txt` 로 추출한다 (`pip install olefile` 필요).
-   - 개정안 규정 파일(결과물 3)은 **원본 .hwp를 hwpx로 변환한 파일에서 개정 문단만 고쳐** 만든다. 본문·별표·별지의 서식(표 모양, 셀 크기, 테두리, 간격, 글자모양)은 **절대 다시 조판하지 않는다** — 사용자 지시(2026. 11. 13.).
+   - 개정안 규정 파일(결과물 3)은 **원본 .hwp를 hwpx로 변환한 파일에서 개정 문단만 고쳐** 만든다.
+   - 편집: **규정 본문만** 내부 편집기준(drafting-standards Ⅰ-1·Ⅰ-2)으로 정리한다. **별표·별지 서식과 본문 속 표는 표가 깨질 수 있으므로 서식을 건드리지 않는다**(내용 변경이 결정된 셀 글자만 수정) — 사용자 지시(2026. 11. 13.).
    - 웹앱 데이터(https://jjorribbong.github.io/work/rules/ = 이 저장소 `gh-pages` 브랜치 `rules/data/rules.json`, 법령은 `laws.json`·`lawtext/`)는 `git fetch origin gh-pages` 후 `git archive origin/gh-pages rules` 로 받는다(github.io 직접 접속은 막혀 있음). 웹앱 본문은 표가 풀리고 일부 중복이 있으므로 **조문 원문은 규정집 hwp 기준**, 웹앱은 대조·법령 확인용으로 쓴다.
 
 ### 개정안 hwpx 작성 파이프라인 — 원본 서식 보존 (기본)
@@ -41,7 +42,8 @@ from hwpx_patch import Doc                     # scripts/hwpx_patch.py
 d = Doc.from_hwp('원문.hwp')                   # 원본 그대로 hwpx 변환
 d.replace_block(원문_여러줄, 개정문_여러줄)       # 줄=문단. 고친 줄은 글자만 교체(조 제목 진하게 run 유지), 늘어난 줄은 같은 종류(조/항/호) 문단 복제
 d.set_cell('표 안 고유 글자', 행, 열, [줄...])   # 표는 셀 글자만 교체. 행·열 추가 대신 기존 셀에 줄 추가로 처리
-d.set_revision_date('변경 2026. ○. ○.'); d.add_buchik('이 개정 규정은 …부터 시행한다.')
+d.set_revision_date('변경 2026. ○. ○.'); d.add_buchik('이 변경 규정은 …부터 시행한다.')
+from format_body import apply_standard; apply_standard(d, '규정명')   # 본문만 내부 편집기준 적용, 별표·별지는 별도 구역으로 원본 유지
 d.save('규정명_개정안_날짜.hwpx', preview_text=d.plain()[:1000])
 ```
 - 원문 블록이 1번만 일치해야 한다(여러 번이면 앞뒤 문단을 붙여 범위를 좁힌다). 문단 일부만 바꿀 때도 문단 전체를 old/new로 쓴다.
