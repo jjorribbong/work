@@ -28,16 +28,26 @@ description: 청주대학교 규정 개정 업무 지침. 규정 개정, 규정 
    - **자동 다운로드**: `python3 -I .claude/skills/regulation-revision/scripts/cju_rule_download.py "규정명" regulation/input/{YYYYMMDD}_{규정명}/`
      (제목 검색 → 정확히 일치하는 규정의 "전문다운로드" .hwp 저장. 출력되는 최종개정일을 요청서·검증보고에 기록)
    - 받은 파일은 HWP5 바이너리(.hwp)다. 본문 대조용 텍스트는 `python3 -I .claude/skills/regulation-revision/scripts/hwp2txt.py 파일.hwp > 원문.txt` 로 추출한다 (`pip install olefile` 필요).
-   - 개정안 규정 파일(결과물 3)은 .hwp 바이너리를 직접 고칠 수 없으므로 **hwpx로 작성**한다. 원문 서식은 drafting-standards.md Ⅰ-1 기준을 따른다.
+   - 개정안 규정 파일(결과물 3)은 **원본 .hwp를 hwpx로 변환한 파일에서 개정 문단만 고쳐** 만든다. 본문·별표·별지의 서식(표 모양, 셀 크기, 테두리, 간격, 글자모양)은 **절대 다시 조판하지 않는다** — 사용자 지시(2026. 11. 13.).
    - 웹앱 데이터(https://jjorribbong.github.io/work/rules/ = 이 저장소 `gh-pages` 브랜치 `rules/data/rules.json`, 법령은 `laws.json`·`lawtext/`)는 `git fetch origin gh-pages` 후 `git archive origin/gh-pages rules` 로 받는다(github.io 직접 접속은 막혀 있음). 웹앱 본문은 표가 풀리고 일부 중복이 있으므로 **조문 원문은 규정집 hwp 기준**, 웹앱은 대조·법령 확인용으로 쓴다.
 
-### 전체 개정안 hwpx 작성 파이프라인 (2026. 11. 13. 8개 규정 작업에서 확립)
+### 개정안 hwpx 작성 파이프라인 — 원본 서식 보존 (기본)
 ```
-scripts/hwp2struct.py  원문.hwp  > 원문.json        # 문단 + 표(행·열·병합) 추출
-scripts/struct2md.py   원문.json > 규정명.reg.txt   # 편집용 마크업 (표: [[표 R C]] / {r,c,rs,cs} 셀)
-(개정 문안 적용: (원문, 개정문) 쌍을 정확히 1회 일치 확인 후 치환 → 부칙 추가 → 머리 '변경 날짜' → '제○조 (' 띄어쓰기 정리)
-scripts/md2hwpx.py     규정명.reg.txt 출력.hwpx --skeleton regulation/reference/교무처_규정_제개정_체계_기준_2023.5.26.hwpx --title 규정명
+pip install python-hwpx olefile
+scripts/hwp2struct.py 원문.hwp > 원문.json ; scripts/struct2md.py 원문.json > 규정명.reg.txt   # 원문 읽기·문안 작성용
 ```
+```python
+from hwpx_patch import Doc                     # scripts/hwpx_patch.py
+d = Doc.from_hwp('원문.hwp')                   # 원본 그대로 hwpx 변환
+d.replace_block(원문_여러줄, 개정문_여러줄)       # 줄=문단. 고친 줄은 글자만 교체(조 제목 진하게 run 유지), 늘어난 줄은 같은 종류(조/항/호) 문단 복제
+d.set_cell('표 안 고유 글자', 행, 열, [줄...])   # 표는 셀 글자만 교체. 행·열 추가 대신 기존 셀에 줄 추가로 처리
+d.set_revision_date('변경 2026. ○. ○.'); d.add_buchik('이 개정 규정은 …부터 시행한다.')
+d.save('규정명_개정안_날짜.hwpx', preview_text=d.plain()[:1000])
+```
+- 원문 블록이 1번만 일치해야 한다(여러 번이면 앞뒤 문단을 붙여 범위를 좁힌다). 문단 일부만 바꿀 때도 문단 전체를 old/new로 쓴다.
+- 표 안 글자가 길어져 줄이 어긋나면 셀 글자는 원문대로 두고 본문 항으로 규정한다.
+- **완료 확인**: 원본 변환본과 결과물을 문단 단위로 diff 하여 의도한 문단만 바뀌었는지, 표 XML이 고친 표 외에는 원본과 같은지 확인한다.
+- (`md2hwpx.py` 전면 재조판은 새로 제정하는 규정처럼 원본이 없을 때만 쓴다.)
 - 검증: `pip install python-hwpx` 후 `hwpx.tools.package_validator.validate_editor_open_safety(파일)` — blocking 없음·schema issue 0·reopen_ok 확인.
   `hwpx.tools.layout_preview.render_layout_preview(파일).html` 을 Playwright로 캡처해 표·쪽 나눔을 눈으로 확인.
 - 개정일·시행일이 정해지지 않았으면 `2026. ○. ○.` 로 비워 두고 보고서에 확인 요청.
