@@ -1,0 +1,8 @@
+# 규정 업무 원본·결과 파일은 공개 저장소에 올리지 않음 (로컬 보관)
+regulation/**/*.hwpx
+regulation/**/*.hwp
+regulation/**/*.xlsx
+regulation/**/*.docx
+regulation/**/*.pdf
+regulation/input/
+regulation/output/
