@@ -21,6 +21,14 @@ for seq, hseq, title, date, fseq, ftype in rows:
 pick = next((r for r in rows if r[2].replace(" ", "") == name.replace(" ", "")), rows[0])
 r = post("/lmxsrv/fileDown.srv", {"FILE_SEQ": pick[4], "FILE_TYPE": pick[5]})
 m = re.search(r'fileName="([^"]+)"', r.headers.get("Content-Disposition", ""))
-fn = urllib.parse.unquote(m.group(1)) if m else f"{pick[3]}_{pick[2]}.hwp"
+fn = None
+if m:
+    raw = m.group(1)
+    for enc in ("utf-8", "cp949"):
+        try: raw = raw.encode("latin-1").decode(enc); break
+        except UnicodeError: pass
+    fn = urllib.parse.unquote(raw)
+if not fn or "?" in fn or "\ufffd" in fn:
+    fn = f"{pick[3]}_{pick[2]}.hwp"
 os.makedirs(out, exist_ok=True); p = os.path.join(out, fn)
 open(p, "wb").write(r.read()); print("저장:", p)

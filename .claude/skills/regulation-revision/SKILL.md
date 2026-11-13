@@ -28,7 +28,20 @@ description: 청주대학교 규정 개정 업무 지침. 규정 개정, 규정 
    - **자동 다운로드**: `python3 -I .claude/skills/regulation-revision/scripts/cju_rule_download.py "규정명" regulation/input/{YYYYMMDD}_{규정명}/`
      (제목 검색 → 정확히 일치하는 규정의 "전문다운로드" .hwp 저장. 출력되는 최종개정일을 요청서·검증보고에 기록)
    - 받은 파일은 HWP5 바이너리(.hwp)다. 본문 대조용 텍스트는 `python3 -I .claude/skills/regulation-revision/scripts/hwp2txt.py 파일.hwp > 원문.txt` 로 추출한다 (`pip install olefile` 필요).
-   - 개정안 규정 파일(결과물 3)은 .hwp 바이너리를 직접 고칠 수 없으므로 **hwpx로 작성**한다. 원문 서식은 drafting-standards.md Ⅰ-1 기준을 따른다. 사용자가 한글에서 원본 .hwp를 hwpx로 저장해 올려 주면 그 파일을 복사해 수정하는 방식이 가장 정확하므로, 작업 시작 시 가능 여부를 묻는다.
+   - 개정안 규정 파일(결과물 3)은 .hwp 바이너리를 직접 고칠 수 없으므로 **hwpx로 작성**한다. 원문 서식은 drafting-standards.md Ⅰ-1 기준을 따른다.
+   - 웹앱 데이터(https://jjorribbong.github.io/work/rules/ = 이 저장소 `gh-pages` 브랜치 `rules/data/rules.json`, 법령은 `laws.json`·`lawtext/`)는 `git fetch origin gh-pages` 후 `git archive origin/gh-pages rules` 로 받는다(github.io 직접 접속은 막혀 있음). 웹앱 본문은 표가 풀리고 일부 중복이 있으므로 **조문 원문은 규정집 hwp 기준**, 웹앱은 대조·법령 확인용으로 쓴다.
+
+### 전체 개정안 hwpx 작성 파이프라인 (2026. 11. 13. 8개 규정 작업에서 확립)
+```
+scripts/hwp2struct.py  원문.hwp  > 원문.json        # 문단 + 표(행·열·병합) 추출
+scripts/struct2md.py   원문.json > 규정명.reg.txt   # 편집용 마크업 (표: [[표 R C]] / {r,c,rs,cs} 셀)
+(개정 문안 적용: (원문, 개정문) 쌍을 정확히 1회 일치 확인 후 치환 → 부칙 추가 → 머리 '변경 날짜' → '제○조 (' 띄어쓰기 정리)
+scripts/md2hwpx.py     규정명.reg.txt 출력.hwpx --skeleton regulation/reference/교무처_규정_제개정_체계_기준_2023.5.26.hwpx --title 규정명
+```
+- 검증: `pip install python-hwpx` 후 `hwpx.tools.package_validator.validate_editor_open_safety(파일)` — blocking 없음·schema issue 0·reopen_ok 확인.
+  `hwpx.tools.layout_preview.render_layout_preview(파일).html` 을 Playwright로 캡처해 표·쪽 나눔을 눈으로 확인.
+- 개정일·시행일이 정해지지 않았으면 `2026. ○. ○.` 로 비워 두고 보고서에 확인 요청.
+- 작업 원문(.reg.txt)과 적용 스크립트는 `regulation/output/{날짜}_{규정명}/작업원문/` 에 남긴다.
 4. **접속이 안 되는 경우**(클라우드 세션 네트워크 차단 등): 임의의 내용으로 대체하지 말고, 사용자에게 규정 파일을 직접 업로드해 달라고 요청한다. 업로드 파일의 최종 개정일이 규정집 최신본과 같은지 사용자에게 확인받는다.
 
 ## 2단계. 개정 요청서 및 신구대비표 작성 방법

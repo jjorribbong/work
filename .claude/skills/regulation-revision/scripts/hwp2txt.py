@@ -17,7 +17,7 @@ def paras(data):
                 if c == 24 or c == 30 or c == 31: out.append(' '); j += 2; continue
                 if c >= 32: out.append(chr(c))
                 j += 2
-            yield ''.join(out)
+            yield ''.join(out).encode('utf-16-le', 'surrogatepass').decode('utf-16-le', 'replace')
 f = olefile.OleFileIO(sys.argv[1])
 hdr = f.openstream('FileHeader').read()
 compressed = struct.unpack('<I', hdr[36:40])[0] & 1
