@@ -48,6 +48,22 @@ d.save('규정명_개정안_날짜.hwpx', preview_text=d.plain()[:1000])
 - 표 안 글자가 길어져 줄이 어긋나면 셀 글자는 원문대로 두고 본문 항으로 규정한다.
 - **완료 확인**: 원본 변환본과 결과물을 문단 단위로 diff 하여 의도한 문단만 바뀌었는지, 표 XML이 고친 표 외에는 원본과 같은지 확인한다.
 - (`md2hwpx.py` 전면 재조판은 새로 제정하는 규정처럼 원본이 없을 때만 쓴다.)
+
+### 개정요청서·신구대비표 작성 — `scripts/request_form.py`
+```python
+from request_form import build, compare_rows
+rows = []; seen = set()
+for old, new, 직전조머리 in 개정블록(문서 순서):            # 개정안 작성에 쓴 것과 같은 (원문, 개정문) 블록
+    rows += compare_rows(old, new, context_heading=직전조머리, seen=seen)
+rows.append(([[('', False)]], [[('부          칙', False)], [('이 변경 규정은 2026년 ○월 ○일부터 시행한다.', False)]]))
+rows += 별표·별지_행                                       # 대비표 끝에 '【별지 …】 (생 략)' 머리 + 바뀐 줄
+build('regulation/templates/개정요청서_신구대비표_양식_직원보수규정예시.hwpx', 출력, 규정명,
+      {'주무부서':…, '관련부서':…, '개정사유':[…], '관련근거':[…], '주요내용':[…], '기대효과':[…], '의견수렴':['-'], '첨부':[…]}, rows)
+```
+- 양식의 요청서 표·대비표 행 서식을 복제해 채운다(글꼴·칸 너비·테두리 유지). 바뀐 글자 = 양식 charPr 24(진하게+밑줄).
+- 비교는 단어 단위, 대부분 바뀐 문장은 번호 뒤 전체 표시, 개정 이력 `(변경 2026. ○. ○.)` 은 대비표에서 뺀다.
+- 표 셀 변경(별표·조문 안 표)은 글로 된 행으로 넣는다. 별표 가로 쪽(section1)은 쓰지 않으면 삭제된다.
+- 주무부서를 모르면 추측하지 말고 확인 요청 목록에 올린다.
 - 검증: `pip install python-hwpx` 후 `hwpx.tools.package_validator.validate_editor_open_safety(파일)` — blocking 없음·schema issue 0·reopen_ok 확인.
   `hwpx.tools.layout_preview.render_layout_preview(파일).html` 을 Playwright로 캡처해 표·쪽 나눔을 눈으로 확인.
 - 개정일·시행일이 정해지지 않았으면 `2026. ○. ○.` 로 비워 두고 보고서에 확인 요청.
