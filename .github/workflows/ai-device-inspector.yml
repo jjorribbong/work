@@ -14,12 +14,11 @@ jobs:
       run:
         working-directory: ai-device-inspector
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
       - name: 테스트
         run: ./gradlew --no-daemon testDebugUnitTest
       - name: APK 빌드
