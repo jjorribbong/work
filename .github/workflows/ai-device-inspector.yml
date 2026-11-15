@@ -7,6 +7,9 @@ on:
       - ".github/workflows/ai-device-inspector.yml"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -27,3 +30,12 @@ jobs:
         with:
           name: ai-device-inspector-apk
           path: ai-device-inspector/app/build/outputs/apk/debug/app-debug.apk
+      - name: APK를 저장소에 올리기
+        run: |
+          mkdir -p release
+          cp app/build/outputs/apk/debug/app-debug.apk release/ai-device-inspector.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add release/ai-device-inspector.apk
+          git commit -m "AI기기 인스펙터 APK 빌드 결과 [skip ci]" || exit 0
+          git push origin HEAD:${{ github.ref_name }}
