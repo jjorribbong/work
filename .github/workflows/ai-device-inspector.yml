@@ -1,0 +1,30 @@
+name: AI기기 인스펙터 APK 빌드
+
+on:
+  push:
+    paths:
+      - "ai-device-inspector/**"
+      - ".github/workflows/ai-device-inspector.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai-device-inspector
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: 테스트
+        run: ./gradlew --no-daemon testDebugUnitTest
+      - name: APK 빌드
+        run: ./gradlew --no-daemon assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-device-inspector-apk
+          path: ai-device-inspector/app/build/outputs/apk/debug/app-debug.apk
