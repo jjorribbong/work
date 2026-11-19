@@ -25,8 +25,11 @@
   .pane { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
   .pane.me { display: none; }
   body.face #stage { bottom: calc(58px + env(safe-area-inset-bottom)); }
-  body.face .pane.mom { flex: 0 0 56%; transform: rotate(180deg); border-top: 2px dashed var(--line); }
-  body.face .pane.me { display: flex; flex: 0 0 44%; }
+  body.face .pane.mom { flex: 0 0 var(--momH, 55%); transform: rotate(180deg); border-top: 2px dashed var(--line); }
+  body.face .pane.me { display: flex; flex: 1 1 0; }
+  .faceOpt { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; padding: 10px 0 12px 14px; border-bottom: 1px solid var(--line); font-size: 16px; }
+  .faceOpt .val { color: var(--live); font-weight: 700; font-size: 15px; }
+  .faceOpt input[type=range] { grid-column: 1 / -1; width: 100%; height: 28px; }
   .cap { width: 100%; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end;
     line-height: 1.18; font-weight: 800; word-break: keep-all; overflow-wrap: anywhere; letter-spacing: -0.02em; }
   .cap .live { color: var(--live); }
@@ -97,6 +100,9 @@
         <option value="1">최대 (2줄)</option><option value="0.75">크게 (약 3줄)</option><option value="0.6">보통 (약 4줄)</option>
       </select></div>
     <div class="row"><span>마주보기 (세로 화면, 위쪽은 뒤집어 맞은편에서 읽기)</span><input type="checkbox" id="faceChk"></div>
+    <div class="faceOpt"><span>└ 엄마 쪽 화면 비율</span><span class="val" id="ratioVal"></span><input type="range" id="ratioRange" min="40" max="80" step="5"></div>
+    <div class="faceOpt"><span>└ 엄마 쪽 글자 크기 <span class="small">(왼쪽일수록 큼)</span></span><span class="val" id="momVal"></span><input type="range" id="momRange" min="3" max="10" step="1"></div>
+    <div class="faceOpt"><span>└ 내 쪽 글자 크기 <span class="small">(왼쪽일수록 큼)</span></span><span class="val" id="meVal"></span><input type="range" id="meRange" min="3" max="12" step="1"></div>
     <div class="row"><span>흰 바탕 화면</span><input type="checkbox" id="lightChk"></div>
     <div class="row"><span>새 글자가 나오면 진동</span><input type="checkbox" id="vibChk"></div>
 
@@ -131,7 +137,7 @@
     set(k, v) { try { localStorage.setItem('majutalk.' + k, JSON.stringify(v)); } catch {} }
   };
   const saved = store.get('cfg2', {});
-  const cfg = Object.assign({ scale: 1, light: false, vib: false, face: false, fixes: store.get('cfg', {}).fixes || [] }, saved);
+  const cfg = Object.assign({ scale: 1, light: false, vib: false, face: false, faceRatio: 55, momChars: 5, meChars: 5, fixes: store.get('cfg', {}).fixes || [] }, saved);
   let lines = store.get('lines', []);
   let live = '';
 
@@ -141,16 +147,25 @@
   const LH = 1.18;
   function fit() {
     document.body.classList.toggle('face', cfg.face);
+    document.documentElement.style.setProperty('--momH', cfg.faceRatio + '%');
     $('faceBtn').textContent = cfg.face ? '↔ 가로로' : '⇅ 마주보기';
     const rows = Math.round(2 / cfg.scale);
     document.querySelectorAll('.pane').forEach(pane => {
       if (getComputedStyle(pane).display === 'none') return;
       const cap = pane.querySelector('.cap');
-      const want = pane.classList.contains('me') ? 2 : rows;
+      const isMe = pane.classList.contains('me');
       const h = pane.clientHeight - 12, w = cap.clientWidth || pane.clientWidth;
-      // 높이 기준 최대 크기, 단 세로 화면처럼 폭이 좁으면 한 줄에 최소 5글자는 들어가게
-      const fs = Math.max(20, Math.floor(Math.min(h / (want * LH), w / 5.2)));
-      const n = Math.max(want, Math.floor(h / (fs * LH)));   // 남는 높이는 줄 수로 채움
+      let fs;
+      if (cfg.face) {
+        // 마주보기: 설정한 '한 줄 글자 수'에 맞춘 크기(최소 1줄은 들어가게)
+        const chars = isMe ? cfg.meChars : cfg.momChars;
+        fs = Math.min(w / (chars + 0.2), h / LH);
+      } else {
+        // 가로 화면: 높이에 두 줄 꽉 차게, 폭이 좁으면 한 줄 최소 5글자
+        fs = Math.min(h / (rows * LH), w / 5.2);
+      }
+      fs = Math.max(16, Math.floor(fs));
+      const n = Math.max(1, Math.floor(h / (fs * LH)));   // 남는 높이는 줄 수로 채움
       cap.style.fontSize = fs + 'px';
       cap.style.height = Math.floor(fs * LH * n) + 'px';
     });
@@ -281,15 +296,29 @@
 
   /* ---------- 설정 ---------- */
   function openSettings() {
-    $('scaleSel').value = String(cfg.scale); $('faceChk').checked = cfg.face; $('lightChk').checked = cfg.light; $('vibChk').checked = cfg.vib;
+    $('scaleSel').value = String(cfg.scale); $('faceChk').checked = cfg.face;
+    $('ratioRange').value = cfg.faceRatio; $('momRange').value = cfg.momChars; $('meRange').value = cfg.meChars; showVals(); $('lightChk').checked = cfg.light; $('vibChk').checked = cfg.vib;
     $('fixEdit').value = cfg.fixes.map(f => f[0] + ' = ' + f[1]).join('\n');
     refreshInstall(); $('settings').classList.add('show');
   }
   function closeSettings() {
-    const faceWas = cfg.face; cfg.scale = +$('scaleSel').value; cfg.face = $('faceChk').checked; cfg.light = $('lightChk').checked; cfg.vib = $('vibChk').checked;
+    const faceWas = cfg.face; cfg.scale = +$('scaleSel').value; cfg.face = $('faceChk').checked;
+    cfg.faceRatio = +$('ratioRange').value; cfg.momChars = +$('momRange').value; cfg.meChars = +$('meRange').value; cfg.light = $('lightChk').checked; cfg.vib = $('vibChk').checked;
     cfg.fixes = $('fixEdit').value.split('\n').map(l => l.split('=')).filter(a => a.length === 2 && a[0].trim()).map(a => [a[0].trim(), a[1].trim()]);
     applyCfg(); render(); $('settings').classList.remove('show'); if (faceWas !== cfg.face) lockOrientation();
   }
+  function showVals() {
+    $('ratioVal').textContent = $('ratioRange').value + '%';
+    $('momVal').textContent = '한 줄 ' + $('momRange').value + '글자';
+    $('meVal').textContent = '한 줄 ' + $('meRange').value + '글자';
+    document.querySelectorAll('.faceOpt').forEach(r => r.style.opacity = $('faceChk').checked ? 1 : .45);
+  }
+  // 움직이는 즉시 화면에 반영(미리보기)
+  ['ratioRange', 'momRange', 'meRange'].forEach(id => $(id).addEventListener('input', () => {
+    cfg.faceRatio = +$('ratioRange').value; cfg.momChars = +$('momRange').value; cfg.meChars = +$('meRange').value;
+    showVals(); fit(); store.set('cfg2', cfg);
+  }));
+  $('faceChk').addEventListener('change', showVals);
   $('setBtn').onclick = openSettings; $('startSet').onclick = openSettings;
   $('closeSet').onclick = closeSettings;
   $('settings').onclick = e => { if (e.target.id === 'settings') closeSettings(); };
