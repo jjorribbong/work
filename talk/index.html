@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="마주톡">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>마주톡 - 청각장애인 대화 도우미</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -163,6 +170,11 @@
     <div style="padding-top:12px">
       <div>자주 쓰는 말 <span class="small">(한 줄에 하나씩)</span></div>
       <textarea id="quickEdit"></textarea>
+    </div>
+    <div style="padding-top:14px">
+      <div>📱 휴대폰 홈 화면에 아이콘 추가</div>
+      <button class="btn" id="installBtn" style="display:none;width:100%;margin-top:8px">홈 화면에 추가하기</button>
+      <p class="small" id="installGuide" style="margin-top:6px"></p>
     </div>
     <div class="btns">
       <button class="btn ghost" id="saveLog">대화 저장(.txt)</button>
@@ -391,6 +403,26 @@
   };
 
   if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => {};
+
+  /* ---------- 홈 화면에 추가 ---------- */
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  let installEvt = null;
+  const isStandalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const ua = navigator.userAgent;
+  const isIOS = /iPhone|iPad|iPod/.test(ua) || (ua.includes('Mac') && 'ontouchend' in document);
+  const isKakao = /KAKAOTALK|NAVER|Instagram|FBAN|Line\//i.test(ua);
+  function installGuide() {
+    if (isStandalone) return '이미 홈 화면 아이콘으로 실행 중입니다. ✅';
+    if (isKakao) return '카카오톡·네이버 등 앱 안의 브라우저에서는 추가할 수 없습니다. 오른쪽 위 메뉴(⋮ 또는 ⋯)에서 "다른 브라우저로 열기"를 누른 뒤 다시 시도하세요.';
+    if (isIOS) return '아이폰: 화면 아래(또는 위)의 공유 버튼 [⬆︎] → "홈 화면에 추가" → 오른쪽 위 "추가"를 누르세요. (Safari에서 열어야 합니다)';
+    if (installEvt) return '위 버튼을 누르면 홈 화면에 마주톡 아이콘이 생깁니다.';
+    return '안드로이드(크롬): 오른쪽 위 메뉴 [⋮] → "홈 화면에 추가" 또는 "앱 설치"를 누르세요. 삼성 인터넷: 아래 메뉴 [≡] → "현재 페이지 추가" → "홈 화면"을 누르세요.';
+  }
+  function refreshInstall() { $('installGuide').textContent = installGuide(); $('installBtn').style.display = installEvt && !isStandalone ? 'block' : 'none'; }
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; refreshInstall(); });
+  window.addEventListener('appinstalled', () => { installEvt = null; refreshInstall(); });
+  $('installBtn').onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; refreshInstall(); };
+  refreshInstall();
   applyCfg(); renderLog();
 })();
 </script>
