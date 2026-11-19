@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#2563eb">
-<title>청주대학교 인사기록조회</title>
+<title>청주대학교 차량확인</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -84,9 +84,99 @@
   .btn-sm { padding: 9px 12px; font-size: 13px; border-radius: 9px; }
   .btn[disabled] { opacity: 0.5; cursor: default; }
 
-  .search-box { text-align: center; padding: 26px 16px; }
-  .search-box .icon { font-size: 40px; margin-bottom: 10px; }
-  .search-box p { color: var(--sub); font-size: 13px; margin-bottom: 4px; line-height: 1.6; }
+  .capture-box {
+    text-align: center;
+    padding: 30px 16px;
+  }
+
+  .capture-box .icon { font-size: 44px; margin-bottom: 10px; }
+  .capture-box p { color: var(--sub); font-size: 13px; margin-bottom: 18px; line-height: 1.6; }
+
+  #preview-wrap { display: none; margin-top: 14px; }
+  #preview-img {
+    width: 100%;
+    border-radius: 12px;
+    display: block;
+    border: 1px solid var(--border);
+  }
+
+  #scan-stage {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 12px;
+    background: #000;
+    min-height: 200px;
+    line-height: 0;
+  }
+  #scan-video { display: block; width: 100%; height: auto; }
+  #scan-box {
+    position: absolute;
+    border: 2px solid #22d3ee;
+    border-radius: 6px;
+    box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+    animation: scan-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes scan-pulse {
+    0%, 100% { border-color: #22d3ee; }
+    50% { border-color: #a5f3fc; }
+  }
+
+  #crop-stage {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 12px;
+    touch-action: none;
+    line-height: 0;
+  }
+  #crop-img { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
+  #crop-box {
+    position: absolute;
+    border: 2px solid #22d3ee;
+    background: rgba(34, 211, 238, 0.15);
+    box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.45);
+    touch-action: none;
+    cursor: move;
+  }
+  .crop-handle {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    background: #22d3ee;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    touch-action: none;
+  }
+  .crop-handle[data-corner="nw"] { left: -12px; top: -12px; cursor: nwse-resize; }
+  .crop-handle[data-corner="ne"] { right: -12px; top: -12px; cursor: nesw-resize; }
+  .crop-handle[data-corner="sw"] { left: -12px; bottom: -12px; cursor: nesw-resize; }
+  .crop-handle[data-corner="se"] { right: -12px; bottom: -12px; cursor: nwse-resize; }
+
+  .ocr-status {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--blue);
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #eff6ff;
+    border-radius: 10px;
+  }
+
+  .ocr-status.error { color: var(--red); background: #fef2f2; }
+
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid #bfdbfe;
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   .field-label {
     font-size: 12px;
@@ -105,23 +195,13 @@
     background: #fff;
   }
 
-  select.select-input {
-    width: 100%;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 14px;
-    font-size: 15px;
-    background: #fff;
-    color: var(--text);
-  }
-
-  .query-input-row {
+  .plate-input-row {
     display: flex;
     gap: 8px;
-    margin-top: 16px;
+    margin-top: 14px;
   }
-  .query-input-row input { flex: 1; font-weight: 700; }
-  .query-input-row button { flex-shrink: 0; width: auto; padding: 12px 18px; }
+  .plate-input-row input { flex: 1; font-weight: 700; letter-spacing: 0.5px; }
+  .plate-input-row button { flex-shrink: 0; width: auto; padding: 12px 18px; }
 
   #result-area { margin-top: 14px; }
 
@@ -133,10 +213,14 @@
   }
   .result-card.notfound { border-left-color: var(--gray); background: #f9fafb; }
 
-  .result-card .empid { font-size: 13px; color: var(--sub); margin-bottom: 6px; }
+  .result-card .plate-big {
+    font-size: 13px;
+    color: var(--sub);
+    margin-bottom: 6px;
+  }
   .result-card .name { font-size: 20px; font-weight: 800; }
-  .result-card .row { font-size: 14px; margin-top: 6px; color: var(--text); }
-  .result-card .row .k { color: var(--sub); margin-right: 6px; }
+  .result-card .dept { font-size: 14px; color: var(--sub); margin-top: 2px; }
+  .result-card .phone { font-size: 15px; margin-top: 10px; font-weight: 600; }
 
   .result-actions {
     display: flex;
@@ -150,18 +234,6 @@
     color: var(--sub);
     font-size: 13px;
     padding: 30px 10px;
-  }
-
-  .category-badge {
-    display: inline-block;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 2px 7px;
-    border-radius: 999px;
-    background: #eef2ff;
-    color: #4338ca;
-    margin-left: 6px;
-    vertical-align: middle;
   }
 
   /* Registry */
@@ -180,6 +252,16 @@
   }
   .staff-item .name { font-weight: 700; font-size: 15px; }
   .staff-item .meta { font-size: 12px; color: var(--sub); margin-top: 3px; }
+  .staff-item .plate-tag {
+    display: inline-block;
+    background: #eff6ff;
+    color: var(--blue);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    margin-top: 6px;
+  }
   .staff-item .actions { display: flex; gap: 6px; }
   .staff-item .actions button {
     background: none;
@@ -192,18 +274,6 @@
   .form-grid { display: flex; flex-direction: column; gap: 10px; }
   .form-actions { display: flex; gap: 8px; margin-top: 4px; }
   .form-actions .btn { flex: 1; }
-
-  .field-row { display: flex; flex-direction: column; gap: 4px; }
-  .custom-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
-  .custom-row input { flex: 1; }
-  .custom-row button {
-    flex-shrink: 0;
-    background: none;
-    border: none;
-    color: var(--red);
-    font-size: 16px;
-    padding: 4px 6px;
-  }
 
   details.import-box { margin-top: 14px; }
   details.import-box summary {
@@ -226,15 +296,6 @@
   }
   .import-hint { font-size: 11px; color: var(--sub); margin-top: 6px; line-height: 1.5; }
 
-  /* Summary images */
-  .summary-img-card img {
-    width: 100%;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: #fff;
-    display: block;
-  }
-
   /* History */
   .history-item {
     background: var(--card);
@@ -246,7 +307,7 @@
     align-items: center;
     gap: 10px;
   }
-  .history-item .query { font-weight: 700; font-size: 14px; }
+  .history-item .plate { font-weight: 700; font-size: 14px; }
   .history-item .when { font-size: 11px; color: var(--sub); margin-top: 2px; }
   .history-item .who { font-size: 12px; color: var(--sub); margin-top: 2px; }
   .badge {
@@ -297,8 +358,6 @@
     font-size: 13px;
     z-index: 50;
     display: none;
-    max-width: 90%;
-    text-align: center;
   }
 </style>
 </head>
@@ -306,19 +365,59 @@
 <div id="app">
 
   <header>
-    <h1>청주대학교 인사기록조회</h1>
-    <div class="sub">교직원 인사기록 조회</div>
+    <h1>청주대학교 차량확인</h1>
+    <div class="sub">교직원 차량번호 조회</div>
   </header>
 
   <main>
     <!-- 조회 탭 -->
-    <div id="page-search" class="page active">
-      <div class="card search-box">
-        <div class="icon">🔍</div>
-        <p>이름 또는 사번으로<br>인사기록을 조회할 수 있습니다.</p>
+    <div id="page-scan" class="page active">
+      <div class="card capture-box">
+        <div class="icon">📷</div>
+        <p>카메라를 켜고 번호판을<br>사각형 안에 맞추면<br>자동으로 인식됩니다.</p>
+        <button class="btn btn-primary" id="capture-btn">번호판 촬영하기</button>
+        <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none">
 
-        <div class="query-input-row">
-          <input type="text" id="query-input" placeholder="이름 또는 사번">
+        <div id="scan-wrap" style="display:none;">
+          <div class="import-hint" id="scan-hint-status" style="margin-bottom:8px; text-align:center;">번호판을 사각형 안에 맞추면 자동으로 인식됩니다</div>
+          <div id="scan-stage">
+            <video id="scan-video" autoplay playsinline muted></video>
+            <div id="scan-box"></div>
+          </div>
+          <div class="result-actions" style="margin-top:12px;">
+            <button class="btn btn-ghost" id="scan-cancel-btn">취소</button>
+            <button class="btn btn-primary" id="scan-manual-btn">지금 촬영</button>
+          </div>
+        </div>
+
+        <div id="crop-wrap" style="display:none;">
+          <div class="import-hint" style="margin-bottom:8px; text-align:center;">번호판만 사각형 안에 들어오도록 맞춰주세요</div>
+          <div id="crop-stage">
+            <img id="crop-img" alt="촬영한 사진" draggable="false">
+            <div id="crop-box">
+              <div class="crop-handle" data-corner="nw"></div>
+              <div class="crop-handle" data-corner="ne"></div>
+              <div class="crop-handle" data-corner="sw"></div>
+              <div class="crop-handle" data-corner="se"></div>
+            </div>
+          </div>
+          <div class="result-actions" style="margin-top:12px;">
+            <button class="btn btn-ghost" id="retake-btn">다시 촬영</button>
+            <button class="btn btn-primary" id="confirm-crop-btn">이 영역 인식하기</button>
+          </div>
+        </div>
+
+        <div id="preview-wrap">
+          <img id="preview-img" alt="인식에 사용된 영역">
+        </div>
+
+        <div class="ocr-status" id="ocr-status">
+          <div class="spinner"></div>
+          <span id="ocr-status-text">인식 중...</span>
+        </div>
+
+        <div class="plate-input-row">
+          <input type="text" id="plate-input" placeholder="차량번호 또는 뒷자리 4자리">
           <button class="btn btn-primary btn-sm" id="lookup-btn">조회</button>
         </div>
       </div>
@@ -329,20 +428,10 @@
     <!-- 명단관리 탭 -->
     <div id="page-registry" class="page">
       <div class="card">
-        <span class="field-label">업로드할 자료 구분</span>
-        <select id="upload-category" class="select-input">
-          <option value="직원">직원 (교직원 인사기록)</option>
-          <option value="교원">교원 (교원현황)</option>
-          <option value="기타">기타</option>
-        </select>
-
-        <button class="btn btn-primary" id="show-add-form-btn" style="margin-top:10px;">+ 새 인사정보 등록</button>
-        <button class="btn btn-ghost" id="hwpx-upload-btn" style="margin-top:8px;">📄 인사기록 현황 한글파일 업로드</button>
-        <input type="file" id="hwpx-file-input" accept=".hwpx,.hwp,application/haansofthwp,application/vnd.hancom.hwp,application/x-hwp,application/vnd.hancom.hwpx,application/hwp+zip,application/hwpx+zip,application/zip,application/x-zip-compressed,application/octet-stream,*/*" style="display:none">
-        <button class="btn btn-ghost btn-sm" id="hwpx-upload-btn-any" style="margin-top:8px;">파일이 안 보이면: 전체 파일에서 찾기</button>
-        <input type="file" id="hwpx-file-input-any" style="display:none">
-        <div class="import-hint" style="margin-top:8px;">한글(HWP) 문서에 표로 작성된 자료 파일(.hwpx)을 업로드하세요. 표의 첫 행은 열 제목이며, 파일에 있는 컬럼(이름/생년월일/학력/임용일 등 무엇이든)이 그대로 자동 등록됩니다. 표 앞부분의 현황표(요약 표)는 이미지로 캡처되어 "현황표" 탭에서 볼 수 있습니다. 구버전 한글(.hwp) 형식은 지원되지 않으니 "다른 이름으로 저장"에서 한글 문서(*.hwpx)로 저장해주세요. 파일은 서버로 전송되지 않고 이 기기의 브라우저에서만 처리·저장됩니다.</div>
-        <button class="btn btn-danger-ghost btn-sm" id="clear-all-staff-btn" style="margin-top:8px;">전체 삭제</button>
+        <button class="btn btn-primary" id="show-add-form-btn">+ 새 차량 등록</button>
+        <button class="btn btn-ghost" id="excel-upload-btn" style="margin-top:8px;">📊 차량등록 현황 엑셀 업로드</button>
+        <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,application/csv" style="display:none">
+        <div class="import-hint" style="margin-top:8px;">엑셀 파일의 첫 행은 열 제목(이름/소속/연락처/차량번호 등)이어야 합니다. 파일은 서버로 전송되지 않고 브라우저에서만 처리됩니다.</div>
 
         <div class="form-grid" id="add-form" style="display:none; margin-top:14px;">
           <input type="hidden" id="edit-id">
@@ -351,16 +440,17 @@
             <input type="text" id="f-name" placeholder="홍길동">
           </div>
           <div>
-            <span class="field-label">구분</span>
-            <select id="f-category" class="select-input">
-              <option value="직원">직원</option>
-              <option value="교원">교원</option>
-              <option value="기타">기타</option>
-            </select>
+            <span class="field-label">소속</span>
+            <input type="text" id="f-dept" placeholder="예: 교무처">
           </div>
-          <div id="dynamic-fields"></div>
-          <div id="custom-fields"></div>
-          <button type="button" class="btn btn-ghost btn-sm" id="add-custom-field-btn">+ 사용자 정의 항목 추가</button>
+          <div>
+            <span class="field-label">연락처</span>
+            <input type="tel" id="f-phone" placeholder="010-1234-5678">
+          </div>
+          <div>
+            <span class="field-label">차량번호</span>
+            <input type="text" id="f-plate" placeholder="예: 12가3456">
+          </div>
           <div class="form-actions">
             <button class="btn btn-ghost" id="cancel-form-btn">취소</button>
             <button class="btn btn-primary" id="save-form-btn">저장</button>
@@ -369,22 +459,17 @@
 
         <details class="import-box">
           <summary>여러 건 한 번에 등록하기</summary>
-          <textarea id="bulk-import" placeholder="이름,부서,생년월일,학력,임용일&#10;홍길동,교무처,1990-01-01,학사,2020-03-01"></textarea>
-          <div class="import-hint">첫 줄은 열 제목(이름 포함 필수), 이후 줄부터 쉼표로 구분한 값을 한 줄에 한 건씩 입력하세요.</div>
+          <textarea id="bulk-import" placeholder="홍길동,교무처,010-1234-5678,12가3456"></textarea>
+          <div class="import-hint">한 줄에 한 건씩, "이름,소속,연락처,차량번호" 형식으로 입력하세요.</div>
           <button class="btn btn-ghost btn-sm" id="bulk-import-btn" style="margin-top:8px;">일괄 등록</button>
         </details>
       </div>
 
       <div class="search-row" style="margin-top:14px;">
-        <input type="text" id="staff-search" placeholder="이름, 사번, 부서 등 검색">
+        <input type="text" id="staff-search" placeholder="이름, 소속, 차량번호 검색">
       </div>
 
       <div id="staff-list"></div>
-    </div>
-
-    <!-- 현황표 탭 -->
-    <div id="page-summary" class="page">
-      <div id="summary-list"></div>
     </div>
 
     <!-- 조회기록 탭 -->
@@ -394,44 +479,22 @@
   </main>
 
   <footer>
-    <button class="tab-btn active" data-tab="search"><span class="icon">🔍</span>조회</button>
+    <button class="tab-btn active" data-tab="scan"><span class="icon">📷</span>조회</button>
     <button class="tab-btn" data-tab="registry"><span class="icon">👥</span>명단관리</button>
-    <button class="tab-btn" data-tab="summary"><span class="icon">📊</span>현황표</button>
     <button class="tab-btn" data-tab="history"><span class="icon">🕓</span>조회기록</button>
   </footer>
 
   <div class="toast" id="toast"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
-const STAFF_KEY = 'personnelDB';
-const LOG_KEY = 'personnelLookupHistory';
-const SUMMARY_KEY = 'personnelSummaryImages';
+const STAFF_KEY = 'staffVehicleDB';
+const LOG_KEY = 'plateLookupHistory';
 
-const NAME_ALIASES = ['이름', '성명', '성함', 'name'];
-const ID_ALIASES = ['사번', '교번', '학번', '사원번호', '직원번호', 'id', '번호'];
-const PHONE_ALIASES = ['연락처', '전화번호', '휴대전화', '휴대폰', '핸드폰', 'phone'];
-const BIRTHDATE_ALIASES = ['생년월일', '생일', 'birthdate', 'birth'];
-// A column like this means the table is a headcount/statistics recap (e.g.
-// "직종별 인원현황" listing several names per row next to a count), not a
-// one-row-per-person roster - even though it may also have a name column.
-const COUNT_ALIASES = ['인원', '정원', '현원', '여석', '계', '합계', '소계'];
-
-let idCounter = Date.now();
-function nextRecordId() { return idCounter++; }
-
-function normalizeKey(str) {
-  return (str || '').toString().replace(/[\s\-]/g, '').toUpperCase();
-}
-function normLabel(s) {
-  return String(s || '').replace(/[\s()]/g, '').toLowerCase();
-}
-function escapeHtml(str) {
-  return String(str == null ? '' : str).replace(/[&<>"']/g, c => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-  ));
+function normalizePlate(str) {
+  return (str || '').replace(/[\s\-·.]/g, '').toUpperCase();
 }
 
 function loadStaff() {
@@ -446,207 +509,471 @@ function loadLog() {
 }
 function saveLog(list) { localStorage.setItem(LOG_KEY, JSON.stringify(list)); }
 
-function loadSummaryImages() {
-  try { return JSON.parse(localStorage.getItem(SUMMARY_KEY) || '[]'); }
-  catch (e) { return []; }
-}
-function saveSummaryImages(list) { localStorage.setItem(SUMMARY_KEY, JSON.stringify(list)); }
-
-function showToast(msg, duration) {
+function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.style.display = 'block';
   clearTimeout(showToast._timer);
-  showToast._timer = setTimeout(() => { t.style.display = 'none'; }, duration || 2400);
+  showToast._timer = setTimeout(() => { t.style.display = 'none'; }, 1800);
 }
 
 /* ---------- Tab navigation ---------- */
 function switchPage(name) {
+  if (name !== 'scan' && typeof stopLiveScan === 'function') stopLiveScan();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelector(`.tab-btn[data-tab="${name}"]`).classList.add('active');
   if (name === 'registry') renderStaffList();
-  if (name === 'summary') renderSummaryList();
   if (name === 'history') renderHistory();
 }
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => switchPage(btn.dataset.tab));
 });
 
-/* ---------- Record helpers (dynamic columns) ---------- */
-function findAliasKey(columns, aliases) {
-  for (const alias of aliases) {
-    const key = columns.find(c => normLabel(c) === normLabel(alias));
-    if (key) return key;
-  }
-  return null;
-}
-function resolveRoleKeys(columns) {
-  const cols = (columns || []).filter(Boolean);
-  return {
-    nameKey: findAliasKey(cols, NAME_ALIASES),
-    idKey: findAliasKey(cols, ID_ALIASES),
-    phoneKey: findAliasKey(cols, PHONE_ALIASES),
-    birthDateKey: findAliasKey(cols, BIRTHDATE_ALIASES),
-  };
-}
-function isNameAliasColumn(col) {
-  return NAME_ALIASES.some(a => normLabel(a) === normLabel(col));
-}
-function hasCountColumn(header) {
-  return (header || []).some(h => h && COUNT_ALIASES.some(a => normLabel(a) === normLabel(h)));
-}
-function looksLikePersonnelHeader(header) {
-  const roles = resolveRoleKeys(header);
-  return !!(roles.nameKey && !hasCountColumn(header));
-}
-// The overall "정·현원 현황" statistics table (정원/현원 by grade and track)
-// starts its header with two "구분" columns - a fingerprint that doesn't
-// match any other non-personnel table in these reports (department-level
-// 정원/현원/여석 boxes only have one "구분" column, not two). Everything
-// else that isn't personnel data is left out of the 현황표 tab entirely.
-function isCoreStatusHeader(header) {
-  return (header || []).length >= 2 && normLabel(header[0]) === '구분' && normLabel(header[1]) === '구분';
-}
-function rowSignature(values) {
-  return Object.keys(values).sort().map(k => k + '=' + values[k]).join('|');
-}
-function recordName(r) {
-  if (r.nameKey && r.values[r.nameKey]) return r.values[r.nameKey];
-  const firstCol = (r.columns || [])[0];
-  return firstCol ? (r.values[firstCol] || '') : '';
-}
-function recordIdVal(r) { return (r.idKey && r.values[r.idKey]) || ''; }
-function recordPhoneVal(r) { return (r.phoneKey && r.values[r.phoneKey]) || ''; }
-
-function computeGlobalSchema() {
-  const list = loadStaff();
-  const seen = [];
-  const seenSet = new Set();
-  list.forEach(r => {
-    (r.columns || []).forEach(c => {
-      if (!c || isNameAliasColumn(c)) return;
-      if (!seenSet.has(c)) { seenSet.add(c); seen.push(c); }
-    });
-  });
-  return seen;
-}
-
-function importStaffRows(rows, category, headerCols, dedupeSet) {
-  const cols = (headerCols || []).filter(Boolean);
-  const roles = resolveRoleKeys(cols);
-  const list = loadStaff();
-  const dedupe = dedupeSet || new Set();
-  let added = 0, skipped = 0, duplicates = 0;
-  rows.forEach(row => {
-    const name = roles.nameKey ? (row[roles.nameKey] || '').toString().trim() : '';
-    if (!name) { skipped++; return; }
-    const values = {};
-    cols.forEach(h => { values[h] = (row[h] ?? '').toString().trim(); });
-    // Same name + same birth date reliably identifies the same physical
-    // person even if one other field (e.g. department) was mistyped on a
-    // duplicated row - far more robust than requiring every column to
-    // match exactly. Two different people who share both a name and an
-    // exact birth date is not a realistic collision at this scale. Tables
-    // without a birth date column fall back to a full-row match.
-    const sig = roles.birthDateKey
-      ? category + '|n:' + normLabel(name) + '|b:' + normLabel(values[roles.birthDateKey] || '')
-      : category + '|' + rowSignature(values);
-    if (dedupe.has(sig)) { duplicates++; return; }
-    dedupe.add(sig);
-    list.push({
-      id: nextRecordId(),
-      category: category || '기타',
-      columns: [...cols],
-      values,
-      nameKey: roles.nameKey,
-      idKey: roles.idKey,
-      phoneKey: roles.phoneKey,
-    });
-    added++;
-  });
-  saveStaffList(list);
-  return { added, skipped, duplicates };
-}
-
-/* ---------- Search / Lookup ---------- */
-const queryInput = document.getElementById('query-input');
+/* ---------- Scan / OCR / Lookup ---------- */
+const cameraInput = document.getElementById('camera-input');
+const captureBtn = document.getElementById('capture-btn');
+const scanWrap = document.getElementById('scan-wrap');
+const scanStage = document.getElementById('scan-stage');
+const scanVideo = document.getElementById('scan-video');
+const scanBox = document.getElementById('scan-box');
+const scanHintStatus = document.getElementById('scan-hint-status');
+const cropWrap = document.getElementById('crop-wrap');
+const cropStage = document.getElementById('crop-stage');
+const cropImg = document.getElementById('crop-img');
+const cropBox = document.getElementById('crop-box');
+const previewWrap = document.getElementById('preview-wrap');
+const previewImg = document.getElementById('preview-img');
+const ocrStatus = document.getElementById('ocr-status');
+const ocrStatusText = document.getElementById('ocr-status-text');
+const plateInput = document.getElementById('plate-input');
 const resultArea = document.getElementById('result-area');
 
-document.getElementById('lookup-btn').addEventListener('click', () => doLookup(queryInput.value));
-queryInput.addEventListener('keydown', e => { if (e.key === 'Enter') doLookup(queryInput.value); });
+document.getElementById('capture-btn').addEventListener('click', () => startLiveScan());
 
-function findStaffMatches(query) {
-  const q = (query || '').trim();
-  if (!q) return [];
-  const list = loadStaff();
-  const qNorm = normalizeKey(q);
+function showOcrStatus(text, isError) {
+  ocrStatus.style.display = 'flex';
+  ocrStatus.classList.toggle('error', !!isError);
+  ocrStatus.querySelector('.spinner').style.display = isError ? 'none' : 'block';
+  ocrStatusText.textContent = text;
+}
+function hideOcrStatus() { ocrStatus.style.display = 'none'; }
 
-  const idExact = list.filter(s => { const v = recordIdVal(s); return v && normalizeKey(v) === qNorm; });
-  if (idExact.length) return idExact;
+function loadImageToCanvas(file, maxWidth) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(img.src);
+      resolve(canvas);
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
 
-  if (/^\d{2,}$/.test(qNorm)) {
-    const idSuffix = list.filter(s => { const v = recordIdVal(s); return v && normalizeKey(v).endsWith(qNorm); });
-    if (idSuffix.length) return idSuffix;
+function preprocessCanvas(canvas) {
+  const ctx = canvas.getContext('2d');
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = imgData.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    const contrasted = Math.min(255, Math.max(0, (gray - 128) * 1.6 + 128));
+    d[i] = d[i + 1] = d[i + 2] = contrasted;
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
+function extractPlateCandidate(text) {
+  const cleaned = (text || '').replace(/\n/g, ' ');
+  const match = cleaned.match(/(\d{2,3})\s*[-.]?\s*([가-힣])\s*[-.]?\s*(\d{4})/);
+  if (match) return `${match[1]}${match[2]}${match[3]}`;
+  const fallback = cleaned.replace(/[^0-9가-힣]/g, '');
+  return fallback.slice(0, 8);
+}
+
+/* ---------- Crop step (helps OCR by removing background noise) ---------- */
+let capturedCanvas = null;
+let cropRect = { x: 0.1, y: 0.375, w: 0.8, h: 0.25 };
+const CROP_MIN = 0.08;
+
+function applyCropBoxStyle() {
+  const stageRect = cropStage.getBoundingClientRect();
+  cropBox.style.left = (cropRect.x * stageRect.width) + 'px';
+  cropBox.style.top = (cropRect.y * stageRect.height) + 'px';
+  cropBox.style.width = (cropRect.w * stageRect.width) + 'px';
+  cropBox.style.height = (cropRect.h * stageRect.height) + 'px';
+}
+
+function pointerFrac(e) {
+  const r = cropStage.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
+}
+
+let dragMode = null;
+let dragStart = null;
+
+cropBox.addEventListener('pointerdown', e => {
+  const handle = e.target.closest('.crop-handle');
+  dragMode = handle ? handle.dataset.corner : 'move';
+  dragStart = { pointer: pointerFrac(e), rect: { ...cropRect } };
+  cropBox.setPointerCapture(e.pointerId);
+  e.preventDefault();
+});
+
+cropBox.addEventListener('pointermove', e => {
+  if (!dragMode) return;
+  const p = pointerFrac(e);
+  const dx = p.x - dragStart.pointer.x;
+  const dy = p.y - dragStart.pointer.y;
+  const r0 = dragStart.rect;
+  let { x, y, w, h } = r0;
+
+  if (dragMode === 'move') {
+    x = r0.x + dx;
+    y = r0.y + dy;
+  } else {
+    if (dragMode.includes('n')) {
+      h = r0.h - dy;
+      if (h < CROP_MIN) h = CROP_MIN;
+      y = (r0.y + r0.h) - h;
+    }
+    if (dragMode.includes('s')) {
+      h = r0.h + dy;
+      if (h < CROP_MIN) h = CROP_MIN;
+    }
+    if (dragMode.includes('w')) {
+      w = r0.w - dx;
+      if (w < CROP_MIN) w = CROP_MIN;
+      x = (r0.x + r0.w) - w;
+    }
+    if (dragMode.includes('e')) {
+      w = r0.w + dx;
+      if (w < CROP_MIN) w = CROP_MIN;
+    }
   }
 
-  const nameExact = list.filter(s => recordName(s) === q);
-  if (nameExact.length) return nameExact;
+  w = Math.min(w, 1);
+  h = Math.min(h, 1);
+  x = Math.min(Math.max(x, 0), 1 - w);
+  y = Math.min(Math.max(y, 0), 1 - h);
 
-  return list.filter(s => recordName(s).includes(q));
+  cropRect = { x, y, w, h };
+  applyCropBoxStyle();
+});
+
+cropBox.addEventListener('pointerup', () => { dragMode = null; });
+cropBox.addEventListener('pointercancel', () => { dragMode = null; });
+
+function openCropStep(canvas) {
+  capturedCanvas = canvas;
+  cropRect = { x: 0.1, y: 0.375, w: 0.8, h: 0.25 };
+  cropImg.src = canvas.toDataURL('image/jpeg', 0.92);
+  cropWrap.style.display = 'block';
+  captureBtn.style.display = 'none';
+  requestAnimationFrame(applyCropBoxStyle);
 }
 
-function summarizeRecord(r) {
-  const others = (r.columns || []).filter(c => c !== r.nameKey).map(c => r.values[c]).filter(Boolean);
-  return others.slice(0, 2).join(' · ');
+function closeCropStep() {
+  cropWrap.style.display = 'none';
+  captureBtn.style.display = 'block';
 }
 
-function doLookup(rawQuery) {
-  const query = (rawQuery || '').trim();
-  if (!query) { showToast('이름 또는 사번을 입력해주세요.'); return; }
-  const matches = findStaffMatches(query);
-  renderLookupResult(query, matches);
+document.getElementById('retake-btn').addEventListener('click', () => {
+  closeCropStep();
+  cameraInput.click();
+});
+
+document.getElementById('confirm-crop-btn').addEventListener('click', async () => {
+  if (!capturedCanvas) return;
+  const rectOnCanvas = {
+    x: cropRect.x * capturedCanvas.width,
+    y: cropRect.y * capturedCanvas.height,
+    w: cropRect.w * capturedCanvas.width,
+    h: cropRect.h * capturedCanvas.height,
+  };
+  const targetW = Math.max(rectOnCanvas.w, 700);
+  const scale = targetW / rectOnCanvas.w;
+  const outW = Math.round(rectOnCanvas.w * scale);
+  const outH = Math.round(rectOnCanvas.h * scale);
+  const cropCanvas = document.createElement('canvas');
+  cropCanvas.width = outW;
+  cropCanvas.height = outH;
+  cropCanvas.getContext('2d').drawImage(
+    capturedCanvas,
+    rectOnCanvas.x, rectOnCanvas.y, rectOnCanvas.w, rectOnCanvas.h,
+    0, 0, outW, outH
+  );
+  preprocessCanvas(cropCanvas);
+
+  closeCropStep();
+  previewImg.src = cropCanvas.toDataURL('image/jpeg', 0.92);
+  previewWrap.style.display = 'block';
+
+  await runOcrOnCanvas(cropCanvas);
+});
+
+const PLATE_HANGUL = '가나다라마거너더러머버서어저고노도로모보소오조구누두루무부수우주아바사자하허호배';
+
+let ocrWorkerPromise = null;
+function getOcrWorker() {
+  if (!ocrWorkerPromise) {
+    ocrWorkerPromise = (async () => {
+      try {
+        const worker = await Tesseract.createWorker('kor', 1, {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              if (!scanning) showOcrStatus(`번호판 인식 중... ${Math.round((m.progress || 0) * 100)}%`);
+            } else if (m.status) {
+              const loadingText = 'OCR 엔진 준비 중... (최초 1회, 인터넷 필요)';
+              if (scanning) scanHintStatus.textContent = loadingText;
+              else showOcrStatus(loadingText);
+            }
+          }
+        });
+        await worker.setParameters({
+          tessedit_pageseg_mode: '7',
+          tessedit_char_whitelist: '0123456789' + PLATE_HANGUL,
+        });
+        return worker;
+      } catch (err) {
+        ocrWorkerPromise = null;
+        throw err;
+      }
+    })();
+  }
+  return ocrWorkerPromise;
+}
+
+async function runOcrOnCanvas(canvas) {
+  showOcrStatus('OCR 엔진 준비 중... (최초 1회, 인터넷 필요)');
+  try {
+    const worker = await getOcrWorker();
+    const { data: { text } } = await worker.recognize(canvas);
+    hideOcrStatus();
+    const candidate = extractPlateCandidate(text);
+    plateInput.value = candidate;
+    if (candidate) doLookup(candidate);
+    else showToast('번호판을 인식하지 못했습니다. 직접 입력해주세요.');
+  } catch (err) {
+    hideOcrStatus();
+    showOcrStatus('인식에 실패했습니다. 번호를 직접 입력해주세요.', true);
+  }
+}
+
+/* ---------- Live camera scan (auto-capture when a plate is recognized) ---------- */
+const SCAN_RECT = { x: 0.08, y: 0.38, w: 0.84, h: 0.22 };
+const SCAN_DEFAULT_HINT = '번호판을 사각형 안에 맞추면 자동으로 인식됩니다';
+let scanning = false;
+let scanBusy = false;
+let scanTimer = null;
+let currentStream = null;
+
+function isValidPlateShape(s) {
+  return /^\d{2,3}[가-힣]\d{4}$/.test(s || '');
+}
+
+function applyScanBoxStyle() {
+  scanBox.style.left = (SCAN_RECT.x * 100) + '%';
+  scanBox.style.top = (SCAN_RECT.y * 100) + '%';
+  scanBox.style.width = (SCAN_RECT.w * 100) + '%';
+  scanBox.style.height = (SCAN_RECT.h * 100) + '%';
+}
+
+async function startLiveScan() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    cameraInput.click();
+    return;
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+  } catch (err) {
+    showToast('카메라를 사용할 수 없어 사진 촬영으로 전환합니다.');
+    cameraInput.click();
+    return;
+  }
+
+  resultArea.innerHTML = '';
+  plateInput.value = '';
+  previewWrap.style.display = 'none';
+
+  currentStream = stream;
+  scanVideo.srcObject = stream;
+  try { await scanVideo.play(); } catch (err) { /* autoplay already in progress */ }
+
+  applyScanBoxStyle();
+  scanHintStatus.textContent = SCAN_DEFAULT_HINT;
+  scanWrap.style.display = 'block';
+  captureBtn.style.display = 'none';
+  scanning = true;
+  scheduleNextScan(300);
+}
+
+function stopLiveScan() {
+  scanning = false;
+  clearTimeout(scanTimer);
+  if (currentStream) {
+    currentStream.getTracks().forEach(t => t.stop());
+    currentStream = null;
+  }
+  scanVideo.srcObject = null;
+  scanWrap.style.display = 'none';
+  captureBtn.style.display = 'block';
+}
+
+document.getElementById('scan-cancel-btn').addEventListener('click', stopLiveScan);
+
+function scheduleNextScan(delay) {
+  if (!scanning) return;
+  scanTimer = setTimeout(runScanTick, delay ?? 900);
+}
+
+function grabScanRegionCanvas() {
+  const vw = scanVideo.videoWidth, vh = scanVideo.videoHeight;
+  if (!vw || !vh) return null;
+  const rect = {
+    x: SCAN_RECT.x * vw,
+    y: SCAN_RECT.y * vh,
+    w: SCAN_RECT.w * vw,
+    h: SCAN_RECT.h * vh,
+  };
+  const targetW = Math.max(rect.w, 700);
+  const scale = targetW / rect.w;
+  const outW = Math.round(rect.w * scale);
+  const outH = Math.round(rect.h * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = outW;
+  canvas.height = outH;
+  canvas.getContext('2d').drawImage(scanVideo, rect.x, rect.y, rect.w, rect.h, 0, 0, outW, outH);
+  preprocessCanvas(canvas);
+  return canvas;
+}
+
+function finishScan(canvas, candidate) {
+  stopLiveScan();
+  previewImg.src = canvas.toDataURL('image/jpeg', 0.9);
+  previewWrap.style.display = 'block';
+  plateInput.value = candidate || '';
+  if (candidate) doLookup(candidate);
+}
+
+async function runScanTick() {
+  if (!scanning || scanBusy) { scheduleNextScan(); return; }
+  const canvas = grabScanRegionCanvas();
+  if (!canvas) { scheduleNextScan(300); return; }
+  scanBusy = true;
+  try {
+    const worker = await getOcrWorker();
+    if (scanning) scanHintStatus.textContent = SCAN_DEFAULT_HINT;
+    const { data: { text } } = await worker.recognize(canvas);
+    const candidate = extractPlateCandidate(text);
+    if (isValidPlateShape(candidate)) {
+      finishScan(canvas, candidate);
+      scanBusy = false;
+      return;
+    }
+  } catch (err) {
+    // transient recognition error; keep scanning
+  }
+  scanBusy = false;
+  scheduleNextScan();
+}
+
+document.getElementById('scan-manual-btn').addEventListener('click', async () => {
+  const canvas = grabScanRegionCanvas();
+  if (!canvas) return;
+  scanHintStatus.textContent = '인식 중...';
+  try {
+    const worker = await getOcrWorker();
+    const { data: { text } } = await worker.recognize(canvas);
+    const candidate = extractPlateCandidate(text);
+    finishScan(canvas, candidate);
+    if (!candidate) showToast('번호판을 인식하지 못했습니다. 직접 입력해주세요.');
+  } catch (err) {
+    stopLiveScan();
+    showOcrStatus('인식에 실패했습니다. 번호를 직접 입력해주세요.', true);
+  }
+});
+
+cameraInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  cameraInput.value = '';
+  if (!file) return;
+
+  resultArea.innerHTML = '';
+  plateInput.value = '';
+  previewWrap.style.display = 'none';
+
+  let canvas;
+  try {
+    canvas = await loadImageToCanvas(file, 1400);
+  } catch (err) {
+    showToast('이미지를 불러올 수 없습니다.');
+    return;
+  }
+  openCropStep(canvas);
+});
+
+document.getElementById('lookup-btn').addEventListener('click', () => doLookup(plateInput.value));
+plateInput.addEventListener('keydown', e => { if (e.key === 'Enter') doLookup(plateInput.value); });
+
+function findStaffMatches(plate) {
+  const input = normalizePlate(plate);
+  if (!input) return [];
+  const list = loadStaff();
+  const exact = list.filter(s => normalizePlate(s.plate) === input);
+  if (exact.length) return exact;
+  if (/^\d{4}$/.test(input)) {
+    return list.filter(s => normalizePlate(s.plate).slice(-4) === input);
+  }
+  return [];
+}
+
+function doLookup(rawPlate) {
+  const plate = (rawPlate || '').trim();
+  if (!plate) { showToast('차량번호를 입력해주세요.'); return; }
+  const matches = findStaffMatches(plate);
+  renderLookupResult(plate, matches);
   const log = loadLog();
   log.unshift({
     id: Date.now(),
     time: new Date().toISOString(),
-    query,
+    plate,
     matched: matches.length > 0,
-    name: matches.map(recordName).join(', '),
-    detail: matches.length === 1 ? summarizeRecord(matches[0]) : (matches.length > 1 ? `${matches.length}건 일치` : ''),
+    name: matches.map(m => m.name).join(', '),
+    dept: matches.length === 1 ? (matches[0].dept || '') : (matches.length > 1 ? `${matches.length}건 일치` : ''),
   });
   saveLog(log.slice(0, 200));
 }
 
 function renderMatchCard(match) {
-  const name = recordName(match);
-  const idVal = recordIdVal(match);
-  const phoneVal = recordPhoneVal(match);
-  const otherRows = (match.columns || [])
-    .filter(c => c !== match.nameKey)
-    .map(c => ({ label: c, value: match.values[c] }))
-    .filter(r => r.value);
-
   return `
     <div class="result-card">
-      ${idVal ? `<div class="empid">${escapeHtml(idVal)}</div>` : ''}
-      <div class="name">${escapeHtml(name)}${match.category ? `<span class="category-badge">${escapeHtml(match.category)}</span>` : ''}</div>
-      ${otherRows.map(r => `<div class="row"><span class="k">${escapeHtml(r.label)}</span>${escapeHtml(r.value)}</div>`).join('')}
-      ${phoneVal ? `
-        <div class="result-actions">
-          <a class="btn btn-primary" href="tel:${escapeHtml(phoneVal)}">전화 걸기</a>
-          <a class="btn btn-ghost" href="sms:${escapeHtml(phoneVal)}">문자 보내기</a>
-        </div>` : ''}
+      <div class="plate-big">${match.plate}</div>
+      <div class="name">${match.name}</div>
+      <div class="dept">${match.dept || '소속 미등록'}</div>
+      <div class="phone">📞 ${match.phone || '연락처 미등록'}</div>
+      <div class="result-actions">
+        ${match.phone ? `<a class="btn btn-primary" href="tel:${match.phone}">전화 걸기</a>` : ''}
+        ${match.phone ? `<a class="btn btn-ghost" href="sms:${match.phone}">문자 보내기</a>` : ''}
+      </div>
     </div>`;
 }
 
-function renderLookupResult(query, matches) {
+function renderLookupResult(plate, matches) {
   if (!matches.length) {
     resultArea.innerHTML = `
       <div class="result-card notfound">
-        <div class="empid">${escapeHtml(query)}</div>
-        <div class="name">등록된 인사기록이 없습니다</div>
+        <div class="plate-big">${plate}</div>
+        <div class="name">등록되지 않은 차량입니다</div>
       </div>`;
     return;
   }
@@ -655,44 +982,29 @@ function renderLookupResult(query, matches) {
     return;
   }
   resultArea.innerHTML =
-    `<div class="import-hint" style="margin-bottom:8px;">"${escapeHtml(query)}"와(과) 일치하는 인사기록이 ${matches.length}건 있습니다.</div>` +
+    `<div class="import-hint" style="margin-bottom:8px;">뒷자리 "${normalizePlate(plate)}"와 일치하는 차량이 ${matches.length}건 있습니다.</div>` +
     matches.map(renderMatchCard).join('<div style="height:10px;"></div>');
 }
 
-/* ---------- Staff registry (dynamic add/edit form) ---------- */
+/* ---------- Staff registry ---------- */
 const addForm = document.getElementById('add-form');
 const editIdInput = document.getElementById('edit-id');
 const fName = document.getElementById('f-name');
-const fCategory = document.getElementById('f-category');
-const dynamicFieldsEl = document.getElementById('dynamic-fields');
-const customFieldsEl = document.getElementById('custom-fields');
-let currentNameKey = '이름';
-
-function renderDynamicFields(record) {
-  const schema = computeGlobalSchema();
-  const values = record ? record.values : {};
-  dynamicFieldsEl.innerHTML = schema.map(col => `
-    <div class="field-row">
-      <span class="field-label">${escapeHtml(col)}</span>
-      <input type="text" class="dyn-value" data-key="${escapeHtml(col)}" value="${escapeHtml(values[col] || '')}">
-    </div>`).join('');
-}
+const fDept = document.getElementById('f-dept');
+const fPhone = document.getElementById('f-phone');
+const fPlate = document.getElementById('f-plate');
 
 function openAddForm(record) {
   addForm.style.display = 'flex';
-  customFieldsEl.innerHTML = '';
   if (record) {
     editIdInput.value = record.id;
-    currentNameKey = record.nameKey || '이름';
-    fName.value = recordName(record);
-    fCategory.value = record.category || '직원';
-    renderDynamicFields(record);
+    fName.value = record.name;
+    fDept.value = record.dept;
+    fPhone.value = record.phone;
+    fPlate.value = record.plate;
   } else {
     editIdInput.value = '';
-    currentNameKey = '이름';
-    fName.value = '';
-    fCategory.value = '직원';
-    renderDynamicFields(null);
+    fName.value = ''; fDept.value = ''; fPhone.value = ''; fPlate.value = '';
   }
   fName.focus();
 }
@@ -701,51 +1013,14 @@ function closeAddForm() { addForm.style.display = 'none'; }
 document.getElementById('show-add-form-btn').addEventListener('click', () => openAddForm());
 document.getElementById('cancel-form-btn').addEventListener('click', closeAddForm);
 
-document.getElementById('add-custom-field-btn').addEventListener('click', () => {
-  const row = document.createElement('div');
-  row.className = 'custom-row';
-  row.innerHTML = `
-    <input type="text" class="custom-key" placeholder="항목명 (예: 비고)">
-    <input type="text" class="custom-value" placeholder="값">
-    <button type="button" class="remove-custom-row">✕</button>`;
-  customFieldsEl.appendChild(row);
-});
-customFieldsEl.addEventListener('click', e => {
-  if (e.target.classList.contains('remove-custom-row')) {
-    e.target.closest('.custom-row').remove();
-  }
-});
-
 document.getElementById('save-form-btn').addEventListener('click', () => {
   const name = fName.value.trim();
-  if (!name) { showToast('이름은 필수입니다.'); return; }
+  const plate = fPlate.value.trim();
+  if (!name || !plate) { showToast('이름과 차량번호는 필수입니다.'); return; }
 
-  const values = { [currentNameKey]: name };
-  dynamicFieldsEl.querySelectorAll('.dyn-value').forEach(inp => {
-    const key = inp.dataset.key;
-    const val = inp.value.trim();
-    if (val) values[key] = val;
-  });
-  customFieldsEl.querySelectorAll('.custom-row').forEach(rowEl => {
-    const key = rowEl.querySelector('.custom-key').value.trim();
-    const val = rowEl.querySelector('.custom-value').value.trim();
-    if (key && val) values[key] = val;
-  });
-
-  const columns = Object.keys(values);
-  const roles = resolveRoleKeys(columns);
-  const category = fCategory.value;
   const list = loadStaff();
   const id = editIdInput.value ? Number(editIdInput.value) : Date.now();
-  const record = {
-    id,
-    category,
-    columns,
-    values,
-    nameKey: roles.nameKey || currentNameKey,
-    idKey: roles.idKey,
-    phoneKey: roles.phoneKey,
-  };
+  const record = { id, name, dept: fDept.value.trim(), phone: fPhone.value.trim(), plate };
 
   const idx = list.findIndex(s => s.id === id);
   if (idx >= 0) list[idx] = record; else list.push(record);
@@ -758,27 +1033,86 @@ document.getElementById('save-form-btn').addEventListener('click', () => {
 document.getElementById('bulk-import-btn').addEventListener('click', () => {
   const raw = document.getElementById('bulk-import').value;
   const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-  if (lines.length < 2) { showToast('첫 줄에 열 제목, 이후 줄에 데이터를 입력해주세요.'); return; }
-  const header = lines[0].split(',').map(h => h.trim()).filter(Boolean);
-  if (!findAliasKey(header, NAME_ALIASES)) { showToast('첫 줄(열 제목)에 "이름" 컬럼이 있어야 합니다.'); return; }
-  const category = document.getElementById('upload-category').value;
-  const rows = lines.slice(1).map(line => {
+  const list = loadStaff();
+  let added = 0;
+  lines.forEach((line, i) => {
     const parts = line.split(',').map(p => p.trim());
-    const obj = {};
-    header.forEach((h, i) => { obj[h] = parts[i] || ''; });
-    return obj;
+    if (parts.length < 4 || !parts[0] || !parts[3]) return;
+    list.push({
+      id: Date.now() + i,
+      name: parts[0],
+      dept: parts[1] || '',
+      phone: parts[2] || '',
+      plate: parts[3],
+    });
+    added++;
   });
-  const { added, skipped } = importStaffRows(rows, category, header);
+  saveStaffList(list);
   document.getElementById('bulk-import').value = '';
   renderStaffList();
-  showToast(`${added}건 등록되었습니다.${skipped ? ` (${skipped}건 제외)` : ''}`);
+  showToast(`${added}건 등록되었습니다.`);
 });
 
-document.getElementById('clear-all-staff-btn').addEventListener('click', () => {
-  if (!confirm('등록된 모든 인사기록을 삭제할까요? 이 작업은 되돌릴 수 없습니다.')) return;
-  saveStaffList([]);
-  renderStaffList();
-  showToast('전체 삭제되었습니다.');
+const HEADER_ALIASES = {
+  name: ['이름', '성명', '성함', 'name'],
+  dept: ['소속', '부서', '부서명', '소속부서', 'department', 'dept'],
+  phone: ['연락처', '전화번호', '휴대전화', '휴대폰', '핸드폰', 'phone'],
+  plate: ['차량번호', '차량번호판', '번호판', '차량', 'plate'],
+};
+
+function pickField(row, aliases) {
+  const keys = Object.keys(row);
+  const norm = s => String(s).replace(/[\s()]/g, '').toLowerCase();
+  for (const alias of aliases) {
+    const key = keys.find(k => norm(k) === norm(alias));
+    if (key !== undefined) return String(row[key] ?? '').trim();
+  }
+  return '';
+}
+
+function importStaffRows(rows) {
+  const list = loadStaff();
+  let added = 0, skipped = 0;
+  rows.forEach((row, i) => {
+    const name = pickField(row, HEADER_ALIASES.name);
+    const plate = pickField(row, HEADER_ALIASES.plate);
+    if (!name || !plate) { skipped++; return; }
+    list.push({
+      id: Date.now() + i,
+      name,
+      dept: pickField(row, HEADER_ALIASES.dept),
+      phone: pickField(row, HEADER_ALIASES.phone),
+      plate,
+    });
+    added++;
+  });
+  saveStaffList(list);
+  return { added, skipped };
+}
+
+const excelFileInput = document.getElementById('excel-file-input');
+document.getElementById('excel-upload-btn').addEventListener('click', () => excelFileInput.click());
+
+excelFileInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  excelFileInput.value = '';
+  if (!file) return;
+  try {
+    const buf = await file.arrayBuffer();
+    const workbook = XLSX.read(buf, { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    if (!rows.length) { showToast('엑셀 파일에 데이터가 없습니다.'); return; }
+    const { added, skipped } = importStaffRows(rows);
+    renderStaffList();
+    if (added) {
+      showToast(`${added}건 등록되었습니다.${skipped ? ` (${skipped}건 제외)` : ''}`);
+    } else {
+      showToast('등록 가능한 데이터를 찾지 못했습니다. 열 제목을 확인해주세요.');
+    }
+  } catch (err) {
+    showToast('엑셀 파일을 읽을 수 없습니다.');
+  }
 });
 
 document.getElementById('staff-search').addEventListener('input', renderStaffList);
@@ -787,37 +1121,31 @@ function renderStaffList() {
   const list = loadStaff();
   const q = document.getElementById('staff-search').value.trim().toLowerCase();
   const filtered = q
-    ? list.filter(s => {
-        const name = recordName(s).toLowerCase();
-        const category = (s.category || '').toLowerCase();
-        const anyValue = Object.values(s.values || {}).some(v => (v || '').toLowerCase().includes(q));
-        return name.includes(q) || category.includes(q) || anyValue;
-      })
+    ? list.filter(s =>
+        s.name.toLowerCase().includes(q) ||
+        (s.dept || '').toLowerCase().includes(q) ||
+        normalizePlate(s.plate).includes(normalizePlate(q)))
     : list;
 
   const container = document.getElementById('staff-list');
   if (!filtered.length) {
-    container.innerHTML = `<div class="empty-note">${list.length ? '검색 결과가 없습니다.' : '등록된 인사기록이 없습니다.'}</div>`;
+    container.innerHTML = `<div class="empty-note">${list.length ? '검색 결과가 없습니다.' : '등록된 차량 정보가 없습니다.'}</div>`;
     return;
   }
-  container.innerHTML = filtered.map(s => {
-    const name = recordName(s);
-    const others = (s.columns || []).filter(c => c !== s.nameKey).map(c => s.values[c]).filter(Boolean);
-    const meta = others.slice(0, 3).join(' · ') || '추가 정보 없음';
-    return `
-      <div class="staff-item" data-id="${s.id}">
-        <div class="top">
-          <div>
-            <div class="name">${escapeHtml(name)}${s.category ? `<span class="category-badge">${escapeHtml(s.category)}</span>` : ''}</div>
-            <div class="meta">${escapeHtml(meta)}</div>
-          </div>
-          <div class="actions">
-            <button data-edit="${s.id}">✏️</button>
-            <button data-del="${s.id}">🗑️</button>
-          </div>
+  container.innerHTML = filtered.map(s => `
+    <div class="staff-item" data-id="${s.id}">
+      <div class="top">
+        <div>
+          <div class="name">${s.name}</div>
+          <div class="meta">${s.dept || '소속 미등록'} · ${s.phone || '연락처 미등록'}</div>
+          <div class="plate-tag">${s.plate}</div>
         </div>
-      </div>`;
-  }).join('');
+        <div class="actions">
+          <button data-edit="${s.id}">✏️</button>
+          <button data-del="${s.id}">🗑️</button>
+        </div>
+      </div>
+    </div>`).join('');
 }
 
 document.getElementById('staff-list').addEventListener('click', e => {
@@ -834,355 +1162,6 @@ document.getElementById('staff-list').addEventListener('click', e => {
     renderStaffList();
   }
 });
-
-/* ---------- HWPX (한글 문서) parsing ----------
-   HWPX is a zip archive containing OWPML XML (Contents/section*.xml).
-   Tables use <hp:tbl>/<hp:tr>/<hp:tc>; each <hp:tc> carries its own grid
-   position in <hp:cellAddr rowAddr="" colAddr=""/> and its merge span in
-   <hp:cellSpan rowSpan="" colSpan=""/>, so cells are placed by that address
-   instead of DOM order - this keeps merged cells (common for grouped
-   department/rank columns) from shifting the rest of the row out of
-   alignment. Tables are grouped by their header row: every table sharing
-   the same header (e.g. the same list continued across pages/sections) is
-   merged into one dataset, and the largest group is treated as the main
-   personnel table. Any other table (e.g. a summary/status table before the
-   list) is rendered as an image instead of being parsed into fields. */
-function localName(el) { return el.localName || el.tagName.split(':').pop(); }
-
-function getChildByLocalName(el, name) {
-  return Array.from(el.childNodes).find(n => n.nodeType === 1 && localName(n) === name);
-}
-
-function extractCellText(tc) {
-  const paragraphs = Array.from(tc.getElementsByTagName('*')).filter(el => localName(el) === 'p');
-  if (!paragraphs.length) {
-    const runs = Array.from(tc.getElementsByTagName('*')).filter(el => localName(el) === 't');
-    return runs.map(t => t.textContent).join('').trim();
-  }
-  return paragraphs.map(p => {
-    const pRuns = Array.from(p.getElementsByTagName('*')).filter(el => localName(el) === 't');
-    return pRuns.map(t => t.textContent).join('');
-  }).join(' ').trim();
-}
-
-function parseTableToGrid(tbl) {
-  const trs = Array.from(tbl.childNodes).filter(n => n.nodeType === 1 && localName(n) === 'tr');
-  const cellsInfo = [];
-  const occupied = [];
-
-  trs.forEach((tr, trIndex) => {
-    const tcs = Array.from(tr.childNodes).filter(n => n.nodeType === 1 && localName(n) === 'tc');
-    let fallbackCol = 0;
-    tcs.forEach(tc => {
-      const addrEl = getChildByLocalName(tc, 'cellAddr');
-      const spanEl = getChildByLocalName(tc, 'cellSpan');
-      const rowSpan = spanEl ? (parseInt(spanEl.getAttribute('rowSpan'), 10) || 1) : 1;
-      const colSpan = spanEl ? (parseInt(spanEl.getAttribute('colSpan'), 10) || 1) : 1;
-      const text = extractCellText(tc);
-
-      let rowAddr = addrEl ? parseInt(addrEl.getAttribute('rowAddr'), 10) : NaN;
-      let colAddr = addrEl ? parseInt(addrEl.getAttribute('colAddr'), 10) : NaN;
-      if (Number.isNaN(rowAddr) || Number.isNaN(colAddr)) {
-        while (occupied[trIndex] && occupied[trIndex].has(fallbackCol)) fallbackCol++;
-        rowAddr = trIndex;
-        colAddr = fallbackCol;
-      }
-      fallbackCol = colAddr + colSpan;
-      for (let r = rowAddr + 1; r < rowAddr + rowSpan; r++) {
-        occupied[r] = occupied[r] || new Set();
-        for (let c = colAddr; c < colAddr + colSpan; c++) occupied[r].add(c);
-      }
-      cellsInfo.push({ rowAddr, colAddr, rowSpan, colSpan, text });
-    });
-  });
-
-  if (!cellsInfo.length) return { grid: [], cellsInfo: [], maxRow: -1, maxCol: -1 };
-
-  const maxRow = Math.max(...cellsInfo.map(c => c.rowAddr + c.rowSpan - 1));
-  const maxCol = Math.max(...cellsInfo.map(c => c.colAddr + c.colSpan - 1));
-  const grid = Array.from({ length: maxRow + 1 }, () => new Array(maxCol + 1).fill(''));
-  cellsInfo.forEach(({ rowAddr, colAddr, rowSpan, colSpan, text }) => {
-    for (let r = rowAddr; r <= Math.min(rowAddr + rowSpan - 1, maxRow); r++) {
-      for (let c = colAddr; c <= Math.min(colAddr + colSpan - 1, maxCol); c++) {
-        if (!grid[r][c]) grid[r][c] = text;
-      }
-    }
-  });
-  return { grid, cellsInfo, maxRow, maxCol };
-}
-
-function sectionNumber(name) {
-  const m = name.match(/section(\d*)\.xml/i);
-  return m && m[1] ? parseInt(m[1], 10) : 0;
-}
-
-async function parseHwpxTables(file) {
-  let zip;
-  try {
-    zip = await JSZip.loadAsync(await file.arrayBuffer());
-  } catch (e) {
-    throw new Error('NOT_HWPX');
-  }
-  const sectionFiles = Object.keys(zip.files)
-    .filter(name => /^Contents\/section\d*\.xml$/i.test(name))
-    .sort((a, b) => sectionNumber(a) - sectionNumber(b));
-  if (!sectionFiles.length) throw new Error('NOT_HWPX');
-
-  const parser = new DOMParser();
-  const tables = [];
-
-  for (const name of sectionFiles) {
-    const xmlText = await zip.files[name].async('text');
-    const doc = parser.parseFromString(xmlText, 'application/xml');
-    if (doc.getElementsByTagName('parsererror').length) continue;
-    const tbls = Array.from(doc.getElementsByTagName('*')).filter(el => localName(el) === 'tbl');
-    for (const tbl of tbls) {
-      const parsed = parseTableToGrid(tbl);
-      if (parsed.grid.length) tables.push(parsed);
-    }
-  }
-  return tables;
-}
-
-function headerSignature(headerRow) {
-  return (headerRow || []).map(h => normLabel(h)).filter(Boolean).join('|');
-}
-
-function isRepeatedHeaderRow(row, header) {
-  // Some documents repeat the header row before each department's block
-  // (for on-screen/print readability). Detect and drop those so they don't
-  // get imported as fake records (e.g. a "name" of literally "성명").
-  const roles = resolveRoleKeys(header);
-  if (roles.nameKey) {
-    const idx = header.indexOf(roles.nameKey);
-    if (NAME_ALIASES.some(a => normLabel(a) === normLabel(row[idx]))) return true;
-  }
-  const meaningfulCols = header.filter(Boolean);
-  if (meaningfulCols.length && meaningfulCols.every((h, i) => normLabel(row[header.indexOf(h)]) === normLabel(h))) {
-    return true;
-  }
-  return false;
-}
-
-function groupTablesByHeader(grids) {
-  const groups = new Map();
-  grids.forEach(grid => {
-    if (!grid.length) return;
-    const header = grid[0];
-    const sig = headerSignature(header);
-    if (!sig) return;
-    if (!groups.has(sig)) groups.set(sig, { header: header.slice(), dataRows: [] });
-    const group = groups.get(sig);
-    grid.slice(1).forEach(row => {
-      if (!row.some(c => c)) return;
-      if (isRepeatedHeaderRow(row, header)) {
-        // A two-row header (e.g. "임용현황" merged across 3 columns in row 0,
-        // with 본교최초임용일/현직급임용일/현부서임용일 as the real column
-        // names in row 1) makes this row look like a repeated header rather
-        // than data - which is correct, it isn't a person. But its more
-        // specific labels are the real column names, so use them to replace
-        // the group-header text that colSpan otherwise repeated identically
-        // across those columns (which would collide when used as keys).
-        row.forEach((val, i) => {
-          if (val && val !== group.header[i]) group.header[i] = val;
-        });
-        return;
-      }
-      group.dataRows.push(row);
-    });
-  });
-  return groups;
-}
-
-/* ---------- Summary/status table -> image ---------- */
-async function captureTableAsImage(cellsInfo, maxRow, maxCol) {
-  const wrapper = document.createElement('div');
-  wrapper.style.position = 'fixed';
-  wrapper.style.left = '-9999px';
-  wrapper.style.top = '0';
-  wrapper.style.background = '#ffffff';
-  wrapper.style.padding = '12px';
-  wrapper.style.fontFamily = "-apple-system, 'Malgun Gothic', sans-serif";
-
-  const table = document.createElement('table');
-  table.style.borderCollapse = 'collapse';
-  table.style.fontSize = '13px';
-
-  const byRow = {};
-  cellsInfo
-    .slice()
-    .sort((a, b) => a.rowAddr - b.rowAddr || a.colAddr - b.colAddr)
-    .forEach(c => { (byRow[c.rowAddr] = byRow[c.rowAddr] || []).push(c); });
-
-  for (let r = 0; r <= maxRow; r++) {
-    const tr = document.createElement('tr');
-    (byRow[r] || []).forEach(c => {
-      const td = document.createElement('td');
-      td.textContent = c.text;
-      td.style.border = '1px solid #333';
-      td.style.padding = '4px 8px';
-      td.style.whiteSpace = 'pre-wrap';
-      td.style.textAlign = 'center';
-      if (c.colSpan > 1) td.colSpan = c.colSpan;
-      if (c.rowSpan > 1) td.rowSpan = c.rowSpan;
-      tr.appendChild(td);
-    });
-    table.appendChild(tr);
-  }
-
-  wrapper.appendChild(table);
-  document.body.appendChild(wrapper);
-  try {
-    const canvas = await html2canvas(wrapper, { backgroundColor: '#ffffff', scale: 1.5 });
-    return canvas.toDataURL('image/jpeg', 0.85);
-  } finally {
-    document.body.removeChild(wrapper);
-  }
-}
-
-function renderSummaryList() {
-  const list = loadSummaryImages();
-  const container = document.getElementById('summary-list');
-  if (!list.length) {
-    container.innerHTML = '<div class="empty-note">등록된 현황표가 없습니다. 한글파일 업로드 시 표지의 현황표가 있으면 자동으로 추가됩니다.</div>';
-    return;
-  }
-  container.innerHTML = list.map(img => `
-    <div class="card summary-img-card" data-id="${img.id}" style="margin-top:14px;">
-      <div class="import-hint" style="margin-bottom:8px;">${escapeHtml(img.label)} · ${formatDate(img.capturedAt)}</div>
-      <img src="${img.dataUrl}" alt="${escapeHtml(img.label)}">
-      <button class="btn btn-danger-ghost btn-sm" data-del-summary="${img.id}" style="margin-top:10px;">삭제</button>
-    </div>`).join('');
-}
-
-document.getElementById('summary-list').addEventListener('click', e => {
-  const del = e.target.closest('[data-del-summary]');
-  if (del) {
-    const list = loadSummaryImages().filter(s => s.id !== Number(del.dataset.delSummary));
-    saveSummaryImages(list);
-    renderSummaryList();
-  }
-});
-
-/* ---------- Upload handling ---------- */
-const hwpxFileInput = document.getElementById('hwpx-file-input');
-const hwpxFileInputAny = document.getElementById('hwpx-file-input-any');
-document.getElementById('hwpx-upload-btn').addEventListener('click', () => hwpxFileInput.click());
-document.getElementById('hwpx-upload-btn-any').addEventListener('click', () => hwpxFileInputAny.click());
-
-async function handleHwpxFileSelected(e) {
-  const input = e.target;
-  const file = input.files[0];
-  input.value = '';
-  if (!file) return;
-  const category = document.getElementById('upload-category').value;
-
-  if (typeof JSZip === 'undefined' || typeof html2canvas === 'undefined') {
-    showToast('필요한 구성 요소를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침 후 다시 시도해주세요.', 6000);
-    return;
-  }
-
-  try {
-    const tables = await parseHwpxTables(file);
-    if (!tables.length) {
-      showToast('파일에서 표(테이블)를 찾지 못했습니다. 인사자료가 표 형식으로 입력되어 있는지 확인해주세요.');
-      return;
-    }
-
-    // A document can hold several distinct personnel rosters at once (e.g.
-    // separate 정규직/계약직 tables with different columns, each possibly
-    // split into one fragment per department/page). Every header-group that
-    // has a name column - and isn't itself a headcount/statistics recap -
-    // is imported as personnel data; everything else becomes a candidate
-    // for the 현황표 image tab.
-    const allGroups = Array.from(groupTablesByHeader(tables.map(t => t.grid)).values());
-    const personnelGroups = allGroups.filter(g => looksLikePersonnelHeader(g.header));
-
-    if (!personnelGroups.length) {
-      showToast('표에서 이름이 포함된 인사자료를 찾지 못했습니다. 표의 첫 행(제목행)을 확인해주세요.');
-      return;
-    }
-
-    let added = 0, skipped = 0, duplicates = 0;
-    const dedupeSet = new Set();
-    for (const g of personnelGroups) {
-      const headerCols = g.header.filter(Boolean);
-      const recordRows = g.dataRows.map(row => {
-        const obj = {};
-        g.header.forEach((h, i) => { if (h) obj[h] = row[i] ?? ''; });
-        return obj;
-      });
-      const result = importStaffRows(recordRows, category, headerCols, dedupeSet);
-      added += result.added;
-      skipped += result.skipped;
-      duplicates += result.duplicates;
-    }
-    renderStaffList();
-
-    // Only the overall 정·현원 현황 statistics table is captured as an
-    // image - everything else non-personnel (by-rank breakdowns, the
-    // 직군별 인원현황 recap, per-department 정원/현원/여석 boxes) is left
-    // out entirely. It's usually rendered as two side-by-side <hp:tbl>
-    // elements (e.g. 일반직/기술직 then 관리운영직/별정직), so all matching
-    // tables are stacked into a single combined image in document order.
-    const coreStatusTables = tables.filter(t =>
-      !looksLikePersonnelHeader(t.grid[0] || []) && isCoreStatusHeader(t.grid[0] || []));
-
-    let summarySavedCount = 0;
-    let summaryQuotaFailed = false;
-    if (coreStatusTables.length) {
-      try {
-        let rowOffset = 0;
-        let combinedMaxCol = 0;
-        const combinedCells = [];
-        coreStatusTables.forEach(t => {
-          t.cellsInfo.forEach(c => combinedCells.push({ ...c, rowAddr: c.rowAddr + rowOffset }));
-          combinedMaxCol = Math.max(combinedMaxCol, t.maxCol);
-          rowOffset += t.maxRow + 2; // blank row as a visual gap between stacked tables
-        });
-        const combinedMaxRow = rowOffset - 2;
-        const dataUrl = await captureTableAsImage(combinedCells, combinedMaxRow, combinedMaxCol);
-        const images = loadSummaryImages();
-        images.push({
-          id: nextRecordId(),
-          category,
-          label: `${category} 정·현원 현황`,
-          dataUrl,
-          capturedAt: new Date().toISOString(),
-        });
-        if (images.length > 12) images.splice(0, images.length - 12);
-        saveSummaryImages(images);
-        summarySavedCount = 1;
-      } catch (err) {
-        // Capture or localStorage-quota failure here shouldn't fail the
-        // whole import - the personnel records above are already saved.
-        summaryQuotaFailed = true;
-      }
-    }
-
-    if (added) {
-      let msg = `${added}건 등록되었습니다.`;
-      const notes = [];
-      if (skipped) notes.push(`이름 없음 ${skipped}건 제외`);
-      if (duplicates) notes.push(`중복 ${duplicates}건 제외`);
-      if (notes.length) msg += ` (${notes.join(', ')})`;
-      if (summarySavedCount) msg += ` · 현황표 ${summarySavedCount}건 저장됨`;
-      if (summaryQuotaFailed) msg += ' · 현황표 이미지는 저장공간 부족으로 저장하지 못했습니다';
-      showToast(msg, 6000);
-    } else {
-      showToast('등록 가능한 데이터를 찾지 못했습니다. 표의 첫 행(제목행)을 확인해주세요.');
-    }
-  } catch (err) {
-    if (err && err.message === 'NOT_HWPX') {
-      showToast('이 파일은 읽을 수 없습니다. 한글 프로그램에서 "다른 이름으로 저장" > 한글 문서(*.hwpx)로 저장한 뒤 다시 시도해주세요.', 6000);
-    } else {
-      showToast('오류가 발생했습니다: ' + (err && err.message ? err.message : String(err)), 6000);
-    }
-  }
-}
-
-hwpxFileInput.addEventListener('change', handleHwpxFileSelected);
-hwpxFileInputAny.addEventListener('change', handleHwpxFileSelected);
 
 /* ---------- History ---------- */
 function formatDate(iso) {
@@ -1212,21 +1191,21 @@ function escapeCsvField(value) {
 function downloadHistoryExcel() {
   const log = loadLog();
   if (!log.length) { showToast('다운로드할 기록이 없습니다.'); return; }
-  const header = ['조회일시', '검색어', '확인여부', '이름', '상세'];
+  const header = ['조회일시', '차량번호', '확인여부', '이름', '소속'];
   const rows = log.map(r => [
     formatDateFull(r.time),
-    r.query,
+    r.plate,
     r.matched ? '확인됨' : '미등록',
     r.name || '',
-    r.detail || '',
+    r.dept || '',
   ]);
   const csvLines = [header, ...rows].map(row => row.map(escapeCsvField).join(','));
-  const csvContent = '﻿' + csvLines.join('\r\n');
+  const csvContent = '\uFEFF' + csvLines.join('\r\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `인사조회기록_${fileTimestamp()}.csv`;
+  a.download = `차량조회기록_${fileTimestamp()}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -1248,9 +1227,9 @@ function renderHistory() {
     log.map(r => `
       <div class="history-item" data-id="${r.id}">
         <div>
-          <div class="query">${escapeHtml(r.query)}</div>
+          <div class="plate">${r.plate}</div>
           <div class="when">${formatDate(r.time)}</div>
-          ${r.matched ? `<div class="who">${escapeHtml(r.name)}${r.detail ? ' · ' + escapeHtml(r.detail) : ''}</div>` : ''}
+          ${r.matched ? `<div class="who">${r.name} · ${r.dept || '소속 미등록'}</div>` : ''}
         </div>
         <span class="badge ${r.matched ? 'matched' : 'unmatched'}">${r.matched ? '확인됨' : '미등록'}</span>
         <button class="del-btn" data-del-log="${r.id}">✕</button>

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#ea580c">
-<title>청주대학교 인사기록조회 (테스트)</title>
+<title>청주대학교 인사기록조회</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -136,8 +136,11 @@
   .result-card .empid { font-size: 13px; color: var(--sub); margin-bottom: 6px; }
   .result-card .name { font-size: 20px; font-weight: 800; }
   .result-card .dept { font-size: 14px; color: var(--sub); margin-top: 2px; }
+  .result-card .group-tag { font-size: 13px; color: var(--blue); margin-top: 4px; font-weight: 600; }
   .result-card .row { font-size: 14px; margin-top: 6px; color: var(--text); }
   .result-card .row .k { color: var(--sub); margin-right: 6px; }
+  .result-card .group-divider { font-size: 13px; font-weight: 700; color: var(--blue); margin-top: 12px; }
+  .result-card .row.grouped { margin-top: 3px; padding-left: 10px; }
 
   .result-actions {
     display: flex;
@@ -307,8 +310,8 @@
 <div id="app">
 
   <header>
-    <h1>청주대학교 인사기록조회 (테스트)</h1>
-    <div class="sub">교직원 인사기록 조회 · 테스트용 — 실제 명단과 분리 저장됨</div>
+    <h1>청주대학교 인사기록조회</h1>
+    <div class="sub">교직원 인사기록 조회</div>
   </header>
 
   <main>
@@ -421,10 +424,39 @@ const ID_ALIASES = ['사번', '교번', '학번', '사원번호', '직원번호'
 const PHONE_ALIASES = ['연락처', '전화번호', '휴대전화', '휴대폰', '핸드폰', 'phone'];
 const BIRTHDATE_ALIASES = ['생년월일', '생일', 'birthdate', 'birth'];
 const DEPT_ALIASES = ['소속', '부서', '소속부서', '학과', 'department', 'dept'];
+// The staff report's rank column already carries a role title and grade
+// (e.g. "팀 장(4급)", "4급"), but not which job category it belongs to
+// (일반직/기술직/관리운영직/별정직/임시직) - that only appears in the heading
+// paragraph above each page's table ("직급 : 일반직 4급 팀장"), the same
+// place a department roster without its own 소속 column gets one from.
+const RANK_CATEGORY_WORDS = ['일반직', '기술직', '관리운영직', '별정직', '임시직'];
+function extractRankCategory(text) {
+  const compact = (text || '').replace(/\s+/g, '');
+  // Contract staff pages are headed e.g. "계약(임시)직원 - 임시직 4종(팀장
+  // 직대)" - never the plain "계약직" word itself, and the parenthetical
+  // "(임시)" would otherwise false-match "임시직" below - so this is
+  // checked first and normalized to one clean label.
+  if (compact.includes('계약')) return '계약직';
+  return RANK_CATEGORY_WORDS.find(w => compact.includes(w)) || '';
+}
+// The leading classification column both staff and faculty rosters use
+// (정규직/계약직, 정년/비정년/비전임...) - shown as a small bullet tag so the
+// two record types read the same way regardless of which table they came
+// from.
+const GROUP_ALIASES = ['구분'];
 // A column like this means the table is a headcount/statistics recap (e.g.
 // "직종별 인원현황" listing several names per row next to a count), not a
 // one-row-per-person roster - even though it may also have a name column.
 const COUNT_ALIASES = ['인원', '정원', '현원', '여석', '계', '합계', '소계'];
+// These faculty columns read as one short line each (학교명(전공), 학위,
+// 임용기간, 근거, and 승진 - which often holds a "정년퇴직" note) - a line
+// break inside them (from a cell that happened to span two paragraphs in
+// the source document) reads as broken rather than as separate entries,
+// unlike a genuinely multi-entry field like 발령현황.
+const SINGLE_LINE_LABELS = ['학사', '석사', '박사', '학위', '임용기간', '근거', '승진', '직급'];
+function isSingleLineLabel(label) {
+  return SINGLE_LINE_LABELS.some(a => normLabel(a) === normLabel(label));
+}
 
 let idCounter = Date.now();
 function nextRecordId() { return idCounter++; }
@@ -497,6 +529,7 @@ function resolveRoleKeys(columns) {
     phoneKey: findAliasKey(cols, PHONE_ALIASES),
     birthDateKey: findAliasKey(cols, BIRTHDATE_ALIASES),
     deptKey: findAliasKey(cols, DEPT_ALIASES),
+    groupKey: findAliasKey(cols, GROUP_ALIASES),
   };
 }
 function isNameAliasColumn(col) {
@@ -517,6 +550,14 @@ function looksLikePersonnelHeader(header) {
 function isCoreStatusHeader(header) {
   return (header || []).length >= 2 && normLabel(header[0]) === '구분' && normLabel(header[1]) === '구분';
 }
+// The faculty report's own overall recap - "직종구분별 성별인원현황"
+// (직종구분/직급/성별인원(남·여·계)/비고) - starts with a "직종구분" column,
+// a fingerprint unique to this one table among the faculty report's many
+// other non-personnel tables (the per-college/department breakdowns all
+// start with "대학" instead).
+function isFacultyStatusHeader(header) {
+  return (header || []).length > 0 && normLabel(header[0]) === '직종구분';
+}
 // Some documents format a two-row header inconsistently across fragments
 // (e.g. a sub-column like "교수" spans two grid columns in one department's
 // table but one column in another), which can leave two columns with the
@@ -532,6 +573,46 @@ function dedupeHeaderLabels(header) {
     return seen[h] > 1 ? `${h}(${seen[h]})` : h;
   });
 }
+// A merged cell with colSpan > 1 (e.g. a "생년월일" cell accidentally built
+// 2 grid-columns wide instead of 1) has its text copied into every grid
+// column it covers, by both the header row and every data row beneath it.
+// That shows up as two same-labeled columns holding byte-identical values
+// in every row - a formatting accident in the source document, not two
+// real columns. A row where that same cell was only merged across 1 of
+// the 2 columns (a per-row slip, not a genuine extra field) leaves one of
+// the pair blank instead of duplicated, so two values only really
+// conflict when both are non-empty and differ - otherwise they're folded
+// into whichever side is non-empty before the duplicate column is
+// dropped. Collapsing them this way avoids surfacing a cosmetic "(2)"
+// duplicate for something that isn't actually two columns, while a
+// genuine label collision (values that actually differ somewhere) is
+// left alone for dedupeHeaderLabels to disambiguate safely.
+function collapseRedundantSpanDuplicates(header, dataRows) {
+  const indicesByLabel = {};
+  (header || []).forEach((h, i) => {
+    if (!h) return;
+    (indicesByLabel[h] = indicesByLabel[h] || []).push(i);
+  });
+  const out = header.slice();
+  Object.values(indicesByLabel).forEach(idxs => {
+    if (idxs.length < 2) return;
+    const first = idxs[0];
+    const rest = idxs.slice(1);
+    const compatible = rest.every(i => dataRows.every(row => {
+      const a = (row[first] || '').trim();
+      const b = (row[i] || '').trim();
+      return !a || !b || a === b;
+    }));
+    if (!compatible) return;
+    rest.forEach(i => {
+      dataRows.forEach(row => {
+        if (!(row[first] || '').trim() && (row[i] || '').trim()) row[first] = row[i];
+      });
+      out[i] = '';
+    });
+  });
+  return out;
+}
 function rowSignature(values) {
   return Object.keys(values).sort().map(k => k + '=' + values[k]).join('|');
 }
@@ -543,6 +624,7 @@ function recordName(r) {
 function recordIdVal(r) { return (r.idKey && r.values[r.idKey]) || ''; }
 function recordPhoneVal(r) { return (r.phoneKey && r.values[r.phoneKey]) || ''; }
 function recordDeptVal(r) { return (r.deptKey && r.values[r.deptKey]) || ''; }
+function recordGroupVal(r) { return (r.groupKey && r.values[r.groupKey]) || ''; }
 
 function computeGlobalSchema() {
   const list = loadStaff();
@@ -557,7 +639,7 @@ function computeGlobalSchema() {
   return seen;
 }
 
-function importStaffRows(rows, category, headerCols, dedupeSet) {
+function importStaffRows(rows, category, headerCols, dedupeSet, columnGroups) {
   const cols = (headerCols || []).filter(Boolean);
   const roles = resolveRoleKeys(cols);
   const list = loadStaff();
@@ -588,6 +670,8 @@ function importStaffRows(rows, category, headerCols, dedupeSet) {
       idKey: roles.idKey,
       phoneKey: roles.phoneKey,
       deptKey: roles.deptKey,
+      groupKey: roles.groupKey,
+      columnGroups: columnGroups || {},
     });
     added++;
   });
@@ -625,7 +709,9 @@ function findStaffMatches(query) {
 }
 
 function summarizeRecord(r) {
-  const others = (r.columns || []).filter(c => c !== r.nameKey).map(c => r.values[c]).filter(Boolean);
+  const others = (r.columns || []).filter(c => c !== r.nameKey)
+    .map(c => (r.values[c] || '').replace(/\n/g, ' '))
+    .filter(Boolean);
   return others.slice(0, 2).join(' · ');
 }
 
@@ -651,17 +737,36 @@ function renderMatchCard(match) {
   const idVal = recordIdVal(match);
   const phoneVal = recordPhoneVal(match);
   const deptVal = recordDeptVal(match);
+  const groupVal = recordGroupVal(match);
+  const columnGroups = match.columnGroups || {};
   const otherRows = (match.columns || [])
-    .filter(c => c !== match.nameKey && c !== match.deptKey)
-    .map(c => ({ label: c, value: match.values[c] }))
+    .filter(c => c !== match.nameKey && c !== match.deptKey && c !== match.groupKey)
+    .map(c => ({ label: c, value: match.values[c], group: columnGroups[c] || '' }))
     .filter(r => r.value);
+
+  // A column that came from a two-row header (e.g. "학력" merged over
+  // 학사/석사/박사/학위) keeps its original heading in `group` - show it once,
+  // as a "■ 학력" divider, right before the sub-fields that share it.
+  let lastGroup = '';
+  const rowsHtml = otherRows.map(r => {
+    let divider = '';
+    if (r.group !== lastGroup) {
+      divider = r.group ? `<div class="group-divider">■ ${escapeHtml(r.group)}</div>` : '';
+      lastGroup = r.group;
+    }
+    const rowClass = r.group ? 'row grouped' : 'row';
+    const value = isSingleLineLabel(r.label) ? r.value.replace(/\n/g, ' ') : r.value;
+    const valueHtml = escapeHtml(value).replace(/\n/g, '<br>');
+    return `${divider}<div class="${rowClass}"><span class="k">${escapeHtml(r.label)}</span>${valueHtml}</div>`;
+  }).join('');
 
   return `
     <div class="result-card">
       ${idVal ? `<div class="empid">${escapeHtml(idVal)}</div>` : ''}
       <div class="name">${escapeHtml(name)}${match.category ? `<span class="category-badge">${escapeHtml(match.category)}</span>` : ''}</div>
       ${deptVal ? `<div class="dept">${escapeHtml(deptVal)}</div>` : ''}
-      ${otherRows.map(r => `<div class="row"><span class="k">${escapeHtml(r.label)}</span>${escapeHtml(r.value)}</div>`).join('')}
+      ${groupVal ? `<div class="group-tag">● ${escapeHtml(groupVal)}</div>` : ''}
+      ${rowsHtml}
       ${phoneVal ? `
         <div class="result-actions">
           <a class="btn btn-primary" href="tel:${escapeHtml(phoneVal)}">전화 걸기</a>
@@ -775,6 +880,7 @@ document.getElementById('save-form-btn').addEventListener('click', () => {
     idKey: roles.idKey,
     phoneKey: roles.phoneKey,
     deptKey: roles.deptKey,
+    groupKey: roles.groupKey,
   };
 
   const idx = list.findIndex(s => s.id === id);
@@ -835,11 +941,12 @@ function renderStaffList() {
   container.innerHTML = filtered.map(s => {
     const name = recordName(s);
     const deptVal = recordDeptVal(s);
+    const groupVal = recordGroupVal(s);
     const others = (s.columns || [])
-      .filter(c => c !== s.nameKey && c !== s.deptKey)
-      .map(c => s.values[c])
+      .filter(c => c !== s.nameKey && c !== s.deptKey && c !== s.groupKey)
+      .map(c => (s.values[c] || '').replace(/\n/g, ' '))
       .filter(Boolean);
-    const preview = [deptVal, ...others].filter(Boolean);
+    const preview = [deptVal, groupVal, ...others].filter(Boolean);
     const meta = preview.slice(0, 3).join(' · ') || '추가 정보 없음';
     return `
       <div class="staff-item" data-id="${s.id}">
@@ -890,16 +997,30 @@ function getChildByLocalName(el, name) {
   return Array.from(el.childNodes).find(n => n.nodeType === 1 && localName(n) === name);
 }
 
+// A document can insert "·" as a private-use-area codepoint tied to
+// whatever symbol font was active when it was typed (seen here as
+// U+F09E in "항공·국방대학"), instead of the standard middle-dot
+// character - that codepoint has no glyph in a normal web font, so it
+// renders as a broken/missing box. Map the ones seen in practice back to
+// their intended character.
+const PUA_CHAR_FIXES = { '': '·' };
+function fixPuaChars(s) {
+  return s.replace(/[]/g, ch => PUA_CHAR_FIXES[ch] || ch);
+}
 function extractCellText(tc) {
   const paragraphs = Array.from(tc.getElementsByTagName('*')).filter(el => localName(el) === 'p');
   if (!paragraphs.length) {
     const runs = Array.from(tc.getElementsByTagName('*')).filter(el => localName(el) === 't');
-    return runs.map(t => t.textContent).join('').trim();
+    return fixPuaChars(runs.map(t => t.textContent).join('').trim());
   }
-  return paragraphs.map(p => {
+  // A cell can hold several lines (e.g. a 발령현황 history cell with one
+  // appointment per line) as separate <hp:p> paragraphs. Keeping them as
+  // "\n" instead of flattening to a single space lets the lookup result
+  // show each entry on its own line instead of one unreadable run-on.
+  return fixPuaChars(paragraphs.map(p => {
     const pRuns = Array.from(p.getElementsByTagName('*')).filter(el => localName(el) === 't');
     return pRuns.map(t => t.textContent).join('');
-  }).join(' ').trim();
+  }).join('\n').trim());
 }
 
 function parseTableToGrid(tbl) {
@@ -953,6 +1074,77 @@ function sectionNumber(name) {
   return m && m[1] ? parseInt(m[1], 10) : 0;
 }
 
+// A department's own roster table (unlike the honorary/visiting-professor
+// tables, which carry an explicit "소속" cell per row) often has no
+// affiliation column at all - the department name is instead printed as a
+// plain heading paragraph just above the table ("경상대학 경영학과"), repeated
+// per page alongside the running title ("교   원   임   용   현   황"). That
+// heading line sits in the document body alongside the table paragraphs
+// rather than inside any cell, so it has to be read from the body's own
+// paragraph flow and carried forward into whichever table follows it.
+function hasAncestorWithin(el, root, tagName) {
+  let cur = el.parentNode;
+  while (cur && cur !== root) {
+    if (localName(cur) === tagName) return true;
+    cur = cur.parentNode;
+  }
+  return false;
+}
+function directParagraphText(p) {
+  const runs = Array.from(p.getElementsByTagName('*')).filter(el => localName(el) === 't');
+  return fixPuaChars(runs.filter(t => !hasAncestorWithin(t, p, 'tbl')).map(t => t.textContent).join(''));
+}
+function looksLikeDeptHeading(text) {
+  if (!text || text.length > 40) return false;
+  if (text.includes('현황')) return false;       // running page title ("...교원 임용 현황")
+  if (text.includes('ㆍ')) return false;          // 목차 dot-leader lines
+  if (text.includes('※')) return false;          // footnotes
+  if (/^-.*-$/.test(text)) return false;          // "- 목   차 -"
+  if (/^\d+\.\s/.test(text)) return false;        // "1. 경상대학ㆍㆍㆍ"
+  if (/\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일/.test(text)) return false; // date stamp
+  return true;
+}
+// Tables whose header has no 소속/부서 alias of its own get one appended -
+// consistently, even when no heading was found for a particular fragment -
+// so every fragment of the same roster keeps an identical header signature
+// and still merges into one group. A table with a two-row header (e.g. the
+// honorary-professor roster) only carries its own real "소속" cell in the
+// SECOND row (row 0 is just the merged group labels - 학력/임용내용/...) -
+// that refinement hasn't happened yet at this point, so grid[1] (the raw
+// sub-header row, before it's promoted into the group's header) has to be
+// checked too, or a genuine 소속 column would be mistaken for missing and
+// get a second, bogus one appended alongside it.
+function applyDeptHeading(grid, headingText) {
+  if (!grid.length) return;
+  const roles = resolveRoleKeys(grid[0]);
+  const roles1 = grid[1] ? resolveRoleKeys(grid[1]) : {};
+  if (roles.deptKey || roles1.deptKey) return;
+  grid[0].push('소속');
+  for (let i = 1; i < grid.length; i++) grid[i].push(headingText || '');
+}
+// Unlike 소속 above, the rank column already exists here - it just needs
+// the job-category word from the heading prefixed onto its existing
+// value ("팀 장(4급)" -> "일반직 팀 장(4급)"), not a whole new column. The
+// column's own title can be an inconsistent template leftover too (one
+// report had every regular-staff page titled "임시직 직(위)급" regardless
+// of the person's actual category) - matched loosely by substring rather
+// than an exact alias, and normalized to a plain "직급" once matched.
+function applyRankHeading(grid, headingText) {
+  if (!grid.length) return;
+  const category = extractRankCategory(headingText);
+  if (!category) return;
+  const matchesRank = c => c && (normLabel(c).includes('직위급') || normLabel(c).includes('직급'));
+  let idx = grid[0].findIndex(matchesRank);
+  const fromRow0 = idx !== -1;
+  if (idx === -1 && grid[1]) idx = grid[1].findIndex(matchesRank);
+  if (idx === -1) return;
+  if (fromRow0) grid[0][idx] = '직급';
+  for (let i = 1; i < grid.length; i++) {
+    const cur = (grid[i][idx] || '').trim();
+    if (cur && !cur.includes(category)) grid[i][idx] = `${category} ${cur}`;
+  }
+}
+
 async function parseHwpxTables(file) {
   let zip;
   try {
@@ -967,15 +1159,27 @@ async function parseHwpxTables(file) {
 
   const parser = new DOMParser();
   const tables = [];
+  let pendingHeading = '';
 
   for (const name of sectionFiles) {
     const xmlText = await zip.files[name].async('text');
     const doc = parser.parseFromString(xmlText, 'application/xml');
     if (doc.getElementsByTagName('parsererror').length) continue;
-    const tbls = Array.from(doc.getElementsByTagName('*')).filter(el => localName(el) === 'tbl');
-    for (const tbl of tbls) {
-      const parsed = parseTableToGrid(tbl);
-      if (parsed.grid.length) tables.push(parsed);
+    const bodyParas = Array.from(doc.documentElement.childNodes)
+      .filter(n => n.nodeType === 1 && localName(n) === 'p');
+    for (const p of bodyParas) {
+      const tbl = Array.from(p.getElementsByTagName('*')).find(el => localName(el) === 'tbl');
+      if (tbl) {
+        const parsed = parseTableToGrid(tbl);
+        if (parsed.grid.length) {
+          applyDeptHeading(parsed.grid, pendingHeading);
+          applyRankHeading(parsed.grid, pendingHeading);
+          tables.push(parsed);
+        }
+        continue;
+      }
+      const text = directParagraphText(p).trim();
+      if (text && looksLikeDeptHeading(text)) pendingHeading = text;
     }
   }
   return tables;
@@ -1008,8 +1212,28 @@ function groupTablesByHeader(grids) {
     const header = grid[0];
     const sig = headerSignature(header);
     if (!sig) return;
-    if (!groups.has(sig)) groups.set(sig, { header: header.slice(), dataRows: [] });
+    // topHeader keeps the column's original row-0 text (e.g. "임용현황",
+    // "학력") even once header[i] below is refined to the more specific
+    // sub-label ("본교최초임용일", "학사"...) - so the two-row structure the
+    // source document actually had isn't thrown away, just set aside for
+    // display to group the sub-fields back under their original heading.
+    if (!groups.has(sig)) groups.set(sig, { header: header.slice(), topHeader: header.slice(), dataRows: [] });
     const group = groups.get(sig);
+    // Columns already pinned to a known role (성명/소속/생년월일/...) must
+    // never be renamed by a repeated-header row's text below. A synthetic
+    // "소속" column (appended for a table with no affiliation column of its
+    // own) still gets a real per-row value even on this repeated-header
+    // "row" - that value is correct as DATA, but would otherwise overwrite
+    // the "소속" column name itself with that one row's department text,
+    // breaking the deptKey lookup for the entire group. The same applies
+    // to a "직급" column normalized by applyRankHeading - its own repeated-
+    // header row got the current page's category prefixed onto it too
+    // (applyRankHeading can't tell a reprinted header row from real data
+    // any more than this function's own isRepeatedHeaderRow check can,
+    // before grouping has even happened), so without pinning it, whichever
+    // page's row was processed last would rename the column for everyone.
+    const pinnedLabels = new Set(Object.values(resolveRoleKeys(header)).filter(Boolean));
+    if (header.includes('직급')) pinnedLabels.add('직급');
     grid.slice(1).forEach(row => {
       if (!row.some(c => c)) return;
       if (isRepeatedHeaderRow(row, header)) {
@@ -1021,6 +1245,7 @@ function groupTablesByHeader(grids) {
         // the group-header text that colSpan otherwise repeated identically
         // across those columns (which would collide when used as keys).
         row.forEach((val, i) => {
+          if (pinnedLabels.has(header[i])) return;
           if (val && val !== group.header[i]) group.header[i] = val;
         });
         return;
@@ -1143,28 +1368,44 @@ async function handleHwpxFileSelected(e) {
     let added = 0, skipped = 0, duplicates = 0;
     const dedupeSet = new Set();
     for (const g of personnelGroups) {
+      g.header = collapseRedundantSpanDuplicates(g.header, g.dataRows);
       g.header = dedupeHeaderLabels(g.header);
       const headerCols = g.header.filter(Boolean);
+      // A column whose original (pre-refinement) row-0 text differs from its
+      // final leaf label came from a two-row header (e.g. "학력" merged over
+      // 학사/석사/박사/학위) - keep that mapping so the lookup result can show
+      // the original heading as a section divider above its sub-fields.
+      const columnGroups = {};
+      g.header.forEach((h, i) => {
+        if (!h) return;
+        const top = (g.topHeader && g.topHeader[i]) || '';
+        // The original row-0 text is often letter-spaced for print layout
+        // (e.g. "학                        력") - collapse that before using
+        // it as a section-divider label.
+        if (top && normLabel(top) !== normLabel(h)) columnGroups[h] = top.replace(/\s+/g, '');
+      });
       const recordRows = g.dataRows.map(row => {
         const obj = {};
         g.header.forEach((h, i) => { if (h) obj[h] = row[i] ?? ''; });
         return obj;
       });
-      const result = importStaffRows(recordRows, category, headerCols, dedupeSet);
+      const result = importStaffRows(recordRows, category, headerCols, dedupeSet, columnGroups);
       added += result.added;
       skipped += result.skipped;
       duplicates += result.duplicates;
     }
     renderStaffList();
 
-    // Only the overall 정·현원 현황 statistics table is captured as an
-    // image - everything else non-personnel (by-rank breakdowns, the
-    // 직군별 인원현황 recap, per-department 정원/현원/여석 boxes) is left
-    // out entirely. It's usually rendered as two side-by-side <hp:tbl>
-    // elements (e.g. 일반직/기술직 then 관리운영직/별정직), so all matching
+    // Only the overall recap statistics table is captured as an image -
+    // everything else non-personnel (by-rank breakdowns, per-department
+    // 정원/현원/여석 boxes, the faculty report's per-college breakdowns) is
+    // left out entirely. It's usually rendered as several side-by-side or
+    // stacked <hp:tbl> elements (e.g. 일반직/기술직 then 관리운영직/별정직,
+    // or the faculty report's 직종구분별 성별인원현황), so all matching
     // tables are stacked into a single combined image in document order.
     const coreStatusTables = tables.filter(t =>
-      !looksLikePersonnelHeader(t.grid[0] || []) && isCoreStatusHeader(t.grid[0] || []));
+      !looksLikePersonnelHeader(t.grid[0] || []) &&
+      (isCoreStatusHeader(t.grid[0] || []) || isFacultyStatusHeader(t.grid[0] || [])));
 
     let summarySavedCount = 0;
     let summaryQuotaFailed = false;
@@ -1180,7 +1421,12 @@ async function handleHwpxFileSelected(e) {
         });
         const combinedMaxRow = rowOffset - 2;
         const dataUrl = await captureTableAsImage(combinedCells, combinedMaxRow, combinedMaxCol);
-        const images = loadSummaryImages();
+        // Re-uploading a revised file (the normal flow while checking fixes
+        // against a document that keeps getting corrected) used to just
+        // pile another snapshot onto the list every time, even though it's
+        // the same report - replace this category's existing snapshot
+        // instead of accumulating duplicates of it.
+        const images = loadSummaryImages().filter(img => img.category !== category);
         images.push({
           id: nextRecordId(),
           category,
