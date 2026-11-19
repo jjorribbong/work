@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>마주톡 - 청각장애인 대화 도우미</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --main: #0f766e; --main-weak: #ccfbf1; --accent: #f59e0b; --red: #dc2626;
+    --bg: #f3f4f6; --card: #ffffff; --text: #111827; --sub: #6b7280; --border: #e5e7eb;
+    --them: #ffffff; --me: #0f766e; --me-text: #ffffff;
+    --fs: 22px;
+  }
+  body.dark {
+    --bg: #000000; --card: #111827; --text: #f9fafb; --sub: #9ca3af; --border: #374151;
+    --them: #1f2937; --me: #fde047; --me-text: #000000; --main-weak: #134e4a;
+  }
+  html, body { height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
+  #app { height: 100%; display: flex; flex-direction: column; max-width: 720px; margin: 0 auto; }
+
+  header { display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+    padding-top: max(10px, env(safe-area-inset-top)); background: var(--main); color: #fff; }
+  header h1 { font-size: 19px; flex: 1; }
+  header button { background: rgba(255,255,255,.18); color: #fff; border: 0; border-radius: 10px;
+    padding: 8px 10px; font-size: 15px; font-weight: 600; }
+
+  #notice { display: none; background: #fef3c7; color: #92400e; padding: 10px 14px; font-size: 14px; line-height: 1.5; }
+
+  /* 대화 기록 */
+  #log { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .empty { margin: auto; text-align: center; color: var(--sub); line-height: 1.7; font-size: 16px; }
+  .msg { max-width: 88%; padding: 12px 16px; border-radius: 18px; font-size: var(--fs); line-height: 1.45;
+    word-break: keep-all; overflow-wrap: anywhere; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .msg .t { display: block; font-size: 12px; opacity: .6; margin-top: 4px; }
+  .msg.them { align-self: flex-start; background: var(--them); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .msg.me { align-self: flex-end; background: var(--me); color: var(--me-text); border-bottom-right-radius: 4px; }
+  .msg.interim { opacity: .6; font-style: italic; }
+  .msg.me { cursor: pointer; }
+
+  /* 자주 쓰는 말 */
+  #quick { display: flex; gap: 8px; overflow-x: auto; padding: 8px 14px; border-top: 1px solid var(--border); background: var(--card); }
+  #quick button { flex: 0 0 auto; border: 1px solid var(--main); color: var(--main); background: var(--main-weak);
+    border-radius: 999px; padding: 8px 14px; font-size: 15px; font-weight: 600; }
+  body.dark #quick button { color: #5eead4; border-color: #5eead4; }
+  #quick button.edit { background: transparent; border-style: dashed; }
+
+  /* 입력부 */
+  #bar { display: flex; gap: 8px; align-items: flex-end; padding: 10px 14px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom)); background: var(--card); }
+  #input { flex: 1; resize: none; max-height: 120px; border: 2px solid var(--border); border-radius: 14px;
+    padding: 10px 12px; font-size: 18px; font-family: inherit; background: var(--bg); color: var(--text); }
+  #input:focus { outline: none; border-color: var(--main); }
+  .round { width: 52px; height: 52px; border-radius: 50%; border: 0; font-size: 22px; flex: 0 0 auto; color: #fff; }
+  #send { background: var(--main); }
+  #mic { background: var(--accent); }
+  #mic.on { background: var(--red); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(220,38,38,.6)} 70%{box-shadow:0 0 0 14px rgba(220,38,38,0)} 100%{box-shadow:0 0 0 0 rgba(220,38,38,0)} }
+  #status { text-align: center; font-size: 13px; color: var(--sub); padding: 4px 0 0; background: var(--card); min-height: 20px; }
+
+  /* 크게 보여주기 / 마주보기 */
+  .overlay { position: fixed; inset: 0; z-index: 50; display: none; flex-direction: column; background: var(--bg); }
+  .overlay.show { display: flex; }
+  #big { background: #000; color: #fde047; align-items: center; justify-content: center; padding: 24px; text-align: center; }
+  #bigText { font-size: clamp(36px, 9vw, 96px); font-weight: 800; line-height: 1.3; word-break: keep-all; overflow-wrap: anywhere; }
+  #big .hint { position: absolute; bottom: 24px; left: 0; right: 0; color: #9ca3af; font-size: 15px; }
+  #big .rot { position: absolute; top: 20px; right: 20px; background: #374151; color: #fff; border: 0; border-radius: 10px; padding: 10px 14px; font-size: 15px; }
+
+  #face { background: #000; }
+  .half { flex: 1; display: flex; flex-direction: column; padding: 16px; min-height: 0; }
+  .half.top { transform: rotate(180deg); border-bottom: 3px dashed #374151; }
+  .half .label { color: #9ca3af; font-size: 14px; margin-bottom: 6px; }
+  .half .text { flex: 1; overflow-y: auto; color: #fde047; font-size: clamp(26px, 6.5vw, 54px); font-weight: 700; line-height: 1.35; word-break: keep-all; }
+  .half.bottom .text { color: #fff; }
+  .half .text .interim { color: #9ca3af; }
+  #faceTools { display: flex; gap: 8px; padding: 10px 14px; padding-bottom: max(10px, env(safe-area-inset-bottom)); background: #111827; }
+  #faceInput { flex: 1; min-width: 0; border-radius: 12px; border: 0; padding: 12px; font-size: 18px; font-family: inherit; }
+  #faceTools button { flex: 0 0 auto; border: 0; border-radius: 12px; padding: 0 12px; font-size: 16px; font-weight: 700; color: #fff; }
+
+  /* 설정 */
+  #settings { background: rgba(0,0,0,.45); justify-content: flex-end; }
+  .sheet { background: var(--card); border-radius: 20px 20px 0 0; padding: 20px; padding-bottom: max(20px, env(safe-area-inset-bottom));
+    max-height: 85%; overflow-y: auto; max-width: 720px; width: 100%; margin: 0 auto; }
+  .sheet h2 { font-size: 19px; margin-bottom: 14px; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 16px; }
+  .row select, .row input[type=range] { font-size: 16px; }
+  .row select { padding: 6px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .sheet textarea { width: 100%; min-height: 140px; margin-top: 8px; border-radius: 10px; border: 1px solid var(--border);
+    padding: 10px; font-size: 16px; font-family: inherit; background: var(--bg); color: var(--text); }
+  .btns { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .btn { flex: 1; border: 0; border-radius: 12px; padding: 14px; font-size: 16px; font-weight: 700; background: var(--main); color: #fff; }
+  .btn.ghost { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+  .btn.danger { background: var(--red); }
+  .small { font-size: 13px; color: var(--sub); line-height: 1.5; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>👂 마주톡</h1>
+    <button id="faceBtn" title="마주보기 모드">⇅ 마주보기</button>
+    <button id="setBtn" title="설정">⚙︎</button>
+  </header>
+  <div id="notice"></div>
+
+  <main id="log">
+    <div class="empty" id="empty">
+      🎤 버튼을 누르면 상대방의 말이<br>글자로 크게 나타납니다.<br><br>
+      ⌨️ 글을 쓰고 보내면<br>소리로 읽어 줍니다.<br><br>
+      <span class="small">내가 쓴 말풍선을 누르면 화면 가득 크게 보여줍니다.</span>
+    </div>
+  </main>
+
+  <div id="quick"></div>
+  <div id="status"></div>
+  <div id="bar">
+    <button class="round" id="mic" aria-label="듣기 시작">🎤</button>
+    <textarea id="input" rows="1" placeholder="전할 말을 입력하세요"></textarea>
+    <button class="round" id="send" aria-label="보내고 읽어주기">➤</button>
+  </div>
+</div>
+
+<!-- 크게 보여주기 -->
+<div class="overlay" id="big">
+  <button class="rot" id="rotBtn">↻ 뒤집기</button>
+  <div id="bigText"></div>
+  <div class="hint">화면을 누르면 닫힙니다</div>
+</div>
+
+<!-- 마주보기 모드 -->
+<div class="overlay" id="face">
+  <div class="half top">
+    <div class="label">상대방이 보는 쪽 · 내가 쓴 말</div>
+    <div class="text" id="faceMine">여기에 제가 쓴 글이 나타납니다.</div>
+  </div>
+  <div class="half bottom">
+    <div class="label">내가 보는 쪽 · 상대방의 말 <span id="faceMicState"></span></div>
+    <div class="text" id="faceTheirs">상대방이 말하면 여기에 글자로 나타납니다.</div>
+  </div>
+  <div id="faceTools">
+    <button id="faceMic" style="background:var(--accent)">🎤</button>
+    <input id="faceInput" placeholder="전할 말 입력 후 Enter">
+    <button id="faceSend" style="background:var(--main)">말하기</button>
+    <button id="faceClose" style="background:#374151">✕</button>
+  </div>
+</div>
+
+<!-- 설정 -->
+<div class="overlay" id="settings">
+  <div class="sheet">
+    <h2>설정</h2>
+    <div class="row"><span>글자 크기</span><input type="range" id="fsRange" min="16" max="44" step="2"></div>
+    <div class="row"><span>고대비(어두운) 화면</span><input type="checkbox" id="darkChk"></div>
+    <div class="row"><span>상대방 언어</span>
+      <select id="langSel">
+        <option value="ko-KR">한국어</option><option value="en-US">English</option>
+        <option value="ja-JP">日本語</option><option value="zh-CN">中文</option>
+      </select></div>
+    <div class="row"><span>읽어주기 속도</span><input type="range" id="rateRange" min="0.6" max="1.6" step="0.1"></div>
+    <div class="row"><span>글자가 들어오면 진동</span><input type="checkbox" id="vibChk"></div>
+    <div style="padding-top:12px">
+      <div>자주 쓰는 말 <span class="small">(한 줄에 하나씩)</span></div>
+      <textarea id="quickEdit"></textarea>
+    </div>
+    <div class="btns">
+      <button class="btn ghost" id="saveLog">대화 저장(.txt)</button>
+      <button class="btn danger" id="clearLog">대화 지우기</button>
+    </div>
+    <div class="btns"><button class="btn" id="closeSet">완료</button></div>
+    <p class="small" style="margin-top:14px">
+      음성 인식은 브라우저 기능을 사용합니다(Chrome·Edge·Safari 권장, 인터넷 연결 필요).
+      대화 내용은 이 기기에만 저장되며 외부로 전송되지 않습니다(단, 브라우저의 음성 인식 서비스는 제외).
+    </p>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('majutalk.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem('majutalk.' + k, JSON.stringify(v)); } catch {} }
+  };
+
+  const DEFAULT_QUICK = ['안녕하세요', '저는 청각장애가 있어요', '글로 써 주세요', '천천히 말씀해 주세요',
+    '다시 한 번 말씀해 주세요', '감사합니다', '잠시만요', '네', '아니요', '화장실이 어디예요?', '얼마예요?'];
+
+  const cfg = Object.assign({ fs: 22, dark: false, lang: 'ko-KR', rate: 1, vib: true, quick: DEFAULT_QUICK }, store.get('cfg', {}));
+  let log = store.get('log', []);
+
+  /* ---------- 화면 적용 ---------- */
+  function applyCfg() {
+    document.documentElement.style.setProperty('--fs', cfg.fs + 'px');
+    document.body.classList.toggle('dark', cfg.dark);
+    renderQuick();
+    store.set('cfg', cfg);
+  }
+
+  function fmtTime(ts) { const d = new Date(ts); return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0'); }
+
+  function bubble(m) {
+    const el = document.createElement('div');
+    el.className = 'msg ' + m.who;
+    el.textContent = m.text;
+    const t = document.createElement('span'); t.className = 't';
+    t.textContent = (m.who === 'me' ? '나 · ' : '상대 · ') + fmtTime(m.ts);
+    el.appendChild(t);
+    if (m.who === 'me') el.onclick = () => showBig(m.text);
+    return el;
+  }
+
+  function renderLog() {
+    const box = $('log');
+    box.querySelectorAll('.msg').forEach(e => e.remove());
+    $('empty').style.display = log.length ? 'none' : '';
+    log.forEach(m => box.insertBefore(bubble(m), interimEl && interimEl.parentNode ? interimEl : null));
+    scrollDown();
+  }
+  function scrollDown() { const b = $('log'); b.scrollTop = b.scrollHeight; }
+
+  function addMsg(who, text) {
+    text = text.trim(); if (!text) return;
+    const m = { who, text, ts: Date.now() };
+    log.push(m); if (log.length > 500) log = log.slice(-500);
+    store.set('log', log);
+    $('empty').style.display = 'none';
+    $('log').insertBefore(bubble(m), interimEl && interimEl.parentNode ? interimEl : null);
+    scrollDown();
+    if (who === 'me') $('faceMine').textContent = text;
+    else { faceFinal = text; renderFaceTheirs(''); }
+  }
+
+  function renderQuick() {
+    const q = $('quick'); q.innerHTML = '';
+    cfg.quick.forEach(p => {
+      const b = document.createElement('button'); b.textContent = p;
+      b.onclick = () => sayMine(p);
+      q.appendChild(b);
+    });
+    const e = document.createElement('button'); e.className = 'edit'; e.textContent = '+ 편집';
+    e.onclick = openSettings; q.appendChild(e);
+  }
+
+  /* ---------- 읽어주기(TTS) ---------- */
+  let speaking = false;
+  function speak(text) {
+    if (!('speechSynthesis' in window)) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = cfg.lang; u.rate = cfg.rate;
+    const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.replace('_','-').startsWith(cfg.lang.slice(0,2)));
+    if (v) u.voice = v;
+    // 내가 읽어주는 소리를 다시 받아 적지 않도록 잠시 인식 중단
+    u.onstart = () => { speaking = true; if (listening) pauseRec(); };
+    u.onend = u.onerror = () => { speaking = false; if (listening) setTimeout(startRec, 250); };
+    speechSynthesis.speak(u);
+  }
+
+  function sayMine(text) {
+    text = text.trim(); if (!text) return;
+    addMsg('me', text);
+    speak(text);
+  }
+
+  /* ---------- 음성 인식(STT) ---------- */
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null, listening = false, interimEl = null, faceFinal = '';
+
+  if (!SR) {
+    const n = $('notice'); n.style.display = 'block';
+    n.textContent = '이 브라우저는 음성 인식을 지원하지 않습니다. Chrome, Edge 또는 Safari(iOS 14.5 이상)에서 열어 주세요. 글쓰기·읽어주기 기능은 사용할 수 있습니다.';
+  }
+
+  function setStatus(s) { $('status').textContent = s; $('faceMicState').textContent = s ? '· ' + s : ''; }
+
+  function showInterim(text) {
+    if (!text) { if (interimEl) interimEl.remove(); interimEl = null; renderFaceTheirs(''); return; }
+    if (!interimEl) { interimEl = document.createElement('div'); interimEl.className = 'msg them interim'; $('log').appendChild(interimEl); $('empty').style.display = 'none'; }
+    interimEl.textContent = text + ' …';
+    scrollDown();
+    renderFaceTheirs(text);
+  }
+
+  function renderFaceTheirs(interim) {
+    const box = $('faceTheirs'); box.innerHTML = '';
+    if (faceFinal) box.appendChild(document.createTextNode(faceFinal + ' '));
+    if (interim) { const s = document.createElement('span'); s.className = 'interim'; s.textContent = interim; box.appendChild(s); }
+    if (!faceFinal && !interim) box.textContent = '상대방이 말하면 여기에 글자로 나타납니다.';
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function startRec() {
+    if (!SR || !listening || speaking) return;
+    try { rec && rec.abort(); } catch {}
+    rec = new SR();
+    rec.lang = cfg.lang; rec.continuous = true; rec.interimResults = true;
+    rec.onstart = () => setStatus('듣는 중… 상대방에게 말해 달라고 하세요');
+    rec.onresult = e => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) { showInterim(''); addMsg('them', r[0].transcript); if (cfg.vib && navigator.vibrate) navigator.vibrate(60); }
+        else interim += r[0].transcript;
+      }
+      showInterim(interim);
+    };
+    rec.onerror = e => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        stopListening(); setStatus('마이크 권한이 필요합니다. 브라우저 설정에서 허용해 주세요.');
+      } else if (e.error !== 'no-speech' && e.error !== 'aborted') setStatus('인식 오류: ' + e.error + ' (다시 시도 중)');
+    };
+    // 브라우저가 침묵 후 자동 종료하면 계속 듣도록 재시작
+    rec.onend = () => { if (listening && !speaking) setTimeout(startRec, 300); };
+    try { rec.start(); } catch {}
+  }
+  function pauseRec() { try { rec && rec.abort(); } catch {} showInterim(''); setStatus('읽어주는 중…'); }
+
+  function startListening() {
+    if (!SR) { alert('이 브라우저는 음성 인식을 지원하지 않습니다.'); return; }
+    listening = true; updateMicUI(); startRec();
+    if (navigator.wakeLock) navigator.wakeLock.request('screen').then(l => wakeLock = l).catch(() => {});
+  }
+  function stopListening() {
+    listening = false; updateMicUI();
+    try { rec && rec.abort(); } catch {}
+    showInterim(''); setStatus('');
+    if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+  }
+  let wakeLock = null;
+  function updateMicUI() {
+    [$('mic'), $('faceMic')].forEach(b => { b.classList.toggle('on', listening); b.textContent = listening ? '■' : '🎤'; });
+    $('faceMic').style.background = listening ? 'var(--red)' : 'var(--accent)';
+  }
+  const toggleMic = () => listening ? stopListening() : startListening();
+  $('mic').onclick = toggleMic; $('faceMic').onclick = toggleMic;
+
+  /* ---------- 입력 ---------- */
+  const input = $('input');
+  function sendInput() { sayMine(input.value); input.value = ''; autosize(); input.focus(); }
+  function autosize() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px'; }
+  input.addEventListener('input', autosize);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendInput(); } });
+  $('send').onclick = sendInput;
+
+  /* ---------- 크게 보여주기 ---------- */
+  function showBig(text) { $('bigText').textContent = text; $('big').classList.add('show'); }
+  $('big').onclick = e => { if (e.target.id !== 'rotBtn') { $('big').classList.remove('show'); $('bigText').style.transform = ''; } };
+  $('rotBtn').onclick = () => { const t = $('bigText'); t.style.transform = t.style.transform ? '' : 'rotate(180deg)'; };
+
+  /* ---------- 마주보기 ---------- */
+  $('faceBtn').onclick = () => { $('face').classList.add('show'); if (SR && !listening) startListening(); };
+  $('faceClose').onclick = () => $('face').classList.remove('show');
+  const faceInput = $('faceInput');
+  const faceSend = () => { sayMine(faceInput.value); faceInput.value = ''; };
+  $('faceSend').onclick = faceSend;
+  faceInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); faceSend(); } });
+
+  /* ---------- 설정 ---------- */
+  function openSettings() {
+    $('fsRange').value = cfg.fs; $('darkChk').checked = cfg.dark; $('langSel').value = cfg.lang;
+    $('rateRange').value = cfg.rate; $('vibChk').checked = cfg.vib; $('quickEdit').value = cfg.quick.join('\n');
+    $('settings').classList.add('show');
+  }
+  function closeSettings() {
+    cfg.fs = +$('fsRange').value; cfg.dark = $('darkChk').checked; cfg.rate = +$('rateRange').value; cfg.vib = $('vibChk').checked;
+    const newLang = $('langSel').value, langChanged = newLang !== cfg.lang; cfg.lang = newLang;
+    cfg.quick = $('quickEdit').value.split('\n').map(s => s.trim()).filter(Boolean);
+    applyCfg();
+    if (langChanged && listening) startRec();
+    $('settings').classList.remove('show');
+  }
+  $('setBtn').onclick = openSettings;
+  $('closeSet').onclick = closeSettings;
+  $('settings').onclick = e => { if (e.target.id === 'settings') closeSettings(); };
+  $('fsRange').oninput = e => document.documentElement.style.setProperty('--fs', e.target.value + 'px');
+  $('darkChk').onchange = e => document.body.classList.toggle('dark', e.target.checked);
+
+  $('clearLog').onclick = () => {
+    if (!confirm('대화 기록을 모두 지울까요?')) return;
+    log = []; store.set('log', log); faceFinal = ''; renderFaceTheirs(''); renderLog();
+  };
+  $('saveLog').onclick = () => {
+    if (!log.length) { alert('저장할 대화가 없습니다.'); return; }
+    const txt = log.map(m => `[${new Date(m.ts).toLocaleString('ko-KR')}] ${m.who === 'me' ? '나' : '상대'}: ${m.text}`).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain;charset=utf-8' }));
+    a.download = '대화기록_' + new Date().toISOString().slice(0,10) + '.txt';
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+
+  if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => {};
+  applyCfg(); renderLog();
+})();
+</script>
+</body>
+</html>
