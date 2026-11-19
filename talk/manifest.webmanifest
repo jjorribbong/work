@@ -1,6 +1,6 @@
 {
-  "name": "마주톡 - 말을 글자로",
-  "short_name": "마주톡",
+  "name": "엄마톡 - 말을 글자로",
+  "short_name": "엄마톡",
   "description": "내가 하는 말을 큰 글자 자막으로 보여주는 앱",
   "lang": "ko",
   "start_url": "./index.html",

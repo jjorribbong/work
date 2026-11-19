@@ -10,8 +10,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="apple-mobile-web-app-title" content="마주톡">
-<title>마주톡 - 말을 글자로</title>
+<meta name="apple-mobile-web-app-title" content="엄마톡">
+<title>엄마톡 - 말을 글자로</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   :root { --bg: #000; --text: #fff; --live: #fde047; --sub: #9ca3af; --line: #374151; --main: #0f766e; --red: #dc2626; --fs: 120px; }
@@ -85,7 +85,7 @@
 <div id="status"></div>
 
 <div id="start">
-  <h1>👂 마주톡</h1>
+  <h1>👂 엄마톡</h1>
   <div id="notice"></div>
   <button id="startBtn">🎤 시작</button>
   <p>휴대폰을 <b>가로로</b> 놓으면 글자가 화면 가득 두 줄로 나와요.<br>마주 앉을 때는 <b>⇅ 마주보기</b>를 누르고 휴대폰을 <b>세로로</b> 두세요.</p>
@@ -341,7 +341,7 @@
       isStandalone ? '이미 홈 화면 아이콘으로 실행 중이에요. ✅'
       : /KAKAOTALK|NAVER|Instagram|FBAN/i.test(UA) ? '카카오톡 등 앱 안에서는 추가할 수 없어요. 오른쪽 위 메뉴에서 "다른 브라우저로 열기"를 누른 뒤 다시 해 주세요.'
       : isIOS ? '아이폰: 공유 버튼 [⬆︎] → "홈 화면에 추가" → "추가"'
-      : installEvt ? '위 버튼을 누르면 홈 화면에 마주톡 아이콘이 생겨요. 아이콘으로 열면 처음부터 가로 전체 화면으로 열려요.'
+      : installEvt ? '위 버튼을 누르면 홈 화면에 엄마톡 아이콘이 생겨요. 아이콘으로 열면 처음부터 가로 전체 화면으로 열려요.'
       : '크롬: 오른쪽 위 메뉴 [⋮] → "홈 화면에 추가" 또는 "앱 설치". 아이콘으로 열면 처음부터 가로 전체 화면으로 열려요.';
   }
   addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; refreshInstall(); });
