@@ -46,6 +46,18 @@
   }
 
   header h1 { font-size: 20px; font-weight: 700; }
+  header .head-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  header .shortcut {
+    flex: 0 0 auto;
+    background: rgba(255,255,255,0.18);
+    color: #fff;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 12px;
+    border-radius: 10px;
+    white-space: nowrap;
+  }
   header .sub { font-size: 12px; opacity: 0.85; margin-top: 2px; }
 
   main {
@@ -306,8 +318,13 @@
 <div id="app">
 
   <header>
-    <h1>청주대학교 인사기록조회</h1>
-    <div class="sub">교직원 인사기록 조회</div>
+    <div class="head-row">
+      <div>
+        <h1>청주대학교 인사기록조회</h1>
+        <div class="sub">교직원 인사기록 조회</div>
+      </div>
+      <a class="shortcut" href="talk/index.html" title="청각장애인 대화 도우미">👂 마주톡</a>
+    </div>
   </header>
 
   <main>
