@@ -52,7 +52,10 @@
   #start { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
     background: var(--bg); padding: 20px; text-align: center; }
   #start.hide { display: none; }
-  #start h1 { font-size: 28px; color: var(--live); }
+  #start h1 { font-size: 30px; color: var(--live); }
+  #start .tagline { color: var(--text); font-size: 20px; font-weight: 700; margin-top: -8px; word-break: keep-all; }
+  #start p { word-break: keep-all; }
+  #start { overflow-y: auto; }
   #start p { color: var(--sub); font-size: 16px; line-height: 1.6; }
   #startBtn { border: 0; border-radius: 20px; padding: 22px 46px; font-size: 26px; font-weight: 800; color: #fff; background: var(--main); }
   #notice { display: none; background: #fef3c7; color: #92400e; padding: 10px 14px; font-size: 15px; line-height: 1.5; border-radius: 10px; max-width: 560px; }
@@ -86,10 +89,14 @@
 
 <div id="start">
   <h1>👂 엄마톡</h1>
+  <div class="tagline">귀가 어두운 엄마와 소근소근 대화하세요</div>
   <div id="notice"></div>
   <button id="startBtn">🎤 시작</button>
   <p>휴대폰을 <b>가로로</b> 놓으면 글자가 화면 가득 두 줄로 나와요.<br>마주 앉을 때는 <b>⇅ 마주보기</b>를 누르고 휴대폰을 <b>세로로</b> 두세요.</p>
-  <button class="btn ghost" id="startSet" style="flex:0;padding:10px 18px">⚙︎ 설정</button>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+    <button class="btn" id="startInstall" style="flex:0 0 auto;padding:10px 18px;display:none">📲 홈 화면에 설치</button>
+    <button class="btn ghost" id="startSet" style="flex:0 0 auto;padding:10px 18px">⚙︎ 설정</button>
+  </div>
 </div>
 
 <div id="settings">
@@ -337,6 +344,7 @@
   const isIOS = /iPhone|iPad|iPod/.test(UA);
   function refreshInstall() {
     $('installBtn').style.display = installEvt && !isStandalone ? 'block' : 'none';
+    $('startInstall').style.display = installEvt && !isStandalone ? 'block' : 'none';
     $('installGuide').textContent =
       isStandalone ? '이미 홈 화면 아이콘으로 실행 중이에요. ✅'
       : /KAKAOTALK|NAVER|Instagram|FBAN/i.test(UA) ? '카카오톡 등 앱 안에서는 추가할 수 없어요. 오른쪽 위 메뉴에서 "다른 브라우저로 열기"를 누른 뒤 다시 해 주세요.'
@@ -346,6 +354,7 @@
   }
   addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; refreshInstall(); });
   addEventListener('appinstalled', () => { installEvt = null; refreshInstall(); });
+  $('startInstall').onclick = () => $('installBtn').onclick();
   $('installBtn').onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; refreshInstall(); };
 
   applyCfg(); render();
