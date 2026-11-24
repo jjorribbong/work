@@ -72,6 +72,7 @@
     let inAddenda = false;
     let last = 0;
     let lastSub = 0;
+    const seen = new Set();
 
     for (const raw of lines) {
       const line = raw.replace(/\s+$/, '');
@@ -98,10 +99,16 @@
         // "제27조(승진의 제한)에 해당하지…"처럼 조사로 이어지면 다른 조를 인용한 문장이다.
         const isCitation = /^(?:에|의|및|와|과|을|를|은|는|이|가|로|으로|부터|까지|내지|또는|중|·|,)/.test(m[6] || '');
         const ahead = n > last || (n === last && sub > lastSub);
-        if (inOrder || (title && ahead && !isCitation && n - last <= 30)) {
-          cur = { key: artKey(n, sub), no: artLabel(artKey(n, sub)), title, chapter, text: (m[6] || '').trim() };
+        const key = artKey(n, sub);
+        // 원문 편집 실수로 조가 순서 밖에 끼어 있거나(예: 제41조 뒤의 제39조의2) 같은 조가 두 번 실린 경우:
+        // 제목이 있는 처음 보는 조는 새 조로 받고, 이미 나온 조가 다시 나오면 그 묶음은 버린다.
+        const backJump = title && !isCitation && !ahead && /^\s*제/.test(line);
+        if (backJump && seen.has(key)) { cur = { text: '' }; continue; }
+        if (inOrder || (title && ahead && !isCitation && n - last <= 30) || (backJump && !seen.has(key))) {
+          cur = { key, no: artLabel(key), title, chapter, text: (m[6] || '').trim() };
           articles.push(cur);
-          last = n; lastSub = sub;
+          seen.add(key);
+          if (ahead || inOrder) { last = n; lastSub = sub; }
           continue;
         }
       }
@@ -110,6 +117,9 @@
     }
 
     articles.forEach(a => { a.text = a.text.replace(/\n{2,}/g, '\n').trim(); });
+    // 순서 밖에 실린 조는 번호 순서로 되돌린다
+    const num = k => k.split('-').map(Number);
+    articles.sort((a, b) => { const [x1, x2 = 0] = num(a.key), [y1, y2 = 0] = num(b.key); return x1 - y1 || x2 - y2; });
 
     const preLines = pre.filter(Boolean);
     let title = meta.title;
