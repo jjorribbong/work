@@ -340,6 +340,47 @@ def save_texts(results, text_dir):
     log(f'법령 전체 조문 {n}개를 {os.path.abspath(text_dir)} 에 저장했습니다.')
 
 
+def build_catalog(api, path, page_size=100):
+    """국가법령정보센터의 현행 법령 전체 목록(이름·구분·소관부처·공포·시행일)을 받아 앱의 '법령목록'용 파일로 저장한다.
+    받은 수가 전체 건수의 90%에 못 미치면 실패로 보고 저장하지 않는다(기존 파일 유지)."""
+    rows, total, page = [], None, 1
+    while True:
+        data = api.get('lawSearch.do', target='law', display=page_size, page=page, sort='lasc')
+        if total is None:
+            for d in walk(data):
+                if d.get('totalCnt') not in (None, ''):
+                    total = int(str(d['totalCnt']).strip() or 0)
+                    break
+        got = 0
+        for d in walk(data):
+            nm = first(d, '법령명한글', '법령명')
+            if not nm or not first(d, '법령일련번호', 'MST'):
+                continue
+            got += 1
+            rows.append([nm, first(d, '법령약칭명'), first(d, '법령구분명'), first(d, '소관부처명'),
+                         first(d, '공포일자'), first(d, '시행일자'), first(d, '법령ID'), first(d, '법령일련번호', 'MST')])
+        log(f'  법령목록 {len(rows)}/{total or "?"}')
+        if not got or (total and len(rows) >= total) or page > 200:
+            break
+        page += 1
+    seen, out = set(), []
+    for r in rows:  # 같은 법령이 여러 번 오면 하나만
+        if r[7] not in seen:
+            seen.add(r[7]); out.append(r)
+    if not out or (total and len(out) < total * 0.9):
+        log(f'법령목록: {len(out)}건만 받아 저장하지 않습니다(전체 {total}건).')
+        return None
+    out.sort(key=lambda r: r[0])
+    data = {'source': '국가법령정보센터 Open API (law.go.kr) 현행법령 목록',
+            'updatedAt': dt.date.today().isoformat(), 'total': len(out),
+            'fields': ['name', 'abbr', 'type', 'ministry', 'promulgated', 'enforced', 'lawId', 'mst'],
+            'laws': out}
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, separators=(',', ':'))
+    log(f'법령목록 {len(out)}건 저장 → {os.path.abspath(path)}')
+    return data
+
+
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     ap = argparse.ArgumentParser(description='규정이 인용한 국가 법령을 국가법령정보센터 Open API로 확인')
@@ -348,6 +389,8 @@ def main():
     ap.add_argument('--out', default=os.path.join(here, '..', 'data', 'laws.json'), help='저장할 파일 (기본: rules/data/laws.json)')
     ap.add_argument('--topics', default=os.path.join(here, '..', 'data', 'topics.json'), help='분야별 기본 법령 목록 (기본: rules/data/topics.json, 없으면 건너뜀)')
     ap.add_argument('--text-dir', help='찾은 법령의 전체 조문을 이 폴더에 법령마다 파일로 저장 (laws.json 기준 상대 경로 lawtext/로 기록)')
+    ap.add_argument('--catalog', help='현행 법령 전체 목록을 이 파일에 저장(앱의 법령목록용, 예: rules/data/lawlist.json)')
+    ap.add_argument('--catalog-only', action='store_true', help='법령목록만 받고 인용 확인은 건너뜀')
     ap.add_argument('--delay', type=float, default=0.3, help='요청 간 대기(초)')
     ap.add_argument('--api', default=API, help=argparse.SUPPRESS)  # 시험용 서버 주소
     ap.add_argument('--debug', metavar='법령명', help='한 법령의 검색·조문 API 응답을 그대로 출력(문제 확인용)')
@@ -370,6 +413,12 @@ def main():
             print(f'--- 조문 {len(arts)}개 중 앞부분 ---')
             for k in list(arts)[:5]:
                 print(k, arts[k]['no'], arts[k]['title'], '|', arts[k]['text'][:80].replace('\n', ' '))
+        return
+
+    if args.catalog_only:
+        if not args.catalog:
+            sys.exit('--catalog-only는 --catalog 파일 경로와 함께 써야 합니다.')
+        build_catalog(api, args.catalog)
         return
 
     with open(args.rules, encoding='utf-8') as f:
@@ -407,6 +456,11 @@ def main():
     nf = sum(1 for v in results.values() if not v['found'])
     na = sum(1 for v in results.values() if v['found'] for a in v['articles'].values() if a.get('missing'))
     log(f'완료: 법령 {len(results)}개 확인 (없는 법령 {nf}개, 없는 조 {na}개) → {os.path.abspath(args.out)}')
+    if args.catalog:
+        try:
+            build_catalog(api, args.catalog)
+        except RuntimeError as e:  # 목록 실패는 인용 확인 결과에 영향을 주지 않는다
+            log(f'법령목록을 받지 못했습니다: {e}')
 
 
 if __name__ == '__main__':

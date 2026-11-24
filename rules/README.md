@@ -73,6 +73,17 @@ python rules/tools/law_check.py --oc 인증키 --debug 고등교육법   # API �
 실행할 PC의 공인 IP를 등록하고, 공동활용 법령종류는 '대한민국 현행법령'과 '현행 행정규칙'의 목록 JSON·본문 JSON을 고릅니다. `laws.json`을 `rules/data/`에 올리면 앱의 정합성 점검에 반영되고, 본문의 초록색 법령
 인용을 누르면 현행 조문이 보입니다.
 
+## 법령목록
+
+하단 메뉴 **법령목록**에서 국가법령정보센터의 현행 법령 전체(법률·대통령령·총리령·부령 등)를 이름이나 약칭으로 찾습니다.
+
+- 업데이트 프로그램이 법령 확인 때 현행 법령 목록(`data/lawlist.json`: 이름·약칭·구분·소관부처·공포일·시행일)을 함께 받아 올립니다.
+  목록이 바뀐 경우에만 올리고, 받은 수가 전체의 90%에 못 미치면 실패로 보고 기존 목록을 유지합니다.
+- 법령 API는 등록한 학교 PC에서만 열리므로 앱이 직접 부르지 않습니다. 목록이 아직 없으면 규정이 인용한 법령만 보입니다.
+- 규정이 인용해 원문을 받아 둔 법령은 앱에서 조문까지 보고(조문 안 검색 가능) 인용한 규정으로 이동할 수 있고,
+  나머지는 국가법령정보센터로 연결합니다.
+- 목록만 따로 받기: `python rules/tools/law_check.py --oc 인증키 --catalog rules/data/lawlist.json --catalog-only`
+
 ## 상위법 비교
 
 규정명을 입력하면 관련 상위 법령을 보여줍니다.
@@ -175,6 +186,7 @@ REVIEWS_FILE=/tmp/reviews/reviews.json node rules/tools/review_queue.js apply �
 - `tools/law_check.py`: 국가 법령 인용 확인(국가법령정보센터 Open API)
 - `tools/update_gui.py`, `tools/규정업데이트.bat`: 수집·확인·업로드를 한 번에 하는 업데이트 프로그램
 - `data/laws.json`: 법령 확인 결과 (확인 후 추가)
+- `data/lawlist.json`: 국가법령정보센터 현행 법령 전체 목록 (법령목록 메뉴, 업데이트 프로그램이 올림)
 - `data/changes.json`: 개정 이력 (업데이트 프로그램이 규정 변경 시 추가)
 - `data/topics.json`: 분야별 기본 법령 목록(상위법 비교의 '분야')
 - `data/lawtext/`: 법령 전체 조문 (업데이트 프로그램이 올림)
