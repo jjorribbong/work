@@ -332,8 +332,11 @@ def update(cfg, log, stop=None):
         text_dir = os.path.join(WORK_DIR, 'lawtext')
         if os.path.isdir(text_dir):
             shutil.rmtree(text_dir)
+        if os.path.exists(os.path.join(WORK_DIR, 'lawlist.json')):
+            os.remove(os.path.join(WORK_DIR, 'lawlist.json'))
         run_tool([os.path.join(tool_dir, 'law_check.py'), '--oc', cfg['oc'], '--rules', rules_path, '--out', laws_path,
-                  '--topics', topics_path, '--text-dir', text_dir] + list(cfg.get('law_args') or []), log, stop)
+                  '--topics', topics_path, '--text-dir', text_dir, '--catalog', os.path.join(WORK_DIR, 'lawlist.json')]
+                 + list(cfg.get('law_args') or []), log, stop)
         with open(laws_path, encoding='utf-8') as f:
             new_laws = json.load(f)
 
@@ -400,6 +403,22 @@ def update(cfg, log, stop=None):
                 gh.write('laws.json', f.read(), laws_sha, f"법령 확인 결과 갱신 ({today}): 법령 {len(new_laws['laws'])}개")
             uploaded.append('laws.json')
             log('  법령 확인 결과를 올렸습니다.')
+        # 현행 법령 전체 목록(앱의 '법령목록'): 목록이 바뀐 경우에만 올린다
+        ll_path = os.path.join(WORK_DIR, 'lawlist.json')
+        if os.path.exists(ll_path):
+            with open(ll_path, 'rb') as f:
+                ll_raw = f.read()
+            try:
+                ll_sha, old_ll_raw = gh.read('lawlist.json')
+                same = bool(old_ll_raw) and json.loads(old_ll_raw).get('laws') == json.loads(ll_raw).get('laws')
+            except (StepError, ValueError):
+                ll_sha, same = None, False
+            if same:
+                log('  법령목록: 바뀐 내용이 없어 올리지 않습니다.')
+            else:
+                gh.write('lawlist.json', ll_raw, ll_sha, f"법령목록 갱신 ({today}): 현행 법령 {json.loads(ll_raw)['total']}개")
+                uploaded.append('lawlist.json')
+                log('  법령목록을 올렸습니다.')
 
     lines = [f'규정 {n_new}건 (추가 {len(added)}, 삭제 {len(removed)}, 변경 {len(changed)})']
     for label, items in (('추가', added), ('삭제', removed), ('변경', changed)):
